@@ -17,6 +17,10 @@ seed: 0
 model_type: stable_contrastive_rl
 obs_encoding_size: 1024
 goal_encoding_size: 1024
+twin_q: True
+min_log_std: -13
+max_log_std: -2
+soft_target_tau: 0.005
 
 # normalization for the action space
 normalize: True

@@ -12,12 +12,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
-from torch.optim import Adam
+# from torch.optim import Adam
+from torch.optim import Optimizer
 
 
 def train_eval_rl_loop(
     model: nn.Module,
-    optimizer: Adam,
+    optimizer: Dict[str, Optimizer],
     train_dist_loader: DataLoader,
     train_action_loader: DataLoader,
     test_dataloaders: Dict[str, DataLoader],
@@ -148,7 +149,7 @@ def train_eval_rl_loop(
 
 def train(
     model: nn.Module,
-    optimizer: Adam,
+    optimizer: Dict[str, Optimizer],
     train_dist_loader: DataLoader,
     train_action_loader: DataLoader,
     device: torch.device,

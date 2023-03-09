@@ -4,6 +4,7 @@ import argparse
 import numpy as np
 import yaml
 import time
+import functools
 
 import torch
 import torch.nn as nn
@@ -201,6 +202,10 @@ def main(config):
             config["learn_angle"],
             config["obs_encoding_size"],
             config["goal_encoding_size"],
+            config["twin_q"],
+            config["min_log_std"],
+            config["max_log_std"],
+            config["soft_target_tau"],
         )
     else:
         raise ValueError(f"Model {config['model']} not supported")
@@ -212,13 +217,28 @@ def main(config):
 
     config["optimizer"] = config["optimizer"].lower()
     if config["optimizer"] == "adam":
-        optimizer = Adam(model.parameters(), lr=lr)
+        # optimizer_cls = Adam(model.parameters(), lr=lr)
+        optimizer_cls = Adam
     elif config["optimizer"] == "adamw":
-        optimizer = AdamW(model.parameters(), lr=lr)
+        # optimizer_cls = AdamW(model.parameters(), lr=lr)
+        optimizer_cls = AdamW
     elif config["optimizer"] == "sgd":
-        optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9)
+        # optimizer_cls = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9)
+        optimizer_cls = functools.partial(torch.optim.SGD, momentum=0.9)
     else:
         raise ValueError(f"Optimizer {config['optimizer']} not supported")
+
+    if config["train"] == "supervised":
+        assert type(model) != StableContrastiveRL
+
+        optimizer = optimizer_cls(model.parameters(), lr=lr)
+    elif config["train"] == "rl":
+        assert type(model) == StableContrastiveRL
+
+        optimizer = {
+            'critic_optimizer': optimizer_cls(model.q_network.parameters(), lr=lr),
+            'actor_optimizer': optimizer_cls(model.policy_network.parameters(), lr=lr),
+        }
 
     current_epoch = 0
     if "load_run" in config:
