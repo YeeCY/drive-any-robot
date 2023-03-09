@@ -39,6 +39,9 @@ distance:
 action:
   min_dist_cat: 2
   max_dist_cat: 10
+rl:
+  min_dist_cat: 2
+  max_dist_cat: 10
 close_far_threshold: 10 # distance threshold used to seperate the close and the far  subgoals that are sampled per datapoint
 
 # action output params
@@ -54,7 +57,8 @@ datasets:
     test: gnm_train/data/data_splits/recon_subset/test/ # path to the test dir with traj_names.txt
     end_slack: 3 # because many trajectories end in collisions
     goals_per_obs: 1 # how many goals are sampled per observation
-    negative_mining: True # negative mining from the ViNG paper (Shah et al.)
+#    negative_mining: True # negative mining from the ViNG paper (Shah et al.)
+    discount: 0.99
 
 # logging stuff
 print_log_freq: 100 # in iterations

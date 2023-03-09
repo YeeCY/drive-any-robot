@@ -19,8 +19,9 @@ from torch.optim import Optimizer
 def train_eval_rl_loop(
     model: nn.Module,
     optimizer: Dict[str, Optimizer],
-    train_dist_loader: DataLoader,
-    train_action_loader: DataLoader,
+    # train_dist_loader: DataLoader,
+    # train_action_loader: DataLoader,
+    train_rl_loader: DataLoader,
     test_dataloaders: Dict[str, DataLoader],
     epochs: int,
     device: torch.device,
@@ -41,8 +42,7 @@ def train_eval_rl_loop(
     Args:
         model: model to train
         optimizer: optimizer to use
-        train_dist_loader: dataloader for training distance predictions
-        train_action_loader: dataloader for training action predictions
+        train_rl_loader: dataloader for training RL algorithm
         test_dataloaders: dict of dataloaders for testing
         epochs: number of epochs to train
         device: device to train on
@@ -67,8 +67,7 @@ def train_eval_rl_loop(
         train(
             model,
             optimizer,
-            train_dist_loader,
-            train_action_loader,
+            train_rl_loader,
             device,
             project_folder,
             normalized,
@@ -150,8 +149,9 @@ def train_eval_rl_loop(
 def train(
     model: nn.Module,
     optimizer: Dict[str, Optimizer],
-    train_dist_loader: DataLoader,
-    train_action_loader: DataLoader,
+    # train_dist_loader: DataLoader,
+    # train_action_loader: DataLoader,
+    train_rl_loader: DataLoader,
     device: torch.device,
     project_folder: str,
     normalized: bool,
@@ -169,8 +169,7 @@ def train(
     Args:
         model: model to train
         optimizer: optimizer to use
-        train_dist_loader: dataloader for distance training
-        train_action_loader: dataloader for action training
+        train_rl_loader: dataloader for RL training
         device: device to use
         project_folder: folder to save images to
         epoch: current epoch
@@ -211,8 +210,9 @@ def train(
             [action_orien_cos_sim_logger, multi_action_orien_cos_sim_logger]
         )
 
-    num_batches = min(len(train_dist_loader), len(train_action_loader))
-    for i, val in enumerate(zip(train_dist_loader, train_action_loader)):
+    num_batches = len(train_rl_loader)
+    for i, val in enumerate(train_rl_loader):
+        # FIXME (chongyiz)
         dist_vals, action_vals = val
         (
             dist_obs_image,

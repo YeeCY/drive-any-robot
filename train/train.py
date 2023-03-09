@@ -24,6 +24,7 @@ from gnm_train.training.train_utils import (
     get_saved_optimizer,
 )
 
+from stable_contrastive_rl_train.data.rl_dataset import RLDataset
 from stable_contrastive_rl_train.models.stable_contrastive_rl import StableContrastiveRL
 from stable_contrastive_rl_train.training.train_utils import train_eval_rl_loop
 
@@ -69,6 +70,8 @@ def main(config):
     # Load the data
     train_dist_dataset = []
     train_action_dataset = []
+    train_rl_dataset = []
+
     test_dataloaders = {}
 
     if "context_type" not in config:
@@ -87,7 +90,7 @@ def main(config):
             
         for data_split_type in ["train", "test"]:
             if data_split_type in data_config:
-                for output_type in ["action", "distance", "pairwise"]:
+                for output_type in ["action", "distance", "rl", "pairwise"]:
                     
                     if output_type == "pairwise":
                         dataset = PairwiseDistanceDataset(
@@ -104,6 +107,27 @@ def main(config):
                             context_size=config["context_size"],
                             context_type=config["context_type"],
                             end_slack=data_config["end_slack"],
+                        )
+                    elif output_type == "rl":
+                        dataset = RLDataset(
+                            data_folder=data_config["data_folder"],
+                            data_split_folder=data_config[data_split_type],
+                            dataset_name=dataset_name,
+                            # is_action=(output_type == "action"),
+                            transform=transform,
+                            aspect_ratio=aspect_ratio,
+                            waypoint_spacing=data_config["waypoint_spacing"],
+                            min_dist_cat=config[output_type]["min_dist_cat"],
+                            max_dist_cat=config[output_type]["max_dist_cat"],
+                            # negative_mining=data_config["negative_mining"],
+                            discount=data_config["discount"],
+                            len_traj_pred=config["len_traj_pred"],
+                            learn_angle=config["learn_angle"],
+                            context_size=config["context_size"],
+                            context_type=config["context_type"],
+                            end_slack=data_config["end_slack"],
+                            goals_per_obs=data_config["goals_per_obs"],
+                            normalize=config["normalize"],
                         )
                     else:
                         dataset = GNM_Dataset(
@@ -128,11 +152,13 @@ def main(config):
                     if data_split_type == "train":
                         if output_type == "distance":
                             train_dist_dataset.append(dataset)
+                        elif output_type == "action":
+                            train_action_dataset.append(dataset)
+                        elif output_type == "rl":
+                            train_rl_dataset.append(dataset)
                             print(
                                 f"Loaded {len(dataset)} {dataset_name} training points"
                             )
-                        elif output_type == "action":
-                            train_action_dataset.append(dataset)
                     else:
                         dataset_type = f"{dataset_name}_{data_split_type}"
                         if dataset_type not in test_dataloaders:
@@ -142,6 +168,7 @@ def main(config):
     # combine all the datasets from different robots
     train_dist_dataset = ConcatDataset(train_dist_dataset)
     train_action_dataset = ConcatDataset(train_action_dataset)
+    train_rl_dataset = ConcatDataset(train_rl_dataset)
 
     train_dist_loader = DataLoader(
         train_dist_dataset,
@@ -152,6 +179,13 @@ def main(config):
     )
     train_action_loader = DataLoader(
         train_action_dataset,
+        batch_size=config["batch_size"],
+        shuffle=True,
+        num_workers=config["num_workers"],
+        drop_last=True,
+    )
+    train_rl_loader = DataLoader(
+        train_rl_dataset,
         batch_size=config["batch_size"],
         shuffle=True,
         num_workers=config["num_workers"],
@@ -279,8 +313,9 @@ def main(config):
         train_eval_rl_loop(
             model=model,
             optimizer=optimizer,
-            train_dist_loader=train_dist_loader,
-            train_action_loader=train_action_loader,
+            # train_dist_loader=train_dist_loader,
+            # train_action_loader=train_action_loader,
+            train_rl_loader=train_rl_loader,
             test_dataloaders=test_dataloaders,
             epochs=config["epochs"],
             device=device,
