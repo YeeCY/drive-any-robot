@@ -3,7 +3,7 @@ run_name: gnm_public
 
 # training setup
 use_wandb: True # set to false if you don't want to log to wandb
-train: supervised
+train: rl
 batch_size: 16  # default = 400
 eval_batch_size: 16  # default = 400
 epochs: 30
@@ -14,7 +14,7 @@ optimizer: adam
 seed: 0
 
 # model params
-model_type: gnm
+model_type: stable_contrastive_rl
 obs_encoding_size: 1024
 goal_encoding_size: 1024
 

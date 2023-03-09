@@ -23,6 +23,9 @@ from gnm_train.training.train_utils import (
     get_saved_optimizer,
 )
 
+from stable_contrastive_rl_train.models.stable_contrastive_rl import StableContrastiveRL
+from stable_contrastive_rl_train.training.train_utils import train_eval_rl_loop
+
 
 def main(config):
     assert config["distance"]["min_dist_cat"] < config["distance"]["max_dist_cat"]
@@ -176,7 +179,7 @@ def main(config):
             config["obs_encoding_size"],
             config["goal_encoding_size"],
         )
-    elif config["model"] == "siamese":
+    elif config["model_type"] == "siamese":
         model = SiameseModel(
             config["context_size"],
             config["len_traj_pred"],
@@ -184,12 +187,20 @@ def main(config):
             config["obs_encoding_size"],
             config["goal_encoding_size"],
         )
-    elif config["model"] == "stacked":
+    elif config["model_type"] == "stacked":
         model = StackedModel(
             config["context_size"],
             config["len_traj_pred"],
             config["learn_angle"],
             config["obsgoal_encoding_size"],
+        )
+    elif config["model_type"] == "stable_contrastive_rl":
+        model = StableContrastiveRL(
+            config["context_size"],
+            config["len_traj_pred"],
+            config["learn_angle"],
+            config["obs_encoding_size"],
+            config["goal_encoding_size"],
         )
     else:
         raise ValueError(f"Model {config['model']} not supported")
@@ -220,7 +231,9 @@ def main(config):
         current_epoch = latest_checkpoint["epoch"] + 1
 
     torch.autograd.set_detect_anomaly(True)
-    if config["train"]:
+    if config["train"] == "supervised":
+        assert type(model) != StableContrastiveRL
+
         train_eval_loop(
             model=model,
             optimizer=optimizer,
@@ -240,6 +253,30 @@ def main(config):
             alpha=config["alpha"],
             use_wandb=config["use_wandb"],
         )
+    elif config["train"] == "rl":
+        assert type(model) == StableContrastiveRL
+
+        train_eval_rl_loop(
+            model=model,
+            optimizer=optimizer,
+            train_dist_loader=train_dist_loader,
+            train_action_loader=train_action_loader,
+            test_dataloaders=test_dataloaders,
+            epochs=config["epochs"],
+            device=device,
+            project_folder=config["project_folder"],
+            normalized=config["normalize"],
+            print_log_freq=config["print_log_freq"],
+            image_log_freq=config["image_log_freq"],
+            num_images_log=config["num_images_log"],
+            pairwise_test_freq=config["pairwise_test_freq"],
+            current_epoch=current_epoch,
+            learn_angle=config["learn_angle"],
+            alpha=config["alpha"],
+            use_wandb=config["use_wandb"],
+        )
+    else:
+        raise ValueError(f"Training type {config['train']} not supported")
     print("FINISHED TRAINING")
 
 
