@@ -190,13 +190,14 @@ def main(config):
         num_workers=config["num_workers"],
         drop_last=True,
     )
-    train_rl_loader = DataLoader(
-        train_rl_dataset,
-        batch_size=config["batch_size"],
-        shuffle=True,
-        num_workers=config["num_workers"],
-        drop_last=True,
-    )
+    if len(train_rl_dataset) > 0:
+        train_rl_loader = DataLoader(
+            train_rl_dataset,
+            batch_size=config["batch_size"],
+            shuffle=True,
+            num_workers=config["num_workers"],
+            drop_last=True,
+        )
 
     if "eval_batch_size" not in config:
         config["eval_batch_size"] = config["batch_size"]
