@@ -1,5 +1,5 @@
-project_name: gnm
-run_name: gnm_public
+project_name: stable_contrastive_rl
+run_name: stable_contrastive_rl_debug
 
 # training setup
 use_wandb: True # set to false if you don't want to log to wandb
