@@ -283,7 +283,9 @@ def train(
 
         actor_loss = get_actor_loss(model, obs_data, goal_data)
 
-        preds = model.policy_network(obs_data, goal_data).mean
+        # preds = model.policy_network(obs_data, goal_data).mean
+        # action_data are not used here
+        _, preds = model(obs_data, action_data, goal_data).mean
 
         # The action of policy is different from the action here (waypoints).
         action_pred = preds[:, :-1]
@@ -506,7 +508,9 @@ def evaluate(
 
             actor_loss = get_actor_loss(model, obs_data, goal_data)
 
-            preds = model.policy_network(obs_data, goal_data).mean
+            # preds = model.policy_network(obs_data, goal_data).mean
+            # action_data are not used here
+            _, preds = model(obs_data, action_data, goal_data).mean
 
             # The action of policy is different from the action here (waypoints).
             action_pred = preds[:, :-1]
@@ -643,8 +647,11 @@ def pairwise_acc(
 
             # close_pred, _ = model(transf_obs_image, transf_close_image)
             # far_pred, _ = model(transf_obs_image, transf_far_image)
-            close_pred = model.policy_network(transf_obs_image, transf_close_image).mean
-            far_pred = model.policy_network(transf_obs_image, transf_far_image).mean
+            # close_pred = model.policy_network(transf_obs_image, transf_close_image).mean
+            # far_pred = model.policy_network(transf_obs_image, transf_far_image).mean
+            dummy_action = torch.zeros([transf_obs_image.shape[0], model.action_size], device=transf_obs_image.device)
+            _, close_pred = model(transf_obs_image, dummy_action, transf_close_image).mean
+            _, far_pred = model(transf_obs_image, dummy_action, transf_far_image).mean
             close_dist_pred, far_dist_pred = close_pred[:, -1], far_pred[:, -1]
 
             close_pred_flat = close_dist_pred.reshape(close_dist_pred.shape[0])
@@ -685,7 +692,8 @@ def get_critic_loss(model, obs, next_obs, action, goal, discount, use_td=False):
     bce_with_logits_loss = nn.BCEWithLogitsLoss(reduction='none')
 
     I = torch.eye(batch_size, device=obs.device)
-    logits = model.q_network(obs, action, goal)
+    # logits = model.q_network(obs, action, goal)
+    logits, _ = model(obs, action, goal)
 
     if use_td:
         # Make sure to use the twin Q trick.
@@ -696,7 +704,9 @@ def get_critic_loss(model, obs, next_obs, action, goal, discount, use_td=False):
 
         random_goal = goal[goal_indices]
 
-        next_dist = model.policy_network(next_obs, random_goal)
+        # next_dist = model.policy_network(next_obs, random_goal)
+        # action was not used here
+        _, next_dist = model(next_obs, action, random_goal)
         next_action = next_dist.rsample()
 
         next_q = model.target_q_network(
@@ -735,11 +745,14 @@ def get_actor_loss(model, obs, goal):
     We might need to add alpha and GCBC term.
     """
 
-    dist = model.policy_network(obs, goal)
+    dummy_actions = torch.zeros([obs.shape[0], model.action_size], device=obs.device)
+    # _, dist = model.policy_network(obs, dummy_actions, goal)
+    _, dist = model(obs, dummy_actions, goal)
     sampled_action = dist.rsample()
     log_prob = dist.log_prob(sampled_action)
 
-    q_action = model.q_network(obs, sampled_action, goal)
+    # q_action = model.q_network(obs, sampled_action, goal)
+    q_action, _ = model(obs, sampled_action, goal)
 
     if len(q_action.shape) == 3:  # twin q trick
         assert q_action.shape[2] == 2

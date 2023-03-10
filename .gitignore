@@ -1,4 +1,5 @@
 train/logs/*
+train/wandb/*
 train/gnm_train/notebooks/
 train/gnm_train/old_notebooks/
 train/datasets/*

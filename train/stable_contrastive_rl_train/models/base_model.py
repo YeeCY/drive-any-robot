@@ -33,16 +33,17 @@ class BaseRLModel(nn.Module):
         return z
 
     def forward(
-        self, obs_img: torch.tensor, goal_img: torch.tensor
+        self, obs_img: torch.tensor, action: torch.tensor, goal_img: torch.tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Forward pass of the model
         Args:
             obs_img (torch.Tensor): batch of observations
+            action (torch.Tensor): batch of actions
             goal_img (torch.Tensor): batch of goals
         Returns:
-            dist_pred (torch.Tensor): predicted distance to goal
-            action_pred (torch.Tensor): predicted action
+            logits (torch.Tensor): predicted logits
+            policy_dist (torch.Distribution): predicted policy distribution
         """
         raise NotImplementedError
 

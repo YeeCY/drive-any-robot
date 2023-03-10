@@ -164,10 +164,27 @@ class StableContrastiveRL(BaseRLModel):
     #     #
     #     # return dist_pred, action_pred
 
-    def forward(self):
-        """
-        We want to use DataParallel feature of pytorch
-        Returns:
+    # def forward(self, obs, action, goal):
+    #     """
+    #     We want to use DataParallel feature of pytorch
+    #     """
+    #     # TODO
+    #     self.q
 
+    def forward(
+        self, obs_img: torch.tensor, action: torch.tensor, goal_img: torch.tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-        # TODO
+        Forward pass of the model
+        Args:
+            obs_img (torch.Tensor): batch of observations
+            action (torch.Tensor): batch of actions
+            goal_img (torch.Tensor): batch of goals
+        Returns:
+            logits (torch.Tensor): predicted logits
+            policy_dist (torch.Distribution): predicted policy distribution
+        """
+        logits = self.q_network(obs_img, action, goal_img)
+        policy_dist = self.policy_network(obs_img, goal_img)
+
+        return logits, policy_dist
