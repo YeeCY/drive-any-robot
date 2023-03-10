@@ -52,7 +52,7 @@ class StableContrastiveRL(BaseRLModel):
         self.soft_target_tau = soft_target_tau
 
         # action size = waypoint sizes + distance size
-        self.action_size = self.len_trajectory_pred * self.num_action_params
+        self.action_size = self.len_trajectory_pred * self.num_action_params + 1
 
         # mobilenet = MobileNetEncoder(num_images=1 + self.context_size)
         # self.obs_mobilenet = mobilenet.features
@@ -130,36 +130,36 @@ class StableContrastiveRL(BaseRLModel):
             self.q_network, self.target_q_network, self.soft_target_tau
         )
 
-    def forward(
-        self, obs_img: torch.tensor, action: torch.tensor, goal_img: torch.tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        obs_encoding = self.obs_mobilenet(obs_img)
-        obs_encoding = self.flatten(obs_encoding)
-        obs_encoding = self.compress_observation(obs_encoding)
-        obs_a_encoder = self.obs_a_linear_layers(
-            torch.cat([obs_encoding, action], dim=-1))
-
-        obs_goal_input = torch.cat([obs_img, goal_img], dim=1)
-        goal_encoding = self.goal_mobilenet(obs_goal_input)
-        goal_encoding = self.flatten(goal_encoding)
-        goal_encoding = self.compress_goal(goal_encoding)
-        goal_encoding = self.goal_linear_layers(goal_encoding)
-
-        z = torch.cat([obs_encoding, goal_encoding], dim=1)
-        z = self.linear_layers(z)
-        # dist_pred = self.dist_predictor(z)
-        # action_pred = self.action_predictor(z)
-
-        # augment outputs to match labels size-wise
-        action_pred = action_pred.reshape(
-            (action_pred.shape[0], self.len_trajectory_pred, self.num_action_params)
-        )
-        action_pred[:, :, :2] = torch.cumsum(
-            action_pred[:, :, :2], dim=1
-        )  # convert position deltas into waypoints
-        if self.learn_angle:
-            action_pred[:, :, 2:] = F.normalize(
-                action_pred[:, :, 2:].clone(), dim=-1
-            )  # normalize the angle prediction
-
-        return dist_pred, action_pred
+    # def forward(
+    #     self, *x
+    # ) -> Tuple[torch.Tensor, torch.Tensor]:
+    #     # obs_encoding = self.obs_mobilenet(obs_img)
+    #     # obs_encoding = self.flatten(obs_encoding)
+    #     # obs_encoding = self.compress_observation(obs_encoding)
+    #     # obs_a_encoder = self.obs_a_linear_layers(
+    #     #     torch.cat([obs_encoding, action], dim=-1))
+    #     #
+    #     # obs_goal_input = torch.cat([obs_img, goal_img], dim=1)
+    #     # goal_encoding = self.goal_mobilenet(obs_goal_input)
+    #     # goal_encoding = self.flatten(goal_encoding)
+    #     # goal_encoding = self.compress_goal(goal_encoding)
+    #     # goal_encoding = self.goal_linear_layers(goal_encoding)
+    #     #
+    #     # z = torch.cat([obs_encoding, goal_encoding], dim=1)
+    #     # z = self.linear_layers(z)
+    #     # # dist_pred = self.dist_predictor(z)
+    #     # # action_pred = self.action_predictor(z)
+    #     #
+    #     # # augment outputs to match labels size-wise
+    #     # action_pred = action_pred.reshape(
+    #     #     (action_pred.shape[0], self.len_trajectory_pred, self.num_action_params)
+    #     # )
+    #     # action_pred[:, :, :2] = torch.cumsum(
+    #     #     action_pred[:, :, :2], dim=1
+    #     # )  # convert position deltas into waypoints
+    #     # if self.learn_angle:
+    #     #     action_pred[:, :, 2:] = F.normalize(
+    #     #         action_pred[:, :, 2:].clone(), dim=-1
+    #     #     )  # normalize the angle prediction
+    #     #
+    #     # return dist_pred, action_pred

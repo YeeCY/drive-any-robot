@@ -32,7 +32,9 @@ def train_eval_rl_loop(
     num_images_log: int = 8,
     pairwise_test_freq: int = 5,
     current_epoch: int = 0,
-    alpha: float = 0.5,
+    target_update_freq: int = 1,
+    discount: float = 0.99,
+    use_td: bool = True,
     learn_angle: bool = True,
     use_wandb: bool = True,
 ):
@@ -52,12 +54,13 @@ def train_eval_rl_loop(
         num_images_log: number of images to log to wandb
         pairwise_test_freq: frequency of testing pairwise distance accuracy
         current_epoch: epoch to start training from
-        alpha: tradeoff between distance and action loss
+        discount: discount factor
+        use_td: whether to use C-Learning (TD) or Contrastive NCE (MC)
         learn_angle: whether to learn the angle or not
         use_wandb: whether to log to wandb or not
         load_best: whether to load the best model or not
     """
-    assert 0 <= alpha <= 1
+    assert 0 <= discount <= 1
     latest_path = os.path.join(project_folder, f"latest.pth")
 
     for epoch in range(current_epoch, current_epoch + epochs):
@@ -72,7 +75,9 @@ def train_eval_rl_loop(
             project_folder,
             normalized,
             epoch,
-            alpha,
+            target_update_freq,
+            discount,
+            use_td,
             learn_angle,
             print_log_freq,
             image_log_freq,
@@ -156,7 +161,9 @@ def train(
     project_folder: str,
     normalized: bool,
     epoch: int,
-    alpha: float = 0.5,
+    target_update_freq: int = 1,
+    discount: float = 0.99,
+    use_td: bool = True,
     learn_angle: bool = True,
     print_log_freq: int = 100,
     image_log_freq: int = 1000,
@@ -173,7 +180,7 @@ def train(
         device: device to use
         project_folder: folder to save images to
         epoch: current epoch
-        alpha: weight of action loss
+        use_td: whether to use C-Learning (TD) or Contrastive NCE (MC)
         learn_angle: whether to learn the angle of the action
         print_log_freq: how often to print loss
         image_log_freq: how often to log images
@@ -211,41 +218,80 @@ def train(
         )
 
     num_batches = len(train_rl_loader)
-    for i, val in enumerate(train_rl_loader):
+    for i, vals in enumerate(train_rl_loader):
         # FIXME (chongyiz)
-        dist_vals, action_vals = val
+        # dist_vals, action_vals = val
+        # (
+        #     dist_obs_image,
+        #     dist_goal_image,
+        #     dist_trans_obs_image,
+        #     dist_trans_goal_image,
+        #     dist_label,
+        #     dist_dataset_index,
+        # ) = dist_vals
+        # (
+        #     action_obs_image,
+        #     action_goal_image,
+        #     action_trans_obs_image,
+        #     action_trans_goal_image,
+        #     action_goal_pos,
+        #     action_label,
+        #     action_dataset_index,
+        # ) = action_vals
+        # dist_obs_data = dist_trans_obs_image.to(device)
+        # dist_goal_data = dist_trans_goal_image.to(device)
+        # dist_label = dist_label.to(device)
+
         (
-            dist_obs_image,
-            dist_goal_image,
-            dist_trans_obs_image,
-            dist_trans_goal_image,
-            dist_label,
-            dist_dataset_index,
-        ) = dist_vals
-        (
-            action_obs_image,
-            action_goal_image,
-            action_trans_obs_image,
-            action_trans_goal_image,
-            action_goal_pos,
+            obs_image,
+            next_obs_image,
+            goal_image,
+            trans_obs_image,
+            trans_next_obs_image,
+            trans_goal_image,
+            goal_pos,
             action_label,
-            action_dataset_index,
-        ) = action_vals
-        dist_obs_data = dist_trans_obs_image.to(device)
-        dist_goal_data = dist_trans_goal_image.to(device)
-        dist_label = dist_label.to(device)
-
-        optimizer.zero_grad()
-
-        dist_pred, _ = model(dist_obs_data, dist_goal_data)
-        dist_loss = F.mse_loss(dist_pred, dist_label)
-
-        action_obs_data = action_trans_obs_image.to(device)
-        action_goal_data = action_trans_goal_image.to(device)
+            dist_label,
+            dataset_index,
+        ) = vals
+        obs_data = trans_obs_image.to(device)
+        next_obs_data = trans_next_obs_image.to(device)
+        goal_data = trans_goal_image.to(device)
         action_label = action_label.to(device)
+        dist_label = dist_label.to(device)
+        action_data = torch.cat([
+            action_label.reshape([action_label.shape[0], -1]),
+            dist_label],
+            dim=-1
+        )
 
-        _, action_pred = model(action_obs_data, action_goal_data)
-        action_loss = F.mse_loss(action_pred, action_label)
+        optimizer["critic_optimizer"].zero_grad()
+        optimizer["actor_optimizer"].zero_grad()
+
+        # dist_pred, _ = model(dist_obs_data, dist_goal_data)
+        # dist_loss = F.mse_loss(dist_pred, dist_label)
+        #
+        # action_obs_data = action_trans_obs_image.to(device)
+        # action_goal_data = action_trans_goal_image.to(device)
+        # action_label = action_label.to(device)
+
+        # _, action_pred = model(action_obs_data, action_goal_data)
+        # action_loss = F.mse_loss(action_pred, action_label)
+
+        critic_loss = get_critic_loss(
+            model, obs_data, next_obs_data, action_data, goal_data,
+            discount, use_td=use_td)
+
+        actor_loss = get_actor_loss(model, obs_data, goal_data)
+
+        preds = model.policy_network(obs_data, goal_data).mean
+
+        # The action of policy is different from the action here (waypoints).
+        action_pred = preds[:, :-1]
+        action_pred = action_pred.reshape(action_label.shape)
+
+        dist_pred = preds[:, -1]
+
         action_waypts_cos_similairity = F.cosine_similarity(
             action_pred[:2], action_label[:2], dim=-1
         ).mean()
@@ -268,9 +314,17 @@ def train(
                 multi_action_orien_cos_sim.item()
             )
 
-        total_loss = get_total_loss(dist_loss, action_loss, alpha)
-        total_loss.backward()
-        optimizer.step()
+
+        # total_loss.backward()
+        # optimizer.step()
+        actor_loss.backward()
+        optimizer["actor_optimizer"].step()
+
+        critic_loss.backward()
+        optimizer["critic_optimizer"].step()
+
+        if i % target_update_freq == 0:
+            model.soft_update_target_q_network()
 
         dist_loss_logger.log_data(dist_loss.item())
         action_loss_logger.log_data(action_loss.item())
@@ -578,9 +632,79 @@ def pairwise_acc(
         return np.concatenate(correct_list).mean()
 
 
-def get_total_loss(dist_loss, action_loss, alpha):
-    """Get total loss from distance and action loss."""
-    return alpha * (1e-2 * dist_loss) + (1 - alpha) * action_loss
+def get_critic_loss(model, obs, next_obs, action, goal, discount, use_td=False):
+    # new_goal = next_obs
+    #
+    batch_size = obs.shape[0]
+
+    bce_with_logits_loss = nn.BCEWithLogitsLoss(reduction='none')
+
+    I = torch.eye(batch_size, device=obs.device)
+    logits = model.q_network(obs, action, goal)
+
+    if use_td:
+        # Make sure to use the twin Q trick.
+        assert len(logits.shape) == 3
+
+        goal_indices = torch.roll(
+            torch.arange(batch_size, dtype=torch.int64), -1)
+
+        random_goal = goal[goal_indices]
+
+        next_dist = model.policy_network(next_obs, random_goal)
+        next_action = next_dist.rsample()
+
+        next_q = model.target_q_network(
+            next_obs, next_action, random_goal)
+
+        next_q = torch.sigmoid(next_q)
+        next_v = torch.min(next_q, dim=-1)[0].detach()
+        next_v = torch.diag(next_v)
+        w = next_v / (1 - next_v)
+
+        w_clipping = 20.0
+        w = torch.clamp(w, min=0.0, max=w_clipping)
+
+        pos_logits = torch.diagonal(logits).permute(1, 0)
+        loss_pos = bce_with_logits_loss(
+            pos_logits, torch.ones_like(pos_logits))
+
+        neg_logits = logits[torch.arange(batch_size), goal_indices]
+        loss_neg1 = w[:, None] * bce_with_logits_loss(
+            neg_logits, torch.ones_like(neg_logits))
+        loss_neg2 = bce_with_logits_loss(
+            neg_logits, torch.zeros_like(neg_logits))
+
+        critic_loss = (1 - discount) * loss_pos + \
+                      discount * loss_neg1 + loss_neg2
+        critic_loss = torch.mean(critic_loss)
+    else:
+        # TODO
+        raise NotImplementedError
+
+    return critic_loss
+
+
+def get_actor_loss(model, obs, goal):
+    """
+    We might need to add alpha and GCBC term.
+    """
+
+    dist = model.policy_network(obs, goal)
+    sampled_action = dist.rsample()
+    log_prob = dist.log_prob(sampled_action)
+
+    q_action = model.q_network(obs, sampled_action, goal)
+
+    if len(q_action.shape) == 3:  # twin q trick
+        assert q_action.shape[2] == 2
+        q_action = torch.min(q_action, dim=-1)[0]
+
+    actor_loss = -torch.diag(q_action)
+
+    actor_loss = torch.mean(actor_loss)
+
+    return actor_loss
 
 
 def load_model(model, checkpoint: dict) -> None:

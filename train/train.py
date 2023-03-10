@@ -327,7 +327,10 @@ def main(config):
             pairwise_test_freq=config["pairwise_test_freq"],
             current_epoch=current_epoch,
             learn_angle=config["learn_angle"],
-            alpha=config["alpha"],
+            # alpha=config["alpha"],
+            target_update_freq=config["target_update_freq"],
+            discount=config["discount"],
+            use_td=config["use_td"],
             use_wandb=config["use_wandb"],
         )
     else:

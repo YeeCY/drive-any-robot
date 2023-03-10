@@ -224,6 +224,7 @@ class RLDataset(Dataset):
         assert curr_time < curr_traj_len, f"{curr_time} and {curr_traj_len}"
 
         transf_obs_images = []
+        transf_next_obs_images = []
         if self.context_type == "randomized":
             # sample self.context_size random times from interval [0, curr_time) with no replacement
             context_times = np.random.choice(
@@ -231,6 +232,8 @@ class RLDataset(Dataset):
             )
             context_times.append(curr_time)
             context = [(f_curr, t) for t in context_times]
+
+            # TODO (chongyiz): add next obs context
         elif self.context_type == "randomized_temporal":
             f_rand_curr, _, rand_curr_time, _ = self.index_to_data[
                 np.random.randint(0, len(self))
@@ -245,6 +248,7 @@ class RLDataset(Dataset):
             context = [(f_rand_curr, t) for t in context_times]
             context.append((f_curr, curr_time))
 
+            # TODO (chongyiz): add next obs context
         elif self.context_type == "temporal":
             # sample the last self.context_size times from interval [0, curr_time)
             context_times = list(
@@ -255,9 +259,10 @@ class RLDataset(Dataset):
                 )
             )
             context = [(f_curr, t) for t in context_times]
+            next_context = [(f_curr, t + 1) for t in context_times]
         else:
             raise ValueError(f"Invalid type {self.context_type}")
-        for f, t in context:
+        for (f, t), (next_f, next_t) in zip(context, next_context):
             obs_image_path = get_image_path(self.data_folder, f, t)
             obs_image, transf_obs_image = img_path_to_data(
                 obs_image_path,
@@ -265,7 +270,17 @@ class RLDataset(Dataset):
                 self.aspect_ratio,
             )
             transf_obs_images.append(transf_obs_image)
+
+            next_obs_image_path = get_image_path(self.data_folder, next_f, next_t)
+            next_obs_image, transf_next_obs_image = img_path_to_data(
+                next_obs_image_path,
+                self.transform,
+                self.aspect_ratio,
+            )
+            transf_next_obs_images.append(transf_next_obs_image)
+
         transf_obs_image = torch.cat(transf_obs_images, dim=0)
+        transf_next_obs_image = torch.cat(transf_next_obs_images, dim=0)
 
         with open(os.path.join(self.data_folder, f_goal, "traj_data.pkl"), "rb") as f:
             goal_traj_data = pickle.load(f)
@@ -280,8 +295,10 @@ class RLDataset(Dataset):
 
         data = [
             obs_image,
+            next_obs_image,
             goal_image,
             transf_obs_image,
+            transf_next_obs_image,
             transf_goal_image,
         ]
 

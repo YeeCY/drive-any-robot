@@ -29,8 +29,14 @@ normalize: True
 context_type: temporal
 context_size: 5
 
-# tradeoff between action and distance prediction loss
-alpha: 0.5
+# discount factor
+discount: 0.99
+
+#whether to use C-Learning (TD) or Contrastive NCE (MC)
+use_td: True
+
+# number of training iterations to update target q network
+target_update_freq: 1
 
 # distance bounds for distance and action and distance predictions
 distance:
@@ -58,7 +64,7 @@ datasets:
     end_slack: 3 # because many trajectories end in collisions
     goals_per_obs: 1 # how many goals are sampled per observation
 #    negative_mining: True # negative mining from the ViNG paper (Shah et al.)
-    discount: 0.99
+    discount: 0.99  # discount factor used to sample geometric future goals, can be a negative value for random future goals
 
 # logging stuff
 print_log_freq: 100 # in iterations

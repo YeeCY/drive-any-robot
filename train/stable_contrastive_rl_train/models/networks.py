@@ -47,6 +47,11 @@ class ContrastiveImgEncoder(nn.Module):
             nn.ReLU(),
         )
 
+    def flatten(self, z: torch.Tensor) -> torch.Tensor:
+        z = nn.functional.adaptive_avg_pool2d(z, (1, 1))
+        z = torch.flatten(z, 1)
+        return z
+
     def forward(
         self, obs_img: torch.tensor, goal_img: torch.tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -140,21 +145,11 @@ class ContrastiveQNetwork(nn.Module):
 
         outer = torch.einsum('ik,jk->ij', obs_a_encoding, goal_encoding)
 
-        if self._twin_q:
-            # obs_encoding2 = self.obs_mobilenet2(obs_img)
-            # obs_encoding2 = self.flatten(obs_encoding2)
-            # obs_encoding2 = self.compress_observation2(obs_encoding2)
-            # obs_a_encoding2 = self.obs_a_linear_layers2(
-            #     torch.cat([obs_encoding2, action], dim=-1))
-            #
-            # goal_encoding2 = self.goal_mobilenet2(obs_goal_input)
-            # goal_encoding2 = self.flatten(goal_encoding2)
-            # goal_encoding2 = self.compress_goal2(goal_encoding2)
-            # goal_encoding2 = self.goal_linear_layers2(goal_encoding2)
-            obs_encoding, goal_encoding = self.img_encoder(obs_img, goal_img)
+        if self.twin_q:
+            obs_encoding2, goal_encoding2 = self.img_encoder(obs_img, goal_img)
             obs_a_encoding2 = self.obs_a_linear_layers2(
-                torch.cat([obs_encoding, action], dim=-1))
-            goal_encoding2 = self.goal_linear_layers2(goal_encoding)
+                torch.cat([obs_encoding2, action], dim=-1))
+            goal_encoding2 = self.goal_linear_layers2(goal_encoding2)
 
             outer2 = torch.einsum('ik,jk->ij', obs_a_encoding2, goal_encoding2)
             outer = torch.stack([outer, outer2], dim=-1)
