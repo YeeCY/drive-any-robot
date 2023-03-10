@@ -637,11 +637,14 @@ def pairwise_acc(
             transf_close_image = transf_close_image.to(device)
             transf_far_image = transf_far_image.to(device)
 
-            close_pred, _ = model(transf_obs_image, transf_close_image)
-            far_pred, _ = model(transf_obs_image, transf_far_image)
+            # close_pred, _ = model(transf_obs_image, transf_close_image)
+            # far_pred, _ = model(transf_obs_image, transf_far_image)
+            close_pred = model.policy_network(transf_obs_image, transf_close_image).mean
+            far_pred = model.policy_network(transf_obs_image, transf_far_image).mean
+            close_dist_pred, far_dist_pred = close_pred[:, -1], far_pred[:, -1]
 
-            close_pred_flat = close_pred.reshape(close_pred.shape[0])
-            far_pred_flat = far_pred.reshape(far_pred.shape[0])
+            close_pred_flat = close_dist_pred.reshape(close_dist_pred.shape[0])
+            far_pred_flat = far_dist_pred.reshape(far_dist_pred.shape[0])
 
             close_pred_flat = to_numpy(close_pred_flat)
             far_pred_flat = to_numpy(far_pred_flat)
@@ -656,8 +659,8 @@ def pairwise_acc(
                     to_numpy(obs_image),
                     to_numpy(close_image),
                     to_numpy(far_image),
-                    to_numpy(close_pred),
-                    to_numpy(far_pred),
+                    to_numpy(close_dist_pred),
+                    to_numpy(far_dist_pred),
                     to_numpy(close_dist_label),
                     to_numpy(far_dist_label),
                     eval_type,
