@@ -173,7 +173,8 @@ def main(config):
     # combine all the datasets from different robots
     train_dist_dataset = ConcatDataset(train_dist_dataset)
     train_action_dataset = ConcatDataset(train_action_dataset)
-    train_rl_dataset = ConcatDataset(train_rl_dataset)
+    if len(train_rl_dataset) > 0:
+        train_rl_dataset = ConcatDataset(train_rl_dataset)
 
     train_dist_loader = DataLoader(
         train_dist_dataset,
