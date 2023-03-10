@@ -188,8 +188,8 @@ def train(
         use_wandb: whether to use wandb
     """
     model.train()
-    dist_loss_logger = Logger("dist_loss", "train", window_size=print_log_freq)
-    action_loss_logger = Logger("action_loss", "train", window_size=print_log_freq)
+    critic_loss_logger = Logger("critic_loss", "train", window_size=print_log_freq)
+    actor_loss_logger = Logger("actor_loss", "train", window_size=print_log_freq)
     action_waypts_cos_sim_logger = Logger(
         "action_waypts_cos_sim", "train", window_size=print_log_freq
     )
@@ -199,8 +199,8 @@ def train(
     total_loss_logger = Logger("total_loss", "train", window_size=print_log_freq)
 
     variables = [
-        dist_loss_logger,
-        action_loss_logger,
+        critic_loss_logger,
+        actor_loss_logger,
         action_waypts_cos_sim_logger,
         multi_action_waypts_cos_sim_logger,
         total_loss_logger,
@@ -326,8 +326,8 @@ def train(
         if i % target_update_freq == 0:
             model.soft_update_target_q_network()
 
-        dist_loss_logger.log_data(dist_loss.item())
-        action_loss_logger.log_data(action_loss.item())
+        critic_loss_logger.log_data(critic_loss.item())
+        actor_loss_logger.log_data(actor_loss.item())
         action_waypts_cos_sim_logger.log_data(action_waypts_cos_similairity.item())
         multi_action_waypts_cos_sim_logger.log_data(multi_action_waypts_cos_sim.item())
         total_loss_logger.log_data(total_loss.item())
