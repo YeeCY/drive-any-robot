@@ -77,6 +77,11 @@ def main(config):
     if "context_type" not in config:
         config["context_type"] = "temporal"
 
+    if config["model_type"] == "stable_contrastive_rl":
+        output_types = ["action", "distance", "rl", "pairwise"]
+    else:
+        output_types = ["action", "distance", "pairwise"]
+
     for dataset_name in config["datasets"]:
         data_config = config["datasets"][dataset_name]
         if "negative_mining" not in data_config:
@@ -90,7 +95,7 @@ def main(config):
             
         for data_split_type in ["train", "test"]:
             if data_split_type in data_config:
-                for output_type in ["action", "distance", "rl", "pairwise"]:
+                for output_type in output_types:
                     
                     if output_type == "pairwise":
                         dataset = PairwiseDistanceDataset(
@@ -156,9 +161,9 @@ def main(config):
                             train_action_dataset.append(dataset)
                         elif output_type == "rl":
                             train_rl_dataset.append(dataset)
-                            print(
-                                f"Loaded {len(dataset)} {dataset_name} training points"
-                            )
+                        print(
+                            f"Loaded {len(dataset)} {dataset_name} training points"
+                        )
                     else:
                         dataset_type = f"{dataset_name}_{data_split_type}"
                         if dataset_type not in test_dataloaders:
