@@ -138,20 +138,23 @@ class ContrastiveQNetwork(nn.Module):
         # goal_encoding = self.flatten(goal_encoding)
         # goal_encoding = self.compress_goal(goal_encoding)
         # goal_encoding = self.goal_linear_layers(goal_encoding)
-        obs_encoding, goal_encoding = self.img_encoder(obs_img, goal_img)
+        obs_h, goal_h = self.img_encoder(obs_img, goal_img)
         obs_a_encoding = self.obs_a_linear_layers(
-            torch.cat([obs_encoding, action], dim=-1))
-        goal_encoding = self.goal_linear_layers(goal_encoding)
+            torch.cat([obs_h, action], dim=-1))
+        goal_encoding = self.goal_linear_layers(goal_h)
 
+        # use torch.bmm to prevent numerical error
         outer = torch.einsum('ik,jk->ij', obs_a_encoding, goal_encoding)
+        # outer = torch.bmm(obs_a_encoding.unsqueeze(0), goal_encoding.permute(1, 0).unsqueeze(0))[0]
 
         if self.twin_q:
-            obs_encoding2, goal_encoding2 = self.img_encoder(obs_img, goal_img)
+            # obs_encoding2, goal_encoding2 = self.img_encoder(obs_img, goal_img)
             obs_a_encoding2 = self.obs_a_linear_layers2(
-                torch.cat([obs_encoding2, action], dim=-1))
-            goal_encoding2 = self.goal_linear_layers2(goal_encoding2)
+                torch.cat([obs_h, action], dim=-1))
+            goal_encoding2 = self.goal_linear_layers2(goal_h)
 
             outer2 = torch.einsum('ik,jk->ij', obs_a_encoding2, goal_encoding2)
+            # outer2 = torch.bmm(obs_a_encoding2.unsqueeze(0), goal_encoding2.permute(1, 0).unsqueeze(0))[0]
             outer = torch.stack([outer, outer2], dim=-1)
 
         return outer
