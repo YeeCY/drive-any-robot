@@ -77,4 +77,4 @@ datasets:
 print_log_freq: 100 # in iterations
 image_log_freq: 1000 # in iterations
 num_images_log: 8 # number of images to log in a logging iteration
-pairwise_test_freq: 2 # in epochs
+pairwise_test_freq: 10 # in epochs
