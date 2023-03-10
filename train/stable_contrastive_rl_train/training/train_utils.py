@@ -313,13 +313,17 @@ def train(
                 multi_action_orien_cos_sim.item()
             )
 
-
+        # prevent NAN via gradient clipping
         # total_loss.backward()
         # optimizer.step()
         actor_loss.backward()
+        # torch.nn.utils.clip_grad_norm(
+        #     model.policy_network.parameters(), 1.0)
         optimizer["actor_optimizer"].step()
 
         critic_loss.backward()
+        # torch.nn.utils.clip_grad_norm(
+        #     model.q_network.parameters(), 1.0)
         optimizer["critic_optimizer"].step()
 
         if i % target_update_freq == 0:
