@@ -120,7 +120,7 @@ class StableContrastiveRL(BaseRLModel):
     # @property
     # def q_network_parameters(self):
     #     return self.q_network.parameters()
-    #
+
     # @property
     # def policy_network_parameters(self):
     #     return self.policy_network.parameters()
@@ -163,3 +163,11 @@ class StableContrastiveRL(BaseRLModel):
     #     #     )  # normalize the angle prediction
     #     #
     #     # return dist_pred, action_pred
+
+    def forward(self):
+        """
+        We want to use DataParallel feature of pytorch
+        Returns:
+
+        """
+        # TODO

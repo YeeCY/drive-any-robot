@@ -25,6 +25,7 @@ from gnm_train.training.train_utils import (
 )
 
 from stable_contrastive_rl_train.data.rl_dataset import RLDataset
+from stable_contrastive_rl_train.models.base_model import DataParallel
 from stable_contrastive_rl_train.models.stable_contrastive_rl import StableContrastiveRL
 from stable_contrastive_rl_train.training.train_utils import train_eval_rl_loop
 
@@ -252,7 +253,7 @@ def main(config):
         raise ValueError(f"Model {config['model']} not supported")
 
     if len(config["gpu_ids"]) > 1:
-        model = nn.DataParallel(model, device_ids=config["gpu_ids"])
+        model = DataParallel(model, device_ids=config["gpu_ids"])
     model = model.to(device)
     lr = float(config["lr"])
 
@@ -270,11 +271,17 @@ def main(config):
         raise ValueError(f"Optimizer {config['optimizer']} not supported")
 
     if config["train"] == "supervised":
-        assert type(model) != StableContrastiveRL
+        try:
+            assert type(model) != StableContrastiveRL
+        except AssertionError:
+            assert type(model.module) != StableContrastiveRL
 
         optimizer = optimizer_cls(model.parameters(), lr=lr)
     elif config["train"] == "rl":
-        assert type(model) == StableContrastiveRL
+        try:
+            assert type(model) == StableContrastiveRL
+        except AssertionError:
+            assert type(model.module) == StableContrastiveRL
 
         optimizer = {
             'critic_optimizer': optimizer_cls(model.q_network.parameters(), lr=lr),
@@ -293,7 +300,10 @@ def main(config):
 
     torch.autograd.set_detect_anomaly(True)
     if config["train"] == "supervised":
-        assert type(model) != StableContrastiveRL
+        try:
+            assert type(model) != StableContrastiveRL
+        except AssertionError:
+            assert type(model.module) != StableContrastiveRL
 
         train_eval_loop(
             model=model,
@@ -315,7 +325,10 @@ def main(config):
             use_wandb=config["use_wandb"],
         )
     elif config["train"] == "rl":
-        assert type(model) == StableContrastiveRL
+        try:
+            assert type(model) == StableContrastiveRL
+        except AssertionError:
+            assert type(model.module) == StableContrastiveRL
 
         train_eval_rl_loop(
             model=model,
