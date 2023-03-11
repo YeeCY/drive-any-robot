@@ -39,6 +39,7 @@ def train_eval_rl_loop(
     target_update_freq: int = 1,
     discount: float = 0.99,
     use_td: bool = True,
+    bc_coef: float = 0.05,
     learn_angle: bool = True,
     use_wandb: bool = True,
 ):
@@ -82,6 +83,7 @@ def train_eval_rl_loop(
             target_update_freq,
             discount,
             use_td,
+            bc_coef,
             learn_angle,
             print_log_freq,
             image_log_freq,
@@ -106,6 +108,7 @@ def train_eval_rl_loop(
                 epoch,
                 discount,
                 use_td,
+                bc_coef,
                 learn_angle,
                 print_log_freq,
                 image_log_freq,
@@ -169,6 +172,7 @@ def train(
     target_update_freq: int = 1,
     discount: float = 0.99,
     use_td: bool = True,
+    bc_coef: float = 0.05,
     learn_angle: bool = True,
     print_log_freq: int = 100,
     image_log_freq: int = 1000,
@@ -285,7 +289,9 @@ def train(
             model, obs_data, next_obs_data, action_data, goal_data,
             discount, use_td=use_td)
 
-        actor_loss = get_actor_loss(model, obs_data, goal_data)
+        actor_loss = get_actor_loss(
+            model, obs_data, action_data, goal_data,
+            bc_coef=bc_coef)
 
         # preds = model.policy_network(obs_data, goal_data).mean
         # action_data are not used here
@@ -391,6 +397,7 @@ def evaluate(
     epoch: int = 0,
     discount: float = 0.99,
     use_td: bool = True,
+    bc_coef: float = 0.05,
     learn_angle: bool = True,
     print_log_freq: int = 100,
     image_log_freq: int = 1000,
@@ -424,16 +431,17 @@ def evaluate(
     multi_action_waypts_cos_sim_logger = Logger(
         "multi_action_waypts_cos_sim", eval_type, window_size=print_log_freq
     )
-    total_loss_logger = Logger(
-        "total_loss_logger", eval_type, window_size=print_log_freq
-    )
+    # DELETEME (chongyiz)
+    # total_loss_logger = Logger(
+    #     "total_loss_logger", eval_type, window_size=print_log_freq
+    # )
 
     variables = [
         critic_loss_logger,
         actor_loss_logger,
         action_waypts_cos_sim_logger,
         multi_action_waypts_cos_sim_logger,
-        total_loss_logger,
+        # total_loss_logger,
     ]
     if learn_angle:
         action_orien_cos_sim_logger = Logger(
@@ -510,7 +518,9 @@ def evaluate(
                 model, obs_data, next_obs_data, action_data, goal_data,
                 discount, use_td=use_td)
 
-            actor_loss = get_actor_loss(model, obs_data, goal_data)
+            actor_loss = get_actor_loss(
+                model, obs_data, action_data, goal_data,
+                bc_coef=bc_coef)
 
             # preds = model.policy_network(obs_data, goal_data).mean
             # action_data are not used here
@@ -748,14 +758,15 @@ def get_critic_loss(model, obs, next_obs, action, goal, discount, use_td=False):
     return critic_loss
 
 
-def get_actor_loss(model, obs, goal):
+def get_actor_loss(model, obs, orig_action, goal, bc_coef=0.05):
     """
     We might need to add alpha and GCBC term.
     """
 
-    dummy_actions = torch.zeros([obs.shape[0], model.action_size], device=obs.device)
+    # dummy_actions = torch.zeros([obs.shape[0], model.action_size], device=obs.device)
     # _, dist = model.policy_network(obs, dummy_actions, goal)
-    _, _, _, _, mean, std = model(obs, dummy_actions, goal)
+    # orig_action is not used here
+    _, _, _, _, mean, std = model(obs, orig_action, goal)
     dist = Independent(Normal(mean, std, validate_args=False),
                        reinterpreted_batch_ndims=1)
     sampled_action = dist.rsample()
@@ -769,7 +780,13 @@ def get_actor_loss(model, obs, goal):
         assert q_action.shape[2] == 2
         q_action = torch.min(q_action, dim=-1)[0]
 
-    actor_loss = -torch.diag(q_action)
+    actor_q_loss = -torch.diag(q_action)
+
+    # gcbc_loss = -dist.log_prob(orig_action)
+    gcbc_loss = F.mse_loss(sampled_action[:, :model.action_size - 1], orig_action[:, :model.action_size - 1]) \
+                + 1e-2 * F.mse_loss(sampled_action[:, -1], orig_action[:, -1])
+
+    actor_loss = bc_coef * gcbc_loss + (1 - bc_coef) * actor_q_loss
 
     actor_loss = torch.mean(actor_loss)
 

@@ -5,6 +5,7 @@ import numpy as np
 import yaml
 import time
 import functools
+from itertools import chain
 
 import torch
 import torch.nn as nn
@@ -284,6 +285,9 @@ def main(config):
             assert type(model.module) == StableContrastiveRL
 
         optimizer = {
+            # 'critic_optimizer': optimizer_cls(
+            #     chain(model.img_encoder.parameters(), model.q_network.parameters()),
+            #     lr=lr),
             'critic_optimizer': optimizer_cls(model.q_network.parameters(), lr=lr),
             'actor_optimizer': optimizer_cls(model.policy_network.parameters(), lr=lr),
         }
@@ -351,6 +355,7 @@ def main(config):
             target_update_freq=config["target_update_freq"],
             discount=config["discount"],
             use_td=config["use_td"],
+            bc_coef=config["bc_coef"],
             use_wandb=config["use_wandb"],
         )
     else:

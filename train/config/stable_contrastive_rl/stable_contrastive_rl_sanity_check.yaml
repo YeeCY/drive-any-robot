@@ -32,8 +32,11 @@ context_size: 5
 # discount factor
 discount: 0.99
 
-#whether to use C-Learning (TD) or Contrastive NCE (MC)
+# whether to use C-Learning (TD) or Contrastive NCE (MC)
 use_td: True
+
+# coefficient for GCBC term
+bc_coef: 0.1
 
 # number of training iterations to update target q network
 target_update_freq: 1
