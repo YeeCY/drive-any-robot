@@ -1,11 +1,6 @@
 
 import torch
 import torch.nn as nn
-from torch.distributions import (
-    Distribution,
-    Normal,
-    Independent
-)
 
 from typing import List, Dict, Optional, Tuple, Iterator
 from itertools import chain
@@ -123,7 +118,7 @@ class ContrastiveQNetwork(nn.Module):
 
     def forward(
         self, obs_img: torch.tensor, action: torch.tensor, goal_img: torch.tensor
-    ) -> torch.Tensor:
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         TODO
         """
@@ -144,7 +139,7 @@ class ContrastiveQNetwork(nn.Module):
         goal_encoding = self.goal_linear_layers(goal_encoding)
 
         # use torch.bmm to prevent numerical error
-        outer = torch.einsum('ik,jk->ij', obs_a_encoding, goal_encoding)
+        # outer = torch.einsum('ik,jk->ij', obs_a_encoding, goal_encoding)
         # outer = torch.bmm(obs_a_encoding.unsqueeze(0), goal_encoding.permute(1, 0).unsqueeze(0))[0]
 
         if self.twin_q:
@@ -153,11 +148,14 @@ class ContrastiveQNetwork(nn.Module):
                 torch.cat([obs_encoding2, action], dim=-1))
             goal_encoding2 = self.goal_linear_layers2(goal_encoding2)
 
-            outer2 = torch.einsum('ik,jk->ij', obs_a_encoding2, goal_encoding2)
+            # outer2 = torch.einsum('ik,jk->ij', obs_a_encoding2, goal_encoding2)
             # outer2 = torch.bmm(obs_a_encoding2.unsqueeze(0), goal_encoding2.permute(1, 0).unsqueeze(0))[0]
-            outer = torch.stack([outer, outer2], dim=-1)
+            # outer = torch.stack([outer, outer2], dim=-1)
 
-        return outer
+            obs_a_encoding = torch.stack([obs_a_encoding, obs_a_encoding2], dim=-1)
+            goal_encoding = torch.stack([goal_encoding, goal_encoding2], dim=-1)
+
+        return obs_a_encoding, goal_encoding
 
 
 class ContrastivePolicy(nn.Module):
@@ -194,7 +192,7 @@ class ContrastivePolicy(nn.Module):
 
     def forward(
         self, obs_img: torch.tensor, goal_img: torch.tensor, detach_img_encode: bool = True,
-    ) -> Distribution:
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         obs_encoding, goal_encoding = self.img_encoder(obs_img, goal_img)
 
         if detach_img_encode:
@@ -210,10 +208,7 @@ class ContrastivePolicy(nn.Module):
                 self.max_log_std - self.min_log_std)
         std = torch.exp(log_std)
 
-        dist = Independent(Normal(mu, std, validate_args=False),
-                           reinterpreted_batch_ndims=1)
-
-        return dist
+        return mu, std
 
     def parameters(self, recurse: bool = True) -> Iterator[nn.Parameter]:
         for name, param in chain(self.linear_layers.named_parameters(recurse=recurse),

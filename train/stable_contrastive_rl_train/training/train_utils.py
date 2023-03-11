@@ -14,6 +14,10 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 # from torch.optim import Adam
 from torch.optim import Optimizer
+from torch.distributions import (
+    Normal,
+    Independent
+)
 
 
 def train_eval_rl_loop(
@@ -285,7 +289,7 @@ def train(
 
         # preds = model.policy_network(obs_data, goal_data).mean
         # action_data are not used here
-        _, preds = model(obs_data, action_data, goal_data).mean
+        _, _, _, _, preds, _ = model(obs_data, action_data, goal_data)
 
         # The action of policy is different from the action here (waypoints).
         action_pred = preds[:, :-1]
@@ -510,7 +514,7 @@ def evaluate(
 
             # preds = model.policy_network(obs_data, goal_data).mean
             # action_data are not used here
-            _, preds = model(obs_data, action_data, goal_data).mean
+            _, _, _, _, preds, _ = model(obs_data, action_data, goal_data)
 
             # The action of policy is different from the action here (waypoints).
             action_pred = preds[:, :-1]
@@ -650,8 +654,8 @@ def pairwise_acc(
             # close_pred = model.policy_network(transf_obs_image, transf_close_image).mean
             # far_pred = model.policy_network(transf_obs_image, transf_far_image).mean
             dummy_action = torch.zeros([transf_obs_image.shape[0], model.action_size], device=transf_obs_image.device)
-            _, close_pred = model(transf_obs_image, dummy_action, transf_close_image).mean
-            _, far_pred = model(transf_obs_image, dummy_action, transf_far_image).mean
+            _, _, _, _, close_pred, _ = model(transf_obs_image, dummy_action, transf_close_image)
+            _, _, _, _, far_pred, _ = model(transf_obs_image, dummy_action, transf_far_image)
             close_dist_pred, far_dist_pred = close_pred[:, -1], far_pred[:, -1]
 
             close_pred_flat = close_dist_pred.reshape(close_dist_pred.shape[0])
@@ -693,7 +697,8 @@ def get_critic_loss(model, obs, next_obs, action, goal, discount, use_td=False):
 
     I = torch.eye(batch_size, device=obs.device)
     # logits = model.q_network(obs, action, goal)
-    logits, _ = model(obs, action, goal)
+    obs_a_repr, g_repr, _, _, _, _ = model(obs, action, goal)
+    logits = torch.einsum('ikl,jkl->ijl', obs_a_repr, g_repr)
 
     if use_td:
         # Make sure to use the twin Q trick.
@@ -706,11 +711,14 @@ def get_critic_loss(model, obs, next_obs, action, goal, discount, use_td=False):
 
         # next_dist = model.policy_network(next_obs, random_goal)
         # action was not used here
-        _, next_dist = model(next_obs, action, random_goal)
+        _, _, _, _, next_mean, next_std = model(next_obs, action, random_goal)
+        next_dist = Independent(Normal(next_mean, next_std, validate_args=False),
+                                reinterpreted_batch_ndims=1)
         next_action = next_dist.rsample()
 
-        next_q = model.target_q_network(
+        _, _, next_obs_a_repr, random_g_repr, _, _ = model(
             next_obs, next_action, random_goal)
+        next_q = torch.einsum('ikl,jkl->ijl', next_obs_a_repr, random_g_repr)
 
         next_q = torch.sigmoid(next_q)
         next_v = torch.min(next_q, dim=-1)[0].detach()
@@ -747,12 +755,15 @@ def get_actor_loss(model, obs, goal):
 
     dummy_actions = torch.zeros([obs.shape[0], model.action_size], device=obs.device)
     # _, dist = model.policy_network(obs, dummy_actions, goal)
-    _, dist = model(obs, dummy_actions, goal)
+    _, _, _, _, mean, std = model(obs, dummy_actions, goal)
+    dist = Independent(Normal(mean, std, validate_args=False),
+                       reinterpreted_batch_ndims=1)
     sampled_action = dist.rsample()
     log_prob = dist.log_prob(sampled_action)
 
     # q_action = model.q_network(obs, sampled_action, goal)
-    q_action, _ = model(obs, sampled_action, goal)
+    obs_a_repr, g_repr, _, _, _, _ = model(obs, sampled_action, goal)
+    q_action = torch.einsum('ikl,jkl->ijl', obs_a_repr, g_repr)
 
     if len(q_action.shape) == 3:  # twin q trick
         assert q_action.shape[2] == 2

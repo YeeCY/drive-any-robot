@@ -4,8 +4,8 @@ run_name: stable_contrastive_rl_debug
 # training setup
 use_wandb: True # set to false if you don't want to log to wandb
 train: rl
-batch_size: 400
-eval_batch_size: 400
+batch_size: 200
+eval_batch_size: 200
 epochs: 10
 gpu_ids: [0, 1, 2, 3] # list of gpu ids to use
 num_workers: 0
