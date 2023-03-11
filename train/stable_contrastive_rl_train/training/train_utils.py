@@ -710,10 +710,10 @@ def get_critic_loss(model, obs, next_obs, action, goal, discount, use_td=False):
     obs_a_repr, g_repr, _, _, _, _ = model(obs, action, goal)
     logits = torch.einsum('ikl,jkl->ijl', obs_a_repr, g_repr)
 
-    if use_td:
-        # Make sure to use the twin Q trick.
-        assert len(logits.shape) == 3
+    # Make sure to use the twin Q trick.
+    assert len(logits.shape) == 3
 
+    if use_td:
         goal_indices = torch.roll(
             torch.arange(batch_size, dtype=torch.int64), -1)
 
@@ -753,7 +753,14 @@ def get_critic_loss(model, obs, next_obs, action, goal, discount, use_td=False):
         critic_loss = torch.mean(critic_loss)
     else:
         # TODO
-        raise NotImplementedError
+        # raise NotImplementedError
+        # qf_loss = self.qf_criterion(
+        #     logits, I.unsqueeze(-1).repeat(1, 1, 2)).mean(-1)
+
+        critic_loss = bce_with_logits_loss(
+            logits, I.unsqueeze(-1).repeat(1, 1, 2)).mean(-1)
+
+        critic_loss = torch.mean(critic_loss)
 
     return critic_loss
 
