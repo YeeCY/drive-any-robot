@@ -265,12 +265,68 @@ def train(
         next_obs_data = trans_next_obs_image.to(device)
         goal_data = trans_goal_image.to(device)
         action_label = action_label.to(device)
+
+        # DEBUG: normalize waypoints to be within [-1, 1].
+        #   We want to check whether this cause gradient explosion of actor.
+        action_label = (action_label - action_label.min(dim=0, keepdim=True)[0]) / \
+                       (action_label.max(dim=0, keepdim=True)[0] - action_label.min(dim=0, keepdim=True)[0])
+        dist_label = (dist_label - dist_label.min(dim=0, keepdim=True)[0]) / \
+                     (dist_label.max(dim=0, keepdim=True)[0] - dist_label.min(dim=0, keepdim=True)[0])
+
         dist_label = dist_label.to(device)
         action_data = torch.cat([
             action_label.reshape([action_label.shape[0], -1]),
             dist_label],
             dim=-1
         )
+
+        # DEBUG: try to plot the distribution of waypoints and distances
+        # import matplotlib.pyplot as plt
+        #
+        # fig, axes = plt.subplots(5, 4)
+        # fig.set_figheight(5 * 4)
+        # fig.set_figwidth(4 * 4)
+        # for waypoint_idx in range(action_label.shape[1]):
+        #     action_label_x = action_label[:, waypoint_idx, 0]
+        #     action_label_y = action_label[:, waypoint_idx, 1]
+        #     action_label_cos = action_label[:, waypoint_idx, 2]
+        #     action_label_sin = action_label[:, waypoint_idx, 3]
+        #
+        #     action_label_x = to_numpy(action_label_x)
+        #     action_label_y = to_numpy(action_label_y)
+        #     action_label_cos = to_numpy(action_label_cos)
+        #     action_label_sin = to_numpy(action_label_sin)
+        #
+        #     axes[waypoint_idx, 0].hist(action_label_x)
+        #     axes[waypoint_idx, 1].hist(action_label_y)
+        #     axes[waypoint_idx, 2].hist(action_label_cos)  # cos yaw
+        #     axes[waypoint_idx, 3].hist(action_label_sin)  # sin yaw
+        #
+        #     axes[waypoint_idx, 0].set_ylabel("dx")
+        #     axes[waypoint_idx, 1].set_ylabel("dy")
+        #     axes[waypoint_idx, 2].set_ylabel(r"$cos \theta$")
+        #     axes[waypoint_idx, 3].set_ylabel(r"$sin \theta$")
+        #
+        #     axes[waypoint_idx, 0].set_title("waypoint {}".format(waypoint_idx))
+        #     axes[waypoint_idx, 1].set_title("waypoint {}".format(waypoint_idx))
+        #     axes[waypoint_idx, 2].set_title("waypoint {}".format(waypoint_idx))
+        #     axes[waypoint_idx, 3].set_title("waypoint {}".format(waypoint_idx))
+        #
+        # fig.tight_layout()
+        # plt.savefig("debug/waypoint_histogram.pdf")
+        #
+        # fig, ax = plt.subplots(1, 1)
+        # fig.set_figheight(1 * 4)
+        # fig.set_figwidth(1 * 4)
+        #
+        # dist_label = to_numpy(dist_label)
+        # ax.hist(dist_label)
+        # ax.set_ylabel("distance to goal")
+        #
+        # fig.tight_layout()
+        # plt.savefig("debug/dist_histogram.pdf")
+        #
+        # exit()
 
         optimizer["critic_optimizer"].zero_grad()
         optimizer["actor_optimizer"].zero_grad()
