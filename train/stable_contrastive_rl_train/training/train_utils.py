@@ -122,9 +122,12 @@ def train_eval_rl_loop(
             eval_actor_losses.append(test_actor_loss)
             # wandb.log({f"{dataset_type}_total_loss": total_eval_loss})
             # print(f"{dataset_type}_total_loss: {total_eval_loss}")
-            wandb.log({f"{dataset_type}_critic_loss": test_critic_loss})
+
+            if use_wandb:
+                wandb.log({f"{dataset_type}_critic_loss": test_critic_loss})
+                wandb.log({f"{dataset_type}_actor_loss": test_actor_loss})
+
             print(f"{dataset_type}_critic_loss: {test_critic_loss}")
-            wandb.log({f"{dataset_type}_actor_loss": test_actor_loss})
             print(f"{dataset_type}_actor_loss: {test_actor_loss}")
 
         checkpoint = {
