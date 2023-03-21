@@ -31,17 +31,16 @@ class ContrastiveImgEncoder(nn.Module):
             nn.Linear(mobilenet.last_channel, self.obs_encoding_size),
             nn.ReLU(),
         )
-
         stacked_mobilenet = MobileNetEncoder(
-            num_images=1,
+            num_images=2 + self.context_size,
             norm_layer=nn.InstanceNorm2d
         )  # stack the goal and the current observation
         self.goal_mobilenet = stacked_mobilenet.features
         self.compress_goal = nn.Sequential(
             nn.Linear(stacked_mobilenet.last_channel, 1024),
             nn.ReLU(),
-            # nn.Linear(1024, self.goal_encoding_size),
-            # nn.ReLU(),
+            nn.Linear(1024, self.goal_encoding_size),
+            nn.ReLU(),
         )
 
     def flatten(self, z: torch.Tensor) -> torch.Tensor:
@@ -59,8 +58,8 @@ class ContrastiveImgEncoder(nn.Module):
         obs_encoding = self.flatten(obs_encoding)
         obs_encoding = self.compress_observation(obs_encoding)
 
-        # obs_goal_input = torch.cat([obs_img, goal_img], dim=1)
-        goal_encoding = self.goal_mobilenet(goal_img)
+        obs_goal_input = torch.cat([obs_img, goal_img], dim=1)
+        goal_encoding = self.goal_mobilenet(obs_goal_input)
         goal_encoding = self.flatten(goal_encoding)
         goal_encoding = self.compress_goal(goal_encoding)
 
@@ -78,44 +77,34 @@ class ContrastiveQNetwork(nn.Module):
         TODO
         """
         super(ContrastiveQNetwork, self).__init__()
-        # self.context_size = context_size
-        # self.learn_angle = learn_angle
-        # self.len_trajectory_pred = len_traj_pred
-        # if self.learn_angle:
-        #     self.num_action_params = 4  # last two dims are the cos and sin of the angle
-        # else:
-        #     self.num_action_params = 2
 
         self.img_encoder = img_encoder
-        # self.context_size = context_size
         self.action_size = action_size
-        # self.obs_encoding_size = obs_encoding_size
-        # self.goal_encoding_size = goal_encoding_size
         self.twin_q = twin_q
 
         self.obs_a_linear_layers = nn.Sequential(
             nn.Linear(self.img_encoder.obs_encoding_size + self.action_size, 256),
             nn.ReLU(),
-            nn.Linear(256, 32)
+            nn.Linear(256, 16)
         )
 
         self.goal_linear_layers = nn.Sequential(
             nn.Linear(self.img_encoder.goal_encoding_size, 256),
             nn.ReLU(),
-            nn.Linear(256, 32),
+            nn.Linear(256, 16),
         )
 
         if self.twin_q:
             self.obs_a_linear_layers2 = nn.Sequential(
                 nn.Linear(self.img_encoder.obs_encoding_size + self.action_size, 256),
                 nn.ReLU(),
-                nn.Linear(256, 32)
+                nn.Linear(256, 16)
             )
 
             self.goal_linear_layers2 = nn.Sequential(
                 nn.Linear(self.img_encoder.goal_encoding_size, 256),
                 nn.ReLU(),
-                nn.Linear(256, 32),
+                nn.Linear(256, 16),
             )
 
     def forward(
@@ -124,17 +113,6 @@ class ContrastiveQNetwork(nn.Module):
         """
         TODO
         """
-        # obs_encoding = self.obs_mobilenet(obs_img)
-        # obs_encoding = self.flatten(obs_encoding)
-        # obs_encoding = self.compress_observation(obs_encoding)
-        # obs_a_encoding = self.obs_a_linear_layers(
-        #     torch.cat([obs_encoding, action], dim=-1))
-        #
-        # obs_goal_input = torch.cat([obs_img, goal_img], dim=1)
-        # goal_encoding = self.goal_mobilenet(obs_goal_input)
-        # goal_encoding = self.flatten(goal_encoding)
-        # goal_encoding = self.compress_goal(goal_encoding)
-        # goal_encoding = self.goal_linear_layers(goal_encoding)
         obs_encoding, goal_encoding = self.img_encoder(obs_img, goal_img)
         obs_a_encoding = self.obs_a_linear_layers(
             torch.cat([obs_encoding, action], dim=-1))
@@ -159,52 +137,6 @@ class ContrastiveQNetwork(nn.Module):
 
         return obs_a_encoding, goal_encoding
 
-    # def parameters(self, recurse: bool = True) -> Iterator[nn.Parameter]:
-    #     if self.twin_q:
-    #         chain_named_parameters = chain(
-    #             self.obs_a_linear_layers.named_parameters(recurse=recurse),
-    #             self.goal_linear_layers.named_parameters(recurse=recurse),
-    #             self.obs_a_linear_layers2.named_parameters(recurse=recurse),
-    #             self.goal_linear_layers2.named_parameters(recurse=recurse)
-    #         )
-    #     else:
-    #         chain_named_parameters = chain(
-    #             self.obs_a_linear_layers.named_parameters(recurse=recurse),
-    #             self.goal_linear_layers.named_parameters(recurse=recurse),
-    #         )
-    #
-    #     for name, param in chain_named_parameters:
-    #         yield param
-    #
-    # def named_parameters(self, prefix: str = '', recurse: bool = True) -> Iterator[Tuple[str, nn.Parameter]]:
-    #     if self.twin_q:
-    #         gen = chain(
-    #             self.obs_a_linear_layers._named_members(
-    #                 lambda module: module._parameters.items(),
-    #                 prefix=prefix, recurse=recurse),
-    #             self.goal_linear_layers._named_members(
-    #                 lambda module: module._parameters.items(),
-    #                 prefix=prefix, recurse=recurse),
-    #             self.obs_a_linear_layers2._named_members(
-    #                 lambda module: module._parameters.items(),
-    #                 prefix=prefix, recurse=recurse),
-    #             self.goal_linear_layers2._named_members(
-    #                 lambda module: module._parameters.items(),
-    #                 prefix=prefix, recurse=recurse),
-    #         )
-    #     else:
-    #         gen = chain(
-    #             self.obs_a_linear_layers._named_members(
-    #                 lambda module: module._parameters.items(),
-    #                 prefix=prefix, recurse=recurse),
-    #             self.goal_linear_layers._named_members(
-    #                 lambda module: module._parameters.items(),
-    #                 prefix=prefix, recurse=recurse),
-    #         )
-    #
-    #     for elem in gen:
-    #         yield elem
-
 
 class ContrastivePolicy(nn.Module):
     def __init__(
@@ -224,6 +156,7 @@ class ContrastivePolicy(nn.Module):
         self.action_size = action_size
         self.min_log_std = min_log_std
         self.max_log_std = max_log_std
+        # self.min_std = min_std
 
         self.linear_layers = nn.Sequential(
             nn.Linear(self.img_encoder.obs_encoding_size + self.img_encoder.goal_encoding_size, 256),
@@ -235,7 +168,8 @@ class ContrastivePolicy(nn.Module):
             nn.Linear(32, self.action_size),
         )
         self.log_std_layers = nn.Sequential(
-            nn.Linear(32, self.action_size)
+            nn.Linear(32, self.action_size),
+            nn.Sigmoid()
         )
 
     def forward(

@@ -40,6 +40,7 @@ def train_eval_rl_loop(
     discount: float = 0.99,
     use_td: bool = True,
     bc_coef: float = 0.05,
+    stop_grad_actor_img_encoder: bool = True,
     learn_angle: bool = True,
     use_wandb: bool = True,
 ):
@@ -70,7 +71,7 @@ def train_eval_rl_loop(
 
     for epoch in range(current_epoch, current_epoch + epochs):
         print(
-            f"Start GNM Training Epoch {epoch}/{current_epoch + epochs - 1}"
+            f"Start Stable Contrastive RL Training Epoch {epoch}/{current_epoch + epochs - 1}"
         )
         train(
             model,
@@ -84,6 +85,7 @@ def train_eval_rl_loop(
             discount,
             use_td,
             bc_coef,
+            stop_grad_actor_img_encoder,
             learn_angle,
             print_log_freq,
             image_log_freq,
@@ -95,7 +97,7 @@ def train_eval_rl_loop(
         eval_critic_losses, eval_actor_losses = [], []
         for dataset_type in test_dataloaders:
             print(
-                f"Start {dataset_type} GNM Testing Epoch {epoch}/{current_epoch + epochs - 1}"
+                f"Start {dataset_type} Stable Contrastive RL Testing Epoch {epoch}/{current_epoch + epochs - 1}"
             )
             rl_loader = test_dataloaders[dataset_type]["rl"]
             test_critic_loss, test_actor_loss = evaluate(
@@ -159,7 +161,10 @@ def train_eval_rl_loop(
                         num_images_log,
                         use_wandb=use_wandb,
                     )
-                    wandb.log({f"{dataset_type}_pairwise_acc": pairwise_accuracy})
+
+                    if use_wandb:
+                        wandb.log({f"{dataset_type}_pairwise_acc": pairwise_accuracy})
+
                     print(f"{dataset_type}_pairwise_acc: {pairwise_accuracy}")
     print()
 
@@ -176,6 +181,7 @@ def train(
     discount: float = 0.99,
     use_td: bool = True,
     bc_coef: float = 0.05,
+    stop_grad_actor_img_encoder: bool = True,
     learn_angle: bool = True,
     print_log_freq: int = 100,
     image_log_freq: int = 1000,
@@ -193,6 +199,8 @@ def train(
         project_folder: folder to save images to
         epoch: current epoch
         use_td: whether to use C-Learning (TD) or Contrastive NCE (MC)
+        bc_coef: behavioral cloning regularization coefficient.
+        stop_grad_actor_img_encoder: whether to stop gradients from actor loss to policy image encoder
         learn_angle: whether to learn the angle of the action
         print_log_freq: how often to print loss
         image_log_freq: how often to log images
@@ -202,6 +210,8 @@ def train(
     model.train()
     critic_loss_logger = Logger("critic_loss", "train", window_size=print_log_freq)
     actor_loss_logger = Logger("actor_loss", "train", window_size=print_log_freq)
+    actor_q_loss_logger = Logger("actor_q_loss", "train", window_size=print_log_freq)
+    gcbc_loss_logger = Logger("gcbc_loss", "train", window_size=print_log_freq)
     action_waypts_cos_sim_logger = Logger(
         "action_waypts_cos_sim", "train", window_size=print_log_freq
     )
@@ -212,6 +222,8 @@ def train(
     variables = [
         critic_loss_logger,
         actor_loss_logger,
+        actor_q_loss_logger,
+        gcbc_loss_logger,
         action_waypts_cos_sim_logger,
         multi_action_waypts_cos_sim_logger,
     ]
@@ -271,10 +283,11 @@ def train(
 
         # DEBUG: normalize waypoints to be within [-1, 1].
         #   We want to check whether this cause gradient explosion of actor.
-        action_label = (action_label - action_label.min(dim=0, keepdim=True)[0]) / \
-                       (action_label.max(dim=0, keepdim=True)[0] - action_label.min(dim=0, keepdim=True)[0])
-        dist_label = (dist_label - dist_label.min(dim=0, keepdim=True)[0]) / \
-                     (dist_label.max(dim=0, keepdim=True)[0] - dist_label.min(dim=0, keepdim=True)[0])
+        #   It seems this is not the source of bug.
+        # action_label = (action_label - action_label.min(dim=0, keepdim=True)[0]) / \
+        #                (action_label.max(dim=0, keepdim=True)[0] - action_label.min(dim=0, keepdim=True)[0])
+        # dist_label = (dist_label - dist_label.min(dim=0, keepdim=True)[0]) / \
+        #              (dist_label.max(dim=0, keepdim=True)[0] - dist_label.min(dim=0, keepdim=True)[0])
 
         dist_label = dist_label.to(device)
         action_data = torch.cat([
@@ -331,8 +344,8 @@ def train(
         #
         # exit()
 
-        optimizer["critic_optimizer"].zero_grad()
-        optimizer["actor_optimizer"].zero_grad()
+        # optimizer["critic_optimizer"].zero_grad()
+        # optimizer["actor_optimizer"].zero_grad()
 
         # dist_pred, _ = model(dist_obs_data, dist_goal_data)
         # dist_loss = F.mse_loss(dist_pred, dist_label)
@@ -348,9 +361,9 @@ def train(
             model, obs_data, next_obs_data, action_data, goal_data,
             discount, use_td=use_td)
 
-        actor_loss = get_actor_loss(
+        actor_loss, actor_q_loss, gcbc_loss = get_actor_loss(
             model, obs_data, action_data, goal_data,
-            bc_coef=bc_coef)
+            bc_coef=bc_coef, stop_grad_actor_img_encoder=stop_grad_actor_img_encoder)
 
         # preds = model.policy_network(obs_data, goal_data).mean
         # action_data are not used here
@@ -387,11 +400,13 @@ def train(
         # prevent NAN via gradient clipping
         # total_loss.backward()
         # optimizer.step()
+        optimizer["actor_optimizer"].zero_grad()
         actor_loss.backward()
         # torch.nn.utils.clip_grad_norm(
         #     model.policy_network.parameters(), 1.0)
         optimizer["actor_optimizer"].step()
 
+        optimizer["critic_optimizer"].zero_grad()
         critic_loss.backward()
         # torch.nn.utils.clip_grad_norm(
         #     model.q_network.parameters(), 1.0)
@@ -402,6 +417,8 @@ def train(
 
         critic_loss_logger.log_data(critic_loss.item())
         actor_loss_logger.log_data(actor_loss.item())
+        actor_q_loss_logger.log_data(actor_q_loss.item())
+        gcbc_loss_logger.log_data(gcbc_loss.item())
         action_waypts_cos_sim_logger.log_data(action_waypts_cos_similairity.item())
         multi_action_waypts_cos_sim_logger.log_data(multi_action_waypts_cos_sim.item())
 
@@ -484,6 +501,8 @@ def evaluate(
     model.eval()
     critic_loss_logger = Logger("critic_loss", eval_type, window_size=print_log_freq)
     actor_loss_logger = Logger("actor_loss", eval_type, window_size=print_log_freq)
+    actor_q_loss_logger = Logger("actor_q_loss", eval_type, window_size=print_log_freq)
+    gcbc_loss_logger = Logger("gcbc_loss", eval_type, window_size=print_log_freq)
     action_waypts_cos_sim_logger = Logger(
         "action_waypts_cos_sim", eval_type, window_size=print_log_freq
     )
@@ -498,6 +517,8 @@ def evaluate(
     variables = [
         critic_loss_logger,
         actor_loss_logger,
+        actor_q_loss_logger,
+        gcbc_loss_logger,
         action_waypts_cos_sim_logger,
         multi_action_waypts_cos_sim_logger,
         # total_loss_logger,
@@ -577,7 +598,7 @@ def evaluate(
                 model, obs_data, next_obs_data, action_data, goal_data,
                 discount, use_td=use_td)
 
-            actor_loss = get_actor_loss(
+            actor_loss, actor_q_loss, gcbc_loss = get_actor_loss(
                 model, obs_data, action_data, goal_data,
                 bc_coef=bc_coef)
 
@@ -620,6 +641,8 @@ def evaluate(
 
             critic_loss_logger.log_data(critic_loss.item())
             actor_loss_logger.log_data(actor_loss.item())
+            actor_q_loss_logger.log_data(actor_q_loss.item())
+            gcbc_loss_logger.log_data(gcbc_loss.item())
             action_waypts_cos_sim_logger.log_data(action_waypts_cos_sim.item())
             multi_action_waypts_cos_sim_logger.log_data(
                 multi_action_waypts_cos_sim.item()
@@ -824,7 +847,8 @@ def get_critic_loss(model, obs, next_obs, action, goal, discount, use_td=False):
     return critic_loss
 
 
-def get_actor_loss(model, obs, orig_action, goal, bc_coef=0.05):
+def get_actor_loss(model, obs, orig_action, goal, bc_coef=0.05,
+                   stop_grad_actor_img_encoder=True):
     """
     We might need to add alpha and GCBC term.
     """
@@ -832,7 +856,8 @@ def get_actor_loss(model, obs, orig_action, goal, bc_coef=0.05):
     # dummy_actions = torch.zeros([obs.shape[0], model.action_size], device=obs.device)
     # _, dist = model.policy_network(obs, dummy_actions, goal)
     # orig_action is not used here
-    _, _, _, _, mean, std = model(obs, orig_action, goal)
+    _, _, _, _, mean, std = model(
+        obs, orig_action, goal, stop_grad_actor_img_encoder=stop_grad_actor_img_encoder)
     dist = Independent(Normal(mean, std, validate_args=False),
                        reinterpreted_batch_ndims=1)
     sampled_action = dist.rsample()
@@ -855,8 +880,14 @@ def get_actor_loss(model, obs, orig_action, goal, bc_coef=0.05):
     actor_loss = bc_coef * gcbc_loss + (1 - bc_coef) * actor_q_loss
 
     actor_loss = torch.mean(actor_loss)
+    actor_q_loss = torch.mean(actor_q_loss)
+    gcbc_loss = torch.mean(gcbc_loss)
 
-    return actor_loss
+    # actor_loss = torch.mean(torch.zeros_like(actor_loss))
+    # actor_q_loss = torch.mean(torch.zeros_like(actor_q_loss))
+    # gcbc_loss = torch.mean(torch.zeros_like(gcbc_loss))
+
+    return actor_loss, actor_q_loss, gcbc_loss
 
 
 def load_model(model, checkpoint: dict) -> None:

@@ -32,23 +32,23 @@ context_size: 5
 # discount factor
 discount: 0.99
 
-#whether to use C-Learning (TD) or Contrastive NCE (MC)
+# whether to use C-Learning (TD) or Contrastive NCE (MC)
 use_td: True
+
+# coefficient for GCBC term
+bc_coef: 0.05
+
+# whether to stop gradients from actor loss to policy image encoder
+stop_grad_actor_img_encoder: True
 
 # number of training iterations to update target q network
 target_update_freq: 1
 
 # distance bounds for distance and action and distance predictions
-distance:
-  min_dist_cat: 0
-  max_dist_cat: 20
-action:
-  min_dist_cat: 2
-  max_dist_cat: 10
 rl:
-  min_dist_cat: 2
-  max_dist_cat: 10
-close_far_threshold: 10 # distance threshold used to seperate the close and the far  subgoals that are sampled per datapoint
+  min_dist_cat: 1
+  max_dist_cat: 20
+close_far_threshold: 10 # distance threshold used to seperate the close and the far subgoals that are sampled per datapoint
 
 # action output params
 len_traj_pred: 5

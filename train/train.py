@@ -80,7 +80,7 @@ def main(config):
         config["context_type"] = "temporal"
 
     if config["model_type"] == "stable_contrastive_rl":
-        output_types = ["action", "distance", "rl", "pairwise"]
+        output_types = ["rl", "pairwise"]
     else:
         output_types = ["action", "distance", "pairwise"]
 
@@ -107,8 +107,8 @@ def main(config):
                             transform=transform,
                             aspect_ratio=aspect_ratio,
                             waypoint_spacing=data_config["waypoint_spacing"],
-                            min_dist_cat=config["distance"]["min_dist_cat"],
-                            max_dist_cat=config["distance"]["max_dist_cat"],
+                            min_dist_cat=config.get("rl", config["distance"])["min_dist_cat"],
+                            max_dist_cat=config.get("rl", config["distance"])["max_dist_cat"],
                             close_far_threshold=config["close_far_threshold"],
                             negative_mining=data_config["negative_mining"],
                             context_size=config["context_size"],
@@ -172,27 +172,29 @@ def main(config):
                             test_dataloaders[dataset_type] = {}
                         test_dataloaders[dataset_type][output_type] = dataset
 
-    # combine all the datasets from different robots
-    train_dist_dataset = ConcatDataset(train_dist_dataset)
-    train_action_dataset = ConcatDataset(train_action_dataset)
+    # combine all the datasets from different robots and create dataloaders
+    train_dist_loader = train_action_loader = train_rl_loader = None
+
+    if len(train_dist_dataset) > 0:
+        train_dist_dataset = ConcatDataset(train_dist_dataset)
+        train_dist_loader = DataLoader(
+            train_dist_dataset,
+            batch_size=config["batch_size"],
+            shuffle=True,
+            num_workers=config["num_workers"],
+            drop_last=True,
+        )
+    if len(train_action_dataset) > 0:
+        train_action_dataset = ConcatDataset(train_action_dataset)
+        train_action_loader = DataLoader(
+            train_action_dataset,
+            batch_size=config["batch_size"],
+            shuffle=True,
+            num_workers=config["num_workers"],
+            drop_last=True,
+        )
     if len(train_rl_dataset) > 0:
         train_rl_dataset = ConcatDataset(train_rl_dataset)
-
-    train_dist_loader = DataLoader(
-        train_dist_dataset,
-        batch_size=config["batch_size"],
-        shuffle=True,
-        num_workers=config["num_workers"],
-        drop_last=True,
-    )
-    train_action_loader = DataLoader(
-        train_action_dataset,
-        batch_size=config["batch_size"],
-        shuffle=True,
-        num_workers=config["num_workers"],
-        drop_last=True,
-    )
-    if len(train_rl_dataset) > 0:
         train_rl_loader = DataLoader(
             train_rl_dataset,
             batch_size=config["batch_size"],
@@ -309,6 +311,9 @@ def main(config):
         except AssertionError:
             assert type(model.module) != StableContrastiveRL
 
+        assert train_dist_loader is not None
+        assert train_action_loader is not None
+
         train_eval_loop(
             model=model,
             optimizer=optimizer,
@@ -334,6 +339,8 @@ def main(config):
         except AssertionError:
             assert type(model.module) == StableContrastiveRL
 
+        assert train_rl_loader is not None
+
         train_eval_rl_loop(
             model=model,
             optimizer=optimizer,
@@ -356,6 +363,7 @@ def main(config):
             discount=config["discount"],
             use_td=config["use_td"],
             bc_coef=config["bc_coef"],
+            stop_grad_actor_img_encoder=config["stop_grad_actor_img_encoder"],
             use_wandb=config["use_wandb"],
         )
     else:

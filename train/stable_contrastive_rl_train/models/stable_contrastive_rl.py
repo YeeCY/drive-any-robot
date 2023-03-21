@@ -95,6 +95,11 @@ class StableContrastiveRL(BaseRLModel):
             self.obs_encoding_size,
             self.goal_encoding_size
         )
+        self.target_img_encoder = ContrastiveImgEncoder(
+            self.context_size,
+            self.obs_encoding_size,
+            self.goal_encoding_size
+        )
         # self.policy_image_encoder = ContrastiveImgEncoder(
         #     self.context_size,
         #     self.obs_encoding_size,
@@ -104,7 +109,7 @@ class StableContrastiveRL(BaseRLModel):
         self.q_network = ContrastiveQNetwork(
             self.img_encoder, self.action_size, self.twin_q)
         self.target_q_network = ContrastiveQNetwork(
-            self.img_encoder, self.action_size, self.twin_q)
+            self.target_img_encoder, self.action_size, self.twin_q)
 
         self.policy_network = ContrastivePolicy(
             self.img_encoder, self.action_size, self.min_log_std, self.max_log_std)
@@ -170,7 +175,8 @@ class StableContrastiveRL(BaseRLModel):
     #     # return dist_pred, action_pred
 
     def forward(
-        self, obs_img: torch.tensor, action: torch.tensor, goal_img: torch.tensor
+        self, obs_img: torch.tensor, action: torch.tensor, goal_img: torch.tensor,
+        stop_grad_actor_img_encoder: bool = True
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Forward pass of the model
@@ -186,6 +192,7 @@ class StableContrastiveRL(BaseRLModel):
         """
         obs_a_repr, g_repr = self.q_network(obs_img, action, goal_img)
         target_obs_a_repr, target_g_repr = self.target_q_network(obs_img, action, goal_img)
-        mean, std = self.policy_network(obs_img, goal_img)
+        mean, std = self.policy_network(obs_img, goal_img,
+                                        detach_img_encode=stop_grad_actor_img_encoder)
 
         return obs_a_repr, g_repr, target_obs_a_repr, target_g_repr, mean, std
