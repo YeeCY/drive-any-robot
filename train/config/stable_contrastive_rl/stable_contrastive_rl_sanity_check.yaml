@@ -2,7 +2,7 @@ project_name: stable_contrastive_rl
 run_name: stable_contrastive_rl_debug
 
 # training setup
-use_wandb: False # set to false if you don't want to log to wandb
+use_wandb: True # set to false if you don't want to log to wandb
 train: rl
 batch_size: 16  # default = 16, full size = 207
 eval_batch_size: 16  # default = 400

@@ -874,8 +874,8 @@ def get_actor_loss(model, obs, orig_action, goal, bc_coef=0.05,
     actor_q_loss = -torch.diag(q_action)
 
     # gcbc_loss = -dist.log_prob(orig_action)
-    gcbc_loss = F.mse_loss(sampled_action[:, :model.action_size - 1], orig_action[:, :model.action_size - 1]) \
-                + 1e-2 * F.mse_loss(sampled_action[:, -1], orig_action[:, -1])
+    gcbc_loss = F.mse_loss(mean[:, :model.action_size - 1], orig_action[:, :model.action_size - 1]) \
+                + 1e-2 * F.mse_loss(mean[:, -1], orig_action[:, -1])
 
     actor_loss = bc_coef * gcbc_loss + (1 - bc_coef) * actor_q_loss
 
