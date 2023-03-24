@@ -2,7 +2,7 @@ project_name: gnm
 run_name: gnm_public
 
 # training setup
-use_wandb: True # set to false if you don't want to log to wandb
+use_wandb: False # set to false if you don't want to log to wandb
 train: supervised
 batch_size: 16  # default = 400
 eval_batch_size: 16  # default = 400
@@ -53,7 +53,7 @@ datasets:
     negative_mining: True # negative mining from the ViNG paper (Shah et al.)
 
 # logging stuff
-print_log_freq: 100 # in iterations
+print_log_freq: 1 # in iterations
 image_log_freq: 1000 # in iterations
 num_images_log: 8 # number of images to log in a logging iteration
 pairwise_test_freq: 10 # in epochs

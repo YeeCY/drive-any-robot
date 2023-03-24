@@ -36,7 +36,7 @@ discount: 0.99
 use_td: True
 
 # coefficient for GCBC term
-bc_coef: 0.05
+bc_coef: 1.0
 
 # whether to stop gradients from actor loss to policy image encoder
 stop_grad_actor_img_encoder: True
