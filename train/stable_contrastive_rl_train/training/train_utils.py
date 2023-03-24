@@ -212,6 +212,8 @@ def train(
     actor_loss_logger = Logger("actor_loss", "train", window_size=print_log_freq)
     actor_q_loss_logger = Logger("actor_q_loss", "train", window_size=print_log_freq)
     gcbc_loss_logger = Logger("gcbc_loss", "train", window_size=print_log_freq)
+    waypoint_gcbc_loss_logger = Logger("waypoint_gcbc_loss", "train", window_size=print_log_freq)
+    dist_gcbc_loss_logger = Logger("dist_gcbc_loss", "train", window_size=print_log_freq)
     action_waypts_cos_sim_logger = Logger(
         "action_waypts_cos_sim", "train", window_size=print_log_freq
     )
@@ -224,6 +226,8 @@ def train(
         actor_loss_logger,
         actor_q_loss_logger,
         gcbc_loss_logger,
+        waypoint_gcbc_loss_logger,
+        dist_gcbc_loss_logger,
         action_waypts_cos_sim_logger,
         multi_action_waypts_cos_sim_logger,
     ]
@@ -361,7 +365,7 @@ def train(
             model, obs_data, next_obs_data, action_data, goal_data,
             discount, use_td=use_td)
 
-        actor_loss, actor_q_loss, gcbc_loss = get_actor_loss(
+        actor_loss, actor_q_loss, gcbc_loss, waypoint_gcbc_loss, dist_gcbc_loss = get_actor_loss(
             model, obs_data, action_data, goal_data,
             bc_coef=bc_coef, stop_grad_actor_img_encoder=stop_grad_actor_img_encoder)
 
@@ -419,6 +423,8 @@ def train(
         actor_loss_logger.log_data(actor_loss.item())
         actor_q_loss_logger.log_data(actor_q_loss.item())
         gcbc_loss_logger.log_data(gcbc_loss.item())
+        waypoint_gcbc_loss_logger.log_data(waypoint_gcbc_loss.item())
+        dist_gcbc_loss_logger.log_data(dist_gcbc_loss.item())
         action_waypts_cos_sim_logger.log_data(action_waypts_cos_similairity.item())
         multi_action_waypts_cos_sim_logger.log_data(multi_action_waypts_cos_sim.item())
 
@@ -503,6 +509,8 @@ def evaluate(
     actor_loss_logger = Logger("actor_loss", eval_type, window_size=print_log_freq)
     actor_q_loss_logger = Logger("actor_q_loss", eval_type, window_size=print_log_freq)
     gcbc_loss_logger = Logger("gcbc_loss", eval_type, window_size=print_log_freq)
+    waypoint_gcbc_loss_logger = Logger("waypoint_gcbc_loss", eval_type, window_size=print_log_freq)
+    dist_gcbc_loss_logger = Logger("dist_gcbc_loss", eval_type, window_size=print_log_freq)
     action_waypts_cos_sim_logger = Logger(
         "action_waypts_cos_sim", eval_type, window_size=print_log_freq
     )
@@ -519,6 +527,8 @@ def evaluate(
         actor_loss_logger,
         actor_q_loss_logger,
         gcbc_loss_logger,
+        waypoint_gcbc_loss_logger,
+        dist_gcbc_loss_logger,
         action_waypts_cos_sim_logger,
         multi_action_waypts_cos_sim_logger,
         # total_loss_logger,
@@ -598,9 +608,10 @@ def evaluate(
                 model, obs_data, next_obs_data, action_data, goal_data,
                 discount, use_td=use_td)
 
-            actor_loss, actor_q_loss, gcbc_loss = get_actor_loss(
+            actor_loss, actor_q_loss, gcbc_loss, waypoint_gcbc_loss, dist_gcbc_loss = get_actor_loss(
                 model, obs_data, action_data, goal_data,
                 bc_coef=bc_coef)
+            gcbc_loss = 0.5 * (1e-3 * dist_gcbc_loss) + 0.5 * waypoint_gcbc_loss
 
             # preds = model.policy_network(obs_data, goal_data).mean
             # action_data are not used here
@@ -643,6 +654,8 @@ def evaluate(
             actor_loss_logger.log_data(actor_loss.item())
             actor_q_loss_logger.log_data(actor_q_loss.item())
             gcbc_loss_logger.log_data(gcbc_loss.item())
+            waypoint_gcbc_loss_logger.log_data(waypoint_gcbc_loss.item())
+            dist_gcbc_loss_logger.log_data(dist_gcbc_loss.item())
             action_waypts_cos_sim_logger.log_data(action_waypts_cos_sim.item())
             multi_action_waypts_cos_sim_logger.log_data(
                 multi_action_waypts_cos_sim.item()
@@ -874,20 +887,25 @@ def get_actor_loss(model, obs, orig_action, goal, bc_coef=0.05,
     actor_q_loss = -torch.diag(q_action)
 
     # gcbc_loss = -dist.log_prob(orig_action)
-    gcbc_loss = F.mse_loss(mean[:, :model.action_size - 1], orig_action[:, :model.action_size - 1]) \
-                + 1e-2 * F.mse_loss(mean[:, -1], orig_action[:, -1])
+    # gcbc_loss = F.mse_loss(mean[:, :model.action_size - 1], orig_action[:, :model.action_size - 1]) \
+    #             + 1e-2 * F.mse_loss(mean[:, -1], orig_action[:, -1])
+    waypoint_gcbc_loss = F.mse_loss(mean[:, :model.action_size - 1], orig_action[:, :model.action_size - 1])
+    dist_gcbc_loss = F.mse_loss(mean[:, -1], orig_action[:, -1])
+    gcbc_loss = 0.5 * (1e-2 * dist_gcbc_loss) + 0.5 * waypoint_gcbc_loss
 
     actor_loss = bc_coef * gcbc_loss + (1 - bc_coef) * actor_q_loss
 
     actor_loss = torch.mean(actor_loss)
     actor_q_loss = torch.mean(actor_q_loss)
     gcbc_loss = torch.mean(gcbc_loss)
+    waypoint_gcbc_loss = torch.mean(waypoint_gcbc_loss)
+    dist_gcbc_loss = torch.mean(dist_gcbc_loss)
 
     # actor_loss = torch.mean(torch.zeros_like(actor_loss))
     # actor_q_loss = torch.mean(torch.zeros_like(actor_q_loss))
     # gcbc_loss = torch.mean(torch.zeros_like(gcbc_loss))
 
-    return actor_loss, actor_q_loss, gcbc_loss
+    return actor_loss, actor_q_loss, gcbc_loss, waypoint_gcbc_loss, dist_gcbc_loss
 
 
 def load_model(model, checkpoint: dict) -> None:

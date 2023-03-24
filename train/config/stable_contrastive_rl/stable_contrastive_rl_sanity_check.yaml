@@ -6,7 +6,7 @@ use_wandb: True # set to false if you don't want to log to wandb
 train: rl
 batch_size: 16  # default = 16, full size = 207
 eval_batch_size: 16  # default = 400
-epochs: 30
+epochs: 60
 gpu_ids: [1] # list of gpu ids to use
 num_workers: 0
 lr: 5e-4
@@ -70,4 +70,4 @@ datasets:
 print_log_freq: 1 # in iterations
 image_log_freq: 1000 # in iterations
 num_images_log: 8 # number of images to log in a logging iteration
-pairwise_test_freq: 2 # in epochs
+pairwise_test_freq: 10 # in epochs
