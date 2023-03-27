@@ -197,10 +197,11 @@ class ContrastivePolicy(nn.Module):
         )
 
     def forward(
-        self, obs_img: torch.tensor, goal_img: torch.tensor, detach_img_encode: bool = True,
+        self, obs_img: torch.tensor, goal_img: torch.tensor, detach_img_encode: bool = False,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         obs_encoding, goal_encoding = self.img_encoder(obs_img, goal_img)
 
+        # DELETEME (chongyiz)
         # if detach_img_encode:
         #     obs_encoding = obs_encoding.detach()
         #     goal_encoding = goal_encoding.detach()
@@ -240,8 +241,10 @@ class ContrastivePolicy(nn.Module):
 
     # def parameters(self, recurse: bool = True) -> Iterator[nn.Parameter]:
     #     for name, param in chain(self.linear_layers.named_parameters(recurse=recurse),
-    #                              self.mu_layers.named_parameters(recurse=recurse),
-    #                              self.log_std_layers.named_parameters(recurse=recurse)):
+    #                              self.waypoint_mu_layers.named_parameters(recurse=recurse),
+    #                              self.waypoint_log_std_layers.named_parameters(recurse=recurse),
+    #                              self.dist_mu_layers.named_parameters(recurse=recurse),
+    #                              self.dist_log_std_layers.named_parameters(recurse=recurse)):
     #         yield param
     #
     # def named_parameters(self, prefix: str = '', recurse: bool = True) -> Iterator[Tuple[str, nn.Parameter]]:
@@ -249,10 +252,16 @@ class ContrastivePolicy(nn.Module):
     #         self.linear_layers._named_members(
     #             lambda module: module._parameters.items(),
     #             prefix=prefix, recurse=recurse),
-    #         self.mu_layers._named_members(
+    #         self.waypoint_mu_layers._named_members(
     #             lambda module: module._parameters.items(),
     #             prefix=prefix, recurse=recurse),
-    #         self.log_std_layers._named_members(
+    #         self.waypoint_log_std_layers._named_members(
+    #             lambda module: module._parameters.items(),
+    #             prefix=prefix, recurse=recurse),
+    #         self.dist_mu_layers._named_members(
+    #             lambda module: module._parameters.items(),
+    #             prefix=prefix, recurse=recurse),
+    #         self.dist_log_std_layers._named_members(
     #             lambda module: module._parameters.items(),
     #             prefix=prefix, recurse=recurse),
     #     )

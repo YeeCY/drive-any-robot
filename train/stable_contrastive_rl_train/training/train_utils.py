@@ -404,17 +404,20 @@ def train(
         # prevent NAN via gradient clipping
         # total_loss.backward()
         # optimizer.step()
-        optimizer["actor_optimizer"].zero_grad()
-        actor_loss.backward()
+        # optimizer["actor_optimizer"].zero_grad()
+        # actor_loss.backward()
         # torch.nn.utils.clip_grad_norm(
         #     model.policy_network.parameters(), 1.0)
-        optimizer["actor_optimizer"].step()
+        # optimizer["actor_optimizer"].step()
 
-        optimizer["critic_optimizer"].zero_grad()
-        critic_loss.backward()
+        # optimizer["critic_optimizer"].zero_grad()
+        # critic_loss.backward()
         # torch.nn.utils.clip_grad_norm(
         #     model.q_network.parameters(), 1.0)
-        optimizer["critic_optimizer"].step()
+        # optimizer["critic_optimizer"].step()
+        optimizer['optimizer'].zero_grad()
+        (actor_loss + critic_loss).backward()
+        optimizer['optimizer'].step()
 
         if i % target_update_freq == 0:
             model.soft_update_target_q_network()
