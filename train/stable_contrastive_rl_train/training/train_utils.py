@@ -880,7 +880,7 @@ def get_actor_loss(model, obs, orig_action, goal, bc_coef=0.05,
     log_prob = dist.log_prob(sampled_action)
 
     # q_action = model.q_network(obs, sampled_action, goal)
-    obs_a_repr, g_repr, _, _, _, _ = model(obs, sampled_action, goal)
+    obs_a_repr, g_repr, _, _, _, _ = model(obs, mean, goal)
     q_action = torch.einsum('ikl,jkl->ijl', obs_a_repr, g_repr)
 
     if len(q_action.shape) == 3:  # twin q trick
