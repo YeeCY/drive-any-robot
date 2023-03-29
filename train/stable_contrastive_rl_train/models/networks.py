@@ -187,14 +187,18 @@ class ContrastivePolicy(nn.Module):
         self.dist_mu_layers = nn.Sequential(
             nn.Linear(32, 1),
         )
-        self.waypoint_log_std_layers = nn.Sequential(
-            nn.Linear(32, self.action_size - 1),
-            nn.Sigmoid()
-        )
-        self.dist_log_std_layers = nn.Sequential(
-            nn.Linear(32, 1),
-            nn.Sigmoid()
-        )
+        # self.waypoint_log_std_layers = nn.Sequential(
+        #     nn.Linear(32, self.action_size - 1),
+        #     nn.Sigmoid()
+        # )
+        # self.dist_log_std_layers = nn.Sequential(
+        #     nn.Linear(32, 1),
+        #     nn.Sigmoid()
+        # )
+        self.waypoint_log_std_logits = nn.Parameter(
+            torch.zeros(self.action_size - 1, requires_grad=True))
+        self.dist_log_std_logits = nn.Parameter(
+            torch.zeros(1, requires_grad=True))
 
     def forward(
         self, obs_img: torch.tensor, goal_img: torch.tensor, detach_img_encode: bool = False,
@@ -211,8 +215,10 @@ class ContrastivePolicy(nn.Module):
 
         waypoint_mu = self.waypoint_mu_layers(obs_goal_encoding)
         dist_mu = self.dist_mu_layers(obs_goal_encoding)
-        waypoint_log_std = self.waypoint_log_std_layers(obs_goal_encoding)
-        dist_log_std = self.dist_log_std_layers(obs_goal_encoding)
+        # waypoint_log_std = self.waypoint_log_std_layers(obs_goal_encoding)
+        # dist_log_std = self.dist_log_std_layers(obs_goal_encoding)
+        waypoint_log_std = torch.sigmoid(self.waypoint_log_std_logits)
+        dist_log_std = torch.sigmoid(self.dist_log_std_logits)
         waypoint_log_std = self.min_log_std + waypoint_log_std * (
                 self.max_log_std - self.min_log_std)
         dist_log_std = self.min_log_std + dist_log_std * (
@@ -235,7 +241,8 @@ class ContrastivePolicy(nn.Module):
             (waypoint_mu.shape[0], self.action_size - 1))
 
         mu = torch.cat([waypoint_mu, dist_mu], dim=-1)
-        std = torch.cat([waypoint_std, dist_std], dim=-1)
+        std = torch.cat([waypoint_std, dist_std], dim=-1).unsqueeze(0).repeat(
+            mu.shape[0], 1)
 
         return mu, std
 
