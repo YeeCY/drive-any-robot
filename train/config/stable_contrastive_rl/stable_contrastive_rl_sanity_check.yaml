@@ -7,7 +7,7 @@ train: rl
 batch_size: 16  # default = 16, full size = 207
 eval_batch_size: 16  # default = 400
 epochs: 60
-gpu_ids: [0,1,2,3] # list of gpu ids to use
+gpu_ids: [0] # list of gpu ids to use
 num_workers: 0
 lr: 5e-4
 optimizer: adam
@@ -36,7 +36,7 @@ discount: 0.99
 use_td: False
 
 # coefficient for GCBC term
-bc_coef: 1.0
+bc_coef: 0.5
 
 # whether to stop gradients from actor loss to policy image encoder
 stop_grad_actor_img_encoder: True

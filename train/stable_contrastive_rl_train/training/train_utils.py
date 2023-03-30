@@ -361,13 +361,26 @@ def train(
         # _, action_pred = model(action_obs_data, action_goal_data)
         # action_loss = F.mse_loss(action_pred, action_label)
 
+        # Important: the order of loss computation and optimizer update matter!
+        # compute critic loss
         critic_loss = get_critic_loss(
             model, obs_data, next_obs_data, action_data, goal_data,
             discount, use_td=use_td)
 
+        # optimize critic
+        optimizer["critic_optimizer"].zero_grad()
+        critic_loss.backward()
+        optimizer["critic_optimizer"].step()
+
+        # compute actor loss
         actor_loss, actor_q_loss, gcbc_loss, waypoint_gcbc_loss, dist_gcbc_loss = get_actor_loss(
             model, obs_data, action_data, goal_data,
             bc_coef=bc_coef, stop_grad_actor_img_encoder=stop_grad_actor_img_encoder)
+
+        # optimize actor
+        optimizer["actor_optimizer"].zero_grad()
+        actor_loss.backward()
+        optimizer["actor_optimizer"].step()
 
         # preds = model.policy_network(obs_data, goal_data).mean
         # action_data are not used here
@@ -415,9 +428,9 @@ def train(
         # torch.nn.utils.clip_grad_norm(
         #     model.q_network.parameters(), 1.0)
         # optimizer["critic_optimizer"].step()
-        optimizer['optimizer'].zero_grad()
-        (actor_loss + critic_loss).backward()
-        optimizer['optimizer'].step()
+        # optimizer['optimizer'].zero_grad()
+        # (actor_loss + critic_loss).backward()
+        # optimizer['optimizer'].step()
 
         if i % target_update_freq == 0:
             model.soft_update_target_q_network()
@@ -880,7 +893,7 @@ def get_actor_loss(model, obs, orig_action, goal, bc_coef=0.05,
     log_prob = dist.log_prob(sampled_action)
 
     # q_action = model.q_network(obs, sampled_action, goal)
-    obs_a_repr, g_repr, _, _, _, _ = model(obs, sampled_action, goal)
+    obs_a_repr, g_repr, _, _, _, _ = model(obs, mean, goal)
     q_action = torch.einsum('ikl,jkl->ijl', obs_a_repr, g_repr)
 
     if len(q_action.shape) == 3:  # twin q trick
