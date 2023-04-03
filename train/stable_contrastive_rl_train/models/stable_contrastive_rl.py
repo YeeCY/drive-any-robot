@@ -100,11 +100,11 @@ class StableContrastiveRL(BaseRLModel):
             self.obs_encoding_size,
             self.goal_encoding_size
         )
-        # self.policy_image_encoder = ContrastiveImgEncoder(
-        #     self.context_size,
-        #     self.obs_encoding_size,
-        #     self.goal_encoding_size
-        # )
+        self.policy_image_encoder = ContrastiveImgEncoder(
+            self.context_size,
+            self.obs_encoding_size,
+            self.goal_encoding_size
+        )
 
         self.q_network = ContrastiveQNetwork(
             self.img_encoder, self.action_size, self.twin_q)
@@ -112,7 +112,7 @@ class StableContrastiveRL(BaseRLModel):
             self.target_img_encoder, self.action_size, self.twin_q)
 
         self.policy_network = ContrastivePolicy(
-            self.img_encoder, self.action_size, self.min_log_std, self.max_log_std)
+            self.policy_image_encoder, self.action_size)
 
         copy_model_params_from_to(self.q_network, self.target_q_network)
 

@@ -8,7 +8,7 @@ batch_size: 16  # default = 16, full size = 207
 eval_batch_size: 16  # default = 400
 epochs: 60
 gpu_ids: [0] # list of gpu ids to use
-num_workers: 0
+num_workers: 8
 lr: 5e-4
 optimizer: adam
 seed: 0
@@ -46,8 +46,8 @@ target_update_freq: 1
 
 # distance bounds for distance and action and distance predictions
 rl:
-  min_dist_cat: 2
-  max_dist_cat: 12
+  min_dist_cat: 1
+  max_dist_cat: 14
 close_far_threshold: 6 # distance threshold used to seperate the close and the far subgoals that are sampled per datapoint
 
 # action output params

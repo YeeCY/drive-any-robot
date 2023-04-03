@@ -385,6 +385,7 @@ def train(
         # preds = model.policy_network(obs_data, goal_data).mean
         # action_data are not used here
         _, _, _, _, preds, _ = model(obs_data, action_data, goal_data)
+        # preds, _ = model.policy_network(obs_data, goal_data)
 
         # The action of policy is different from the action here (waypoints).
         action_pred = preds[:, :-1]
@@ -632,6 +633,7 @@ def evaluate(
             # preds = model.policy_network(obs_data, goal_data).mean
             # action_data are not used here
             _, _, _, _, preds, _ = model(obs_data, action_data, goal_data)
+            # preds, _ = model.policy_network(obs_data, goal_data)
 
             # The action of policy is different from the action here (waypoints).
             action_pred = preds[:, :-1]
@@ -777,6 +779,8 @@ def pairwise_acc(
             dummy_action = torch.zeros([transf_obs_image.shape[0], model.action_size], device=transf_obs_image.device)
             _, _, _, _, close_pred, _ = model(transf_obs_image, dummy_action, transf_close_image)
             _, _, _, _, far_pred, _ = model(transf_obs_image, dummy_action, transf_far_image)
+            # close_pred, _ = model.policy_network(transf_obs_image, transf_close_image)
+            # far_pred, _ = model.policy_network(transf_obs_image, transf_far_image)
             close_dist_pred, far_dist_pred = close_pred[:, -1], far_pred[:, -1]
 
             close_pred_flat = close_dist_pred.reshape(close_dist_pred.shape[0])
@@ -819,7 +823,16 @@ def get_critic_loss(model, obs, next_obs, action, goal, discount, use_td=False):
     I = torch.eye(batch_size, device=obs.device)
     # logits = model.q_network(obs, action, goal)
     obs_a_repr, g_repr, _, _, _, _ = model(obs, action, goal)
-    logits = torch.einsum('ikl,jkl->ijl', obs_a_repr, g_repr)
+    # logits = torch.einsum('ikl,jkl->ijl', obs_a_repr, g_repr)
+    # obs_a_repr, g_repr = model.q_network(obs, action, goal)
+    outer = torch.bmm(obs_a_repr[..., 0].unsqueeze(0), g_repr[..., 0].permute(1, 0).unsqueeze(0))[0]
+    outer2 = torch.bmm(obs_a_repr[..., 1].unsqueeze(0), g_repr[..., 1].permute(1, 0).unsqueeze(0))[0]
+    logits = torch.stack([outer, outer2], dim=-1)
+
+    # torch.stack([
+    #     torch.einsum('ik,jk->ij', obs_a_repr[..., 0], g_repr[..., 0]),
+    #     torch.einsum('ik,jk->ij', obs_a_repr[..., 1], g_repr[..., 1]),
+    # ], dim=-1)
 
     # Make sure to use the twin Q trick.
     assert len(logits.shape) == 3
@@ -887,6 +900,7 @@ def get_actor_loss(model, obs, orig_action, goal, bc_coef=0.05,
     # orig_action is not used here
     _, _, _, _, mean, std = model(
         obs, orig_action, goal, stop_grad_actor_img_encoder=stop_grad_actor_img_encoder)
+    # mean, std = model.policy_network(obs, goal, detach_img_encode=stop_grad_actor_img_encoder)
     dist = Independent(Normal(mean, std, validate_args=False),
                        reinterpreted_batch_ndims=1)
     sampled_action = dist.rsample()
@@ -894,7 +908,12 @@ def get_actor_loss(model, obs, orig_action, goal, bc_coef=0.05,
 
     # q_action = model.q_network(obs, sampled_action, goal)
     obs_a_repr, g_repr, _, _, _, _ = model(obs, sampled_action, goal)
-    q_action = torch.einsum('ikl,jkl->ijl', obs_a_repr, g_repr)
+    # obs_a_repr, g_repr, _, _, _, _ = model(obs, mean, goal)
+    # q_action = torch.einsum('ikl,jkl->ijl', obs_a_repr, g_repr)
+    # obs_a_repr, g_repr = model.q_network(obs, sampled_action, goal)
+    outer = torch.bmm(obs_a_repr[..., 0].unsqueeze(0), g_repr[..., 0].permute(1, 0).unsqueeze(0))[0]
+    outer2 = torch.bmm(obs_a_repr[..., 1].unsqueeze(0), g_repr[..., 1].permute(1, 0).unsqueeze(0))[0]
+    q_action = torch.stack([outer, outer2], dim=-1)
 
     if len(q_action.shape) == 3:  # twin q trick
         assert q_action.shape[2] == 2
