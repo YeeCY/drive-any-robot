@@ -367,6 +367,7 @@ def main(config):
             discount=config["discount"],
             use_td=config["use_td"],
             bc_coef=config["bc_coef"],
+            mle_gcbc_loss=config["mle_gcbc_loss"],
             stop_grad_actor_img_encoder=config["stop_grad_actor_img_encoder"],
             use_wandb=config["use_wandb"],
         )

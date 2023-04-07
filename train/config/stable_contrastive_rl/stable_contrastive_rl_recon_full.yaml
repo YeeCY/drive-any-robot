@@ -40,8 +40,9 @@ discount: 0.99
 # whether to use C-Learning (TD) or Contrastive NCE (MC)
 use_td: False
 
-# coefficient for GCBC term
+# GCBC
 bc_coef: 0.5
+mle_gcbc_loss: False
 
 # whether to stop gradients from actor loss to policy image encoder
 stop_grad_actor_img_encoder: True

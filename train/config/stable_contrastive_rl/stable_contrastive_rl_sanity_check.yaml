@@ -40,8 +40,9 @@ discount: 0.99
 # whether to use C-Learning (TD) or Contrastive NCE (MC)
 use_td: False
 
-# coefficient for GCBC term
-bc_coef: 0.5
+# GCBC
+bc_coef: 1.0
+mle_gcbc_loss: True
 
 # whether to stop gradients from actor loss to policy image encoder
 stop_grad_actor_img_encoder: True
@@ -72,7 +73,7 @@ datasets:
     discount: 0.99  # discount factor used to sample geometric future goals, can be a negative value for random future goals
 
 # logging stuff
-print_log_freq: 1 # in iterations
-image_log_freq: 1000 # in iterations
+print_log_freq: 100 # in iterations
+image_log_freq: 200 # in iterations
 num_images_log: 16 # number of images to log in a logging iteration
 pairwise_test_freq: 10 # in epochs

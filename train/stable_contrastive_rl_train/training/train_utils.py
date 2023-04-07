@@ -40,6 +40,7 @@ def train_eval_rl_loop(
     discount: float = 0.99,
     use_td: bool = True,
     bc_coef: float = 0.05,
+    mle_gcbc_loss: bool = False,
     stop_grad_actor_img_encoder: bool = True,
     learn_angle: bool = True,
     use_wandb: bool = True,
@@ -85,6 +86,7 @@ def train_eval_rl_loop(
             discount,
             use_td,
             bc_coef,
+            mle_gcbc_loss,
             stop_grad_actor_img_encoder,
             learn_angle,
             print_log_freq,
@@ -111,6 +113,7 @@ def train_eval_rl_loop(
                 discount,
                 use_td,
                 bc_coef,
+                mle_gcbc_loss,
                 learn_angle,
                 print_log_freq,
                 image_log_freq,
@@ -181,6 +184,7 @@ def train(
     discount: float = 0.99,
     use_td: bool = True,
     bc_coef: float = 0.05,
+    mle_gcbc_loss: bool = False,
     stop_grad_actor_img_encoder: bool = True,
     learn_angle: bool = True,
     print_log_freq: int = 100,
@@ -375,7 +379,8 @@ def train(
         # compute actor loss
         actor_loss, actor_q_loss, gcbc_loss, waypoint_gcbc_loss, dist_gcbc_loss = get_actor_loss(
             model, obs_data, action_data, goal_data,
-            bc_coef=bc_coef, stop_grad_actor_img_encoder=stop_grad_actor_img_encoder)
+            bc_coef=bc_coef, mle_gcbc_loss=mle_gcbc_loss,
+            stop_grad_actor_img_encoder=stop_grad_actor_img_encoder)
 
         # optimize actor
         optimizer["actor_optimizer"].zero_grad()
@@ -497,6 +502,7 @@ def evaluate(
     discount: float = 0.99,
     use_td: bool = True,
     bc_coef: float = 0.05,
+    mle_gcbc_loss: bool = False,
     learn_angle: bool = True,
     print_log_freq: int = 100,
     image_log_freq: int = 1000,
@@ -627,7 +633,7 @@ def evaluate(
 
             actor_loss, actor_q_loss, gcbc_loss, waypoint_gcbc_loss, dist_gcbc_loss = get_actor_loss(
                 model, obs_data, action_data, goal_data,
-                bc_coef=bc_coef)
+                bc_coef=bc_coef, mle_gcbc_loss=mle_gcbc_loss)
             gcbc_loss = 0.5 * (1e-3 * dist_gcbc_loss) + 0.5 * waypoint_gcbc_loss
 
             # preds = model.policy_network(obs_data, goal_data).mean
@@ -890,19 +896,29 @@ def get_critic_loss(model, obs, next_obs, action, goal, discount, use_td=False):
 
 
 def get_actor_loss(model, obs, orig_action, goal, bc_coef=0.05,
-                   stop_grad_actor_img_encoder=True):
+                   mle_gcbc_loss=False, stop_grad_actor_img_encoder=True):
     """
     We might need to add alpha and GCBC term.
     """
+    orig_waypoint = orig_action[:, :model.action_size - 1]
+    orig_distance = orig_action[:, -1]
 
     # dummy_actions = torch.zeros([obs.shape[0], model.action_size], device=obs.device)
     # _, dist = model.policy_network(obs, dummy_actions, goal)
     # orig_action is not used here
     _, _, _, _, mean, std = model(
         obs, orig_action, goal, stop_grad_actor_img_encoder=stop_grad_actor_img_encoder)
+    waypoint_mean, distance_mean = mean[:, :model.action_size - 1], mean[:, -1]
+    waypoint_std, distance_std = std[:, :model.action_size - 1], std[:, -1]
     # mean, std = model.policy_network(obs, goal, detach_img_encode=stop_grad_actor_img_encoder)
+
+    waypoint_dist = Independent(Normal(waypoint_mean, waypoint_std,
+                                       validate_args=False), reinterpreted_batch_ndims=1)
+    distance_dist = Independent(Normal(distance_mean, distance_std, validate_args=False),
+                                reinterpreted_batch_ndims=1)
     dist = Independent(Normal(mean, std, validate_args=False),
                        reinterpreted_batch_ndims=1)
+
     sampled_action = dist.rsample()
     log_prob = dist.log_prob(sampled_action)
 
@@ -924,9 +940,14 @@ def get_actor_loss(model, obs, orig_action, goal, bc_coef=0.05,
     # gcbc_loss = -dist.log_prob(orig_action)
     # gcbc_loss = F.mse_loss(mean[:, :model.action_size - 1], orig_action[:, :model.action_size - 1]) \
     #             + 1e-2 * F.mse_loss(mean[:, -1], orig_action[:, -1])
-    waypoint_gcbc_loss = F.mse_loss(mean[:, :model.action_size - 1], orig_action[:, :model.action_size - 1])
-    dist_gcbc_loss = F.mse_loss(mean[:, -1], orig_action[:, -1])
-    gcbc_loss = 0.5 * (1e-2 * dist_gcbc_loss) + 0.5 * waypoint_gcbc_loss
+    if mle_gcbc_loss:
+        waypoint_gcbc_loss = -waypoint_dist.log_prob(orig_waypoint)
+        dist_gcbc_loss = -distance_dist.log_prob(orig_distance)
+        gcbc_loss = 0.5 * dist_gcbc_loss + 0.5 * waypoint_gcbc_loss
+    else:
+        waypoint_gcbc_loss = F.mse_loss(mean[:, :model.action_size - 1], orig_action[:, :model.action_size - 1])
+        dist_gcbc_loss = F.mse_loss(mean[:, -1], orig_action[:, -1])
+        gcbc_loss = 0.5 * (1e-2 * dist_gcbc_loss) + 0.5 * waypoint_gcbc_loss
 
     actor_loss = bc_coef * gcbc_loss + (1 - bc_coef) * actor_q_loss
 
