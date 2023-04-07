@@ -2,7 +2,7 @@ project_name: stable_contrastive_rl
 run_name: stable_contrastive_rl_debug
 
 # training setup
-use_wandb: True # set to false if you don't want to log to wandb
+use_wandb: False # set to false if you don't want to log to wandb
 train: rl
 batch_size: 16  # default = 16, full size = 207
 eval_batch_size: 16  # default = 400
@@ -20,6 +20,11 @@ goal_encoding_size: 1024
 twin_q: True
 min_log_std: -13
 max_log_std: -2
+fixed_std: [0.1, 0.1, 0.1, 0.1, 0.1,
+            0.1, 0.1, 0.1, 0.1, 0.1,
+            0.1, 0.1, 0.1, 0.1, 0.1,
+            0.1, 0.1, 0.1, 0.1, 0.1,
+            0.5]
 soft_target_tau: 0.005
 
 # normalization for the action space
@@ -46,8 +51,8 @@ target_update_freq: 1
 
 # distance bounds for distance and action and distance predictions
 rl:
-  min_dist_cat: 1
-  max_dist_cat: 14
+  min_dist_cat: 2
+  max_dist_cat: 12
 close_far_threshold: 6 # distance threshold used to seperate the close and the far subgoals that are sampled per datapoint
 
 # action output params
@@ -69,5 +74,5 @@ datasets:
 # logging stuff
 print_log_freq: 1 # in iterations
 image_log_freq: 1000 # in iterations
-num_images_log: 8 # number of images to log in a logging iteration
+num_images_log: 16 # number of images to log in a logging iteration
 pairwise_test_freq: 10 # in epochs

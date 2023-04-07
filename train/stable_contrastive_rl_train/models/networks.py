@@ -1,9 +1,9 @@
-
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from typing import List, Dict, Optional, Tuple, Iterator
+from typing import List, Dict, Optional, Tuple, Iterator, Sequence
 from itertools import chain
 
 from gnm_train.models.modified_mobilenetv2 import MobileNetEncoder
@@ -175,7 +175,8 @@ class ContrastivePolicy(nn.Module):
         action_size: int,
         # min_log_std: Optional[float] = -13,
         # max_log_std: Optional[float] = -2,
-        min_std: Optional[float] = 1e-3,
+        min_std: Optional[float] = 1e-6,
+        fixed_std: Optional[list] = None,
     ) -> None:
         """
         TODO
@@ -187,6 +188,7 @@ class ContrastivePolicy(nn.Module):
         # self.min_log_std = min_log_std
         # self.max_log_std = max_log_std
         self.min_std = min_std
+        self.fixed_std = fixed_std
         self.learn_angle = True
 
         self.linear_layers = nn.Sequential(
@@ -201,20 +203,22 @@ class ContrastivePolicy(nn.Module):
         self.dist_mu_layers = nn.Sequential(
             nn.Linear(32, 1),
         )
-        self.waypoint_std_layers = nn.Sequential(
-            nn.Linear(32, self.action_size - 1),
-            # nn.Sigmoid()
-            nn.Softplus(),
-        )
-        self.dist_std_layers = nn.Sequential(
-            nn.Linear(32, 1),
-            # nn.Sigmoid(),
-            nn.Softplus(),
-        )
-        # self.waypoint_log_std_logits = nn.Parameter(
-        #     torch.zeros(self.action_size - 1, requires_grad=True))
-        # self.dist_log_std_logits = nn.Parameter(
-        #     torch.zeros(1, requires_grad=True))
+
+        if self.fixed_std is None:
+            self.waypoint_std_layers = nn.Sequential(
+                nn.Linear(32, self.action_size - 1),
+                # nn.Sigmoid()
+                nn.Softplus(),
+            )
+            self.dist_std_layers = nn.Sequential(
+                nn.Linear(32, 1),
+                # nn.Sigmoid(),
+                nn.Softplus(),
+            )
+            # self.waypoint_log_std_logits = nn.Parameter(
+            #     torch.zeros(self.action_size - 1, requires_grad=True))
+            # self.dist_log_std_logits = nn.Parameter(
+            #     torch.zeros(1, requires_grad=True))
 
     def forward(
         self, obs_img: torch.tensor, goal_img: torch.tensor, detach_img_encode: bool = True,
@@ -241,8 +245,15 @@ class ContrastivePolicy(nn.Module):
         #     self.max_log_std - self.min_log_std)
         # waypoint_std = torch.exp(waypoint_log_std)
         # dist_std = torch.exp(dist_log_std)
-        waypoint_std = self.waypoint_std_layers(obs_goal_encoding) + self.min_std
-        dist_std = self.dist_std_layers(obs_goal_encoding) + self.min_std
+        if self.fixed_std is None:
+            waypoint_std = self.waypoint_std_layers(obs_goal_encoding) + self.min_std
+            dist_std = self.dist_std_layers(obs_goal_encoding) + self.min_std
+
+            std = torch.cat([waypoint_std, dist_std], dim=-1)
+        else:
+            std = torch.from_numpy(np.array([self.fixed_std, ])).float().to(
+                obs_img.device)
+            std = std.repeat(obs_img.shape[0], 1)
 
         # augment outputs to match labels size-wise
         waypoint_mu = waypoint_mu.reshape(
@@ -259,7 +270,7 @@ class ContrastivePolicy(nn.Module):
             (waypoint_mu.shape[0], self.action_size - 1))
 
         mu = torch.cat([waypoint_mu, dist_mu], dim=-1)
-        std = torch.cat([waypoint_std, dist_std], dim=-1)
+        # std = torch.cat([waypoint_std, dist_std], dim=-1)
         # std = torch.cat([waypoint_std, dist_std], dim=-1).unsqueeze(0).repeat(
         #     mu.shape[0], 1)
 

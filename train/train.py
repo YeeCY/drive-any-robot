@@ -250,6 +250,7 @@ def main(config):
             config["twin_q"],
             config["min_log_std"],
             config["max_log_std"],
+            config["fixed_std"],
             config["soft_target_tau"],
         )
     else:

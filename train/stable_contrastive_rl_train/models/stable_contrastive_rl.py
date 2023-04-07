@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -37,6 +38,7 @@ class StableContrastiveRL(BaseRLModel):
         twin_q: Optional[bool] = True,
         min_log_std: Optional[float] = -13,
         max_log_std: Optional[float] = -2,
+        fixed_std: Optional[list] = None,
         soft_target_tau: Optional[float] = 0.005,
     ) -> None:
         """
@@ -49,6 +51,7 @@ class StableContrastiveRL(BaseRLModel):
         self.twin_q = twin_q
         self.min_log_std = min_log_std
         self.max_log_std = max_log_std
+        self.fixed_std = fixed_std
         self.soft_target_tau = soft_target_tau
 
         # action size = waypoint sizes + distance size
@@ -112,7 +115,7 @@ class StableContrastiveRL(BaseRLModel):
             self.target_img_encoder, self.action_size, self.twin_q)
 
         self.policy_network = ContrastivePolicy(
-            self.policy_image_encoder, self.action_size)
+            self.policy_image_encoder, self.action_size, fixed_std=self.fixed_std)
 
         copy_model_params_from_to(self.q_network, self.target_q_network)
 

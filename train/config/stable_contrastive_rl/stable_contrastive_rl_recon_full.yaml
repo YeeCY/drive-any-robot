@@ -6,8 +6,8 @@ use_wandb: True # set to false if you don't want to log to wandb
 train: rl
 batch_size: 200
 eval_batch_size: 200
-epochs: 10
-gpu_ids: [0, 1, 2] # list of gpu ids to use
+epochs: 5
+gpu_ids: [0, 1, 2, 3] # list of gpu ids to use
 num_workers: 16
 lr: 5e-4
 optimizer: adam
@@ -20,6 +20,11 @@ goal_encoding_size: 1024
 twin_q: True
 min_log_std: -13
 max_log_std: -2
+fixed_std: [0.1, 0.1, 0.1, 0.1, 0.1,
+            0.1, 0.1, 0.1, 0.1, 0.1,
+            0.1, 0.1, 0.1, 0.1, 0.1,
+            0.1, 0.1, 0.1, 0.1, 0.1,
+            0.5]
 soft_target_tau: 0.005
 
 # normalization for the action space
