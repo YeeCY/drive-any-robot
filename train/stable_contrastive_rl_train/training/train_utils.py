@@ -828,12 +828,19 @@ def get_critic_loss(model, obs, next_obs, action, goal, discount, use_td=False):
 
     I = torch.eye(batch_size, device=obs.device)
     # logits = model.q_network(obs, action, goal)
-    obs_a_repr, g_repr, _, _, _, _ = model(obs, action, goal)
-    # logits = torch.einsum('ikl,jkl->ijl', obs_a_repr, g_repr)
+
+    if use_td:
+        # extract next goal from fusion of observations and contexts.
+        new_goal = next_obs[:, -3:]
+    else:
+        new_goal = goal
+
+    obs_a_repr, g_repr, _, _, _, _ = model(obs, action, new_goal)
+    logits = torch.einsum('ikl,jkl->ijl', obs_a_repr, g_repr)
     # obs_a_repr, g_repr = model.q_network(obs, action, goal)
-    outer = torch.bmm(obs_a_repr[..., 0].unsqueeze(0), g_repr[..., 0].permute(1, 0).unsqueeze(0))[0]
-    outer2 = torch.bmm(obs_a_repr[..., 1].unsqueeze(0), g_repr[..., 1].permute(1, 0).unsqueeze(0))[0]
-    logits = torch.stack([outer, outer2], dim=-1)
+    # outer = torch.bmm(obs_a_repr[..., 0].unsqueeze(0), g_repr[..., 0].permute(1, 0).unsqueeze(0))[0]
+    # outer2 = torch.bmm(obs_a_repr[..., 1].unsqueeze(0), g_repr[..., 1].permute(1, 0).unsqueeze(0))[0]
+    # logits = torch.stack([outer, outer2], dim=-1)
 
     # torch.stack([
     #     torch.einsum('ik,jk->ij', obs_a_repr[..., 0], g_repr[..., 0]),
@@ -847,7 +854,7 @@ def get_critic_loss(model, obs, next_obs, action, goal, discount, use_td=False):
         goal_indices = torch.roll(
             torch.arange(batch_size, dtype=torch.int64), -1)
 
-        random_goal = goal[goal_indices]
+        random_goal = new_goal[goal_indices]
 
         # next_dist = model.policy_network(next_obs, random_goal)
         # action was not used here
@@ -925,11 +932,11 @@ def get_actor_loss(model, obs, orig_action, goal, bc_coef=0.05,
     # q_action = model.q_network(obs, sampled_action, goal)
     obs_a_repr, g_repr, _, _, _, _ = model(obs, sampled_action, goal)
     # obs_a_repr, g_repr, _, _, _, _ = model(obs, mean, goal)
-    # q_action = torch.einsum('ikl,jkl->ijl', obs_a_repr, g_repr)
+    q_action = torch.einsum('ikl,jkl->ijl', obs_a_repr, g_repr)
     # obs_a_repr, g_repr = model.q_network(obs, sampled_action, goal)
-    outer = torch.bmm(obs_a_repr[..., 0].unsqueeze(0), g_repr[..., 0].permute(1, 0).unsqueeze(0))[0]
-    outer2 = torch.bmm(obs_a_repr[..., 1].unsqueeze(0), g_repr[..., 1].permute(1, 0).unsqueeze(0))[0]
-    q_action = torch.stack([outer, outer2], dim=-1)
+    # outer = torch.bmm(obs_a_repr[..., 0].unsqueeze(0), g_repr[..., 0].permute(1, 0).unsqueeze(0))[0]
+    # outer2 = torch.bmm(obs_a_repr[..., 1].unsqueeze(0), g_repr[..., 1].permute(1, 0).unsqueeze(0))[0]
+    # q_action = torch.stack([outer, outer2], dim=-1)
 
     if len(q_action.shape) == 3:  # twin q trick
         assert q_action.shape[2] == 2
