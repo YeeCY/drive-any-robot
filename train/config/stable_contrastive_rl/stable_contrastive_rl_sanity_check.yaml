@@ -24,7 +24,7 @@ fixed_std: [0.1, 0.1, 0.1, 0.1, 0.1,
             0.1, 0.1, 0.1, 0.1, 0.1,
             0.1, 0.1, 0.1, 0.1, 0.1,
             0.1, 0.1, 0.1, 0.1, 0.1,
-            0.5]
+            0.25]
 soft_target_tau: 0.005
 
 # normalization for the action space
@@ -52,9 +52,9 @@ target_update_freq: 1
 
 # distance bounds for distance and action and distance predictions
 rl:
-  min_dist_cat: 2
-  max_dist_cat: 12
-close_far_threshold: 6 # distance threshold used to seperate the close and the far subgoals that are sampled per datapoint
+  min_dist_cat: 0
+  max_dist_cat: 20
+close_far_threshold: 10  # distance threshold used to seperate the close and the far subgoals that are sampled per datapoint
 
 # action output params
 len_traj_pred: 5

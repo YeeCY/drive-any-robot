@@ -237,6 +237,11 @@ def train(
         critic_loss_logger,
         actor_loss_logger,
         actor_q_loss_logger,
+        binary_acc_logger,
+        categorical_acc_logger,
+        logits_pos_logger,
+        logits_neg_logger,
+        logits_logger,
         gcbc_mle_loss_logger,
         gcbc_mse_loss_logger,
         waypoint_gcbc_mle_loss_logger,
@@ -549,7 +554,6 @@ def evaluate(
     model.eval()
     critic_loss_logger = Logger("critic_loss", eval_type, window_size=print_log_freq)
     actor_loss_logger = Logger("actor_loss", eval_type, window_size=print_log_freq)
-    actor_q_loss_logger = Logger("actor_q_loss", eval_type, window_size=print_log_freq)
     binary_acc_logger = Logger("critic/binary_accuracy", eval_type, window_size=print_log_freq)
     categorical_acc_logger = Logger("critic/categorical_accuracy", eval_type, window_size=print_log_freq)
     logits_pos_logger = Logger("critic/logits_pos", eval_type, window_size=print_log_freq)
@@ -572,6 +576,11 @@ def evaluate(
     variables = [
         critic_loss_logger,
         actor_loss_logger,
+        binary_acc_logger,
+        categorical_acc_logger,
+        logits_pos_logger,
+        logits_neg_logger,
+        logits_logger,
         actor_q_loss_logger,
         gcbc_mle_loss_logger,
         gcbc_mse_loss_logger,
