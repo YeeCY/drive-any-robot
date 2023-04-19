@@ -684,7 +684,6 @@ def evaluate(
             next_obs_data = trans_next_obs_image.to(device)
             goal_data = trans_goal_image.to(device)
             action_label = action_label.to(device)
-            oracle_action = oracle_action.to(device)
             dist_label = dist_label.to(device)
             action_data = torch.cat([
                 action_label.reshape([action_label.shape[0], -1]),
