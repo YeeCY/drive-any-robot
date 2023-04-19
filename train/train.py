@@ -130,6 +130,8 @@ def main(config):
                             discount=data_config["discount"],
                             len_traj_pred=config["len_traj_pred"],
                             learn_angle=config["learn_angle"],
+                            oracle_angles=config[output_type]["oracle_angles"],
+                            num_oracle_trajs=config[output_type]["num_oracle_trajs"],
                             context_size=config["context_size"],
                             context_type=config["context_type"],
                             end_slack=data_config["end_slack"],

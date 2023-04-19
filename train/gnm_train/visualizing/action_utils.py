@@ -156,6 +156,8 @@ def compare_waypoints_pred_to_label(
         point_colors=[GREEN, RED],
     )
     ax[2].imshow(goal_img)
+    ax[2].xaxis.set_visible(False)
+    ax[2].yaxis.set_visible(False)
 
     fig.set_size_inches(18.5, 10.5)
     ax[0].set_title(f"Action Prediction")

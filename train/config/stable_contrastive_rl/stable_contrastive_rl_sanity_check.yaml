@@ -7,7 +7,7 @@ train: rl
 batch_size: 16  # default = 16, full size = 207
 eval_batch_size: 16  # default = 400
 epochs: 120
-gpu_ids: [0] # list of gpu ids to use
+gpu_ids: [0, 1, 2, 3] # list of gpu ids to use
 num_workers: 8
 lr: 5e-4
 optimizer: adam
@@ -54,6 +54,8 @@ target_update_freq: 1
 rl:
   min_dist_cat: 0
   max_dist_cat: 20
+  oracle_angles: 45  # degree
+  num_oracle_trajs: 10
 close_far_threshold: 10  # distance threshold used to seperate the close and the far subgoals that are sampled per datapoint
 
 # action output params

@@ -54,6 +54,8 @@ target_update_freq: 1
 rl:
   min_dist_cat: 0
   max_dist_cat: 20
+  oracle_angles: 45  # degree
+  num_oracle_trajs: 10
 close_far_threshold: 10 # distance threshold used to seperate the close and the far subgoals that are sampled per datapoint
 
 # action output params

@@ -5,6 +5,7 @@ from typing import List, Optional, Dict
 
 from gnm_train.visualizing.action_utils import visualize_traj_pred
 from gnm_train.visualizing.distance_utils import visualize_dist_pred, visualize_dist_pairwise_pred
+from gnm_train.visualizing.critic_utils import visualize_critic_pred
 from gnm_train.visualizing.visualize_utils import to_numpy
 from gnm_train.training.logger import Logger
 
@@ -297,6 +298,7 @@ def train(
             trans_goal_image,
             goal_pos,
             action_label,
+            oracle_action,
             dist_label,
             dataset_index,
         ) = vals
@@ -316,9 +318,18 @@ def train(
         dist_label = dist_label.to(device)
         action_data = torch.cat([
             action_label.reshape([action_label.shape[0], -1]),
-            dist_label],
-            dim=-1
-        )
+            dist_label
+        ], dim=-1)
+
+        # save oracle data to cpu cause we use cpu to do inference here
+        oracle_obs_data = obs_data[:, None].repeat_interleave(
+            oracle_action.shape[1], dim=1).flatten(0, 1).cpu()
+        oracle_goal_data = goal_data[:, None].repeat_interleave(
+            oracle_action.shape[1], dim=1).flatten(0, 1).cpu()
+        oracle_action_data = torch.cat([
+            oracle_action.flatten(0, 1).flatten(-2, -1),
+            dist_label[:, None].repeat_interleave(oracle_action.shape[1], dim=1).flatten(0, 1).cpu()
+        ], dim=-1)
 
         # DEBUG: try to plot the distribution of waypoints and distances
         # import matplotlib.pyplot as plt
@@ -512,6 +523,33 @@ def train(
                 num_images_log,
                 use_wandb=use_wandb,
             )
+
+            # critic prediction for oracle actions
+            # we do inference on cpu cause the batch size is too large
+            model.cpu()
+            obs_a_repr, g_repr = model.q_network(
+                oracle_obs_data, oracle_action_data, oracle_goal_data)
+            oracle_logits = torch.einsum('ikl,jkl->ijl', obs_a_repr, g_repr)
+            oracle_logits = torch.diag(torch.mean(oracle_logits, dim=-1)).reshape(
+                [oracle_action.shape[0], oracle_action.shape[1], 1])
+            oracle_critics = torch.sigmoid(oracle_logits)
+            model = model.to(device)
+
+            visualize_critic_pred(
+                to_numpy(obs_image),
+                to_numpy(goal_image),
+                to_numpy(dataset_index),
+                to_numpy(goal_pos),
+                to_numpy(oracle_action),
+                to_numpy(oracle_critics),
+                to_numpy(action_label),
+                "train",
+                normalized,
+                project_folder,
+                epoch,
+                num_images_log,
+                use_wandb=use_wandb,
+            )
     return
 
 
@@ -638,6 +676,7 @@ def evaluate(
                 trans_goal_image,
                 goal_pos,
                 action_label,
+                oracle_action,
                 dist_label,
                 dataset_index,
             ) = vals
@@ -645,12 +684,23 @@ def evaluate(
             next_obs_data = trans_next_obs_image.to(device)
             goal_data = trans_goal_image.to(device)
             action_label = action_label.to(device)
+            oracle_action = oracle_action.to(device)
             dist_label = dist_label.to(device)
             action_data = torch.cat([
                 action_label.reshape([action_label.shape[0], -1]),
                 dist_label],
                 dim=-1
             )
+
+            # save oracle data to cpu cause we use cpu to do inference here
+            oracle_obs_data = obs_data[:, None].repeat_interleave(
+                oracle_action.shape[1], dim=1).flatten(0, 1).cpu()
+            oracle_goal_data = goal_data[:, None].repeat_interleave(
+                oracle_action.shape[1], dim=1).flatten(0, 1).cpu()
+            oracle_action_data = torch.cat([
+                oracle_action.flatten(0, 1).flatten(-2, -1),
+                dist_label[:, None].repeat_interleave(oracle_action.shape[1], dim=1).flatten(0, 1).cpu()
+            ], dim=-1)
 
             # dist_pred, _ = model(dist_obs_data, dist_goal_data)
             # dist_loss = F.mse_loss(dist_pred, dist_label)
@@ -753,6 +803,33 @@ def evaluate(
                     to_numpy(dataset_index),
                     to_numpy(goal_pos),
                     to_numpy(action_pred),
+                    to_numpy(action_label),
+                    eval_type,
+                    normalized,
+                    project_folder,
+                    epoch,
+                    num_images_log,
+                    use_wandb=use_wandb,
+                )
+
+                # critic prediction for oracle actions
+                # we do inference on cpu cause the batch size is too large
+                model.cpu()
+                obs_a_repr, g_repr = model.q_network(
+                    oracle_obs_data, oracle_action_data, oracle_goal_data)
+                oracle_logits = torch.einsum('ikl,jkl->ijl', obs_a_repr, g_repr)
+                oracle_logits = torch.diag(torch.mean(oracle_logits, dim=-1)).reshape(
+                    [oracle_action.shape[0], oracle_action.shape[1], 1])
+                oracle_critics = torch.sigmoid(oracle_logits)
+                model = model.to(device)
+
+                visualize_critic_pred(
+                    to_numpy(obs_image),
+                    to_numpy(goal_image),
+                    to_numpy(dataset_index),
+                    to_numpy(goal_pos),
+                    to_numpy(oracle_action),
+                    to_numpy(oracle_critics),
                     to_numpy(action_label),
                     eval_type,
                     normalized,

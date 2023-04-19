@@ -37,6 +37,8 @@ class RLDataset(Dataset):
         discount: float,
         len_traj_pred: int,
         learn_angle: bool,
+        oracle_angles: float,
+        num_oracle_trajs: int,
         context_size: int,
         context_type: str = "temporal",
         end_slack: int = 0,
@@ -88,6 +90,8 @@ class RLDataset(Dataset):
         self.discount = discount
         self.len_traj_pred = len_traj_pred
         self.learn_angle = learn_angle
+        self.oracle_angles = oracle_angles
+        self.num_oracle_trajs = num_oracle_trajs
 
         self.context_size = context_size
         assert context_type in {
@@ -386,6 +390,45 @@ class RLDataset(Dataset):
                 waypoints,
             ]
         )
+
+        # construct oracle actions spanning -oracle_angles to oracle_angles
+        traj_len = torch.sum(
+            torch.linalg.norm(waypoints[1:, :2] - waypoints[:-1, :2], dim=-1)
+        )
+        oracle_angles = np.pi / 2 + torch.linspace(
+            -np.deg2rad(self.oracle_angles), np.deg2rad(self.oracle_angles),
+            self.num_oracle_trajs)
+        if traj_len > 0:
+            oracle_end_wpts = torch.stack([
+                traj_len * torch.sin(oracle_angles),
+                traj_len * torch.cos(oracle_angles),
+            ], dim=-1)
+        else:
+            oracle_end_wpts = torch.stack([
+                torch.zeros_like(oracle_angles),
+                torch.zeros_like(oracle_angles)
+            ], dim=-1)
+        oracle_waypoints = oracle_end_wpts[:, None] * \
+                           torch.linspace(0, 1, self.len_traj_pred)[None, :, None]
+        first_waypoint = waypoints[0]
+        first_waypoint_dist = torch.linalg.norm(first_waypoint[:2])
+        waypoint_offset = torch.stack([
+            first_waypoint_dist * torch.sin(oracle_angles),
+            first_waypoint_dist * torch.cos(oracle_angles),
+        ], dim=-1)
+        oracle_waypoints += waypoint_offset[:, None]
+        if self.learn_angle:
+            oracle_waypoints = torch.cat([
+                oracle_waypoints,
+                torch.sin(oracle_angles)[:, None, None].repeat_interleave(self.len_traj_pred, axis=1),
+                torch.cos(oracle_angles)[:, None, None].repeat_interleave(self.len_traj_pred, axis=1),
+            ], dim=-1)
+        else:
+            oracle_waypoints = torch.cat([
+                oracle_waypoints,
+                oracle_angles[:, None, None].repeat_interleave(self.len_traj_pred, dim=1),
+            ], dim=-1)
+        data.append(oracle_waypoints)
 
         # temporal distance
         if f_curr == f_goal:
