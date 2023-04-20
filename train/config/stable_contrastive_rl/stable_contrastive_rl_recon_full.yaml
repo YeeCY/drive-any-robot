@@ -8,7 +8,7 @@ batch_size: 200
 eval_batch_size: 200
 epochs: 5
 gpu_ids: [0, 1, 2, 3] # list of gpu ids to use
-num_workers: 32
+num_workers: 16
 lr: 5e-4
 optimizer: adam
 seed: 0
@@ -38,7 +38,7 @@ context_size: 5
 discount: 0.99
 
 # whether to use C-Learning (TD) or Contrastive NCE (MC)
-use_td: False
+use_td: True
 
 # GCBC
 bc_coef: 0.5  # [0.05, 0.1, 0.25, 0.5, 0.75]
@@ -52,11 +52,11 @@ target_update_freq: 1
 
 # distance bounds for distance and action and distance predictions
 rl:
-  min_dist_cat: 0
-  max_dist_cat: 20
+  min_dist_cat: 2
+  max_dist_cat: 12
   oracle_angles: 45  # degree
   num_oracle_trajs: 10
-close_far_threshold: 10 # distance threshold used to seperate the close and the far subgoals that are sampled per datapoint
+close_far_threshold: 6 # distance threshold used to seperate the close and the far subgoals that are sampled per datapoint
 
 # action output params
 len_traj_pred: 5

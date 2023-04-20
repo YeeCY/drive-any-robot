@@ -1022,9 +1022,8 @@ def get_critic_loss(model, obs, next_obs, action, goal, discount, use_td=False):
             logits, I.unsqueeze(-1).repeat(1, 1, 2)).mean(-1)
 
         critic_loss = torch.mean(critic_loss)
-        logits = torch.mean(logits, dim=-1)
 
-
+    logits = torch.mean(logits, dim=-1)
     correct = (torch.argmax(logits, dim=-1) == torch.argmax(I, dim=-1))
     logits_pos = torch.sum(logits * I) / torch.sum(I)
     logits_neg = torch.sum(logits * (1 - I)) / torch.sum(1 - I)
