@@ -24,7 +24,7 @@ fixed_std: [0.1, 0.1, 0.1, 0.1, 0.1,
             0.1, 0.1, 0.1, 0.1, 0.1,
             0.1, 0.1, 0.1, 0.1, 0.1,
             0.1, 0.1, 0.1, 0.1, 0.1,
-            0.25]
+            0.5]
 soft_target_tau: 0.005
 
 # normalization for the action space
@@ -76,6 +76,6 @@ datasets:
 
 # logging stuff
 print_log_freq: 100 # in iterations
-image_log_freq: 200 # in iterations
+image_log_freq: 500 # in iterations
 num_images_log: 16 # number of images to log in a logging iteration
 pairwise_test_freq: 10 # in epochs
