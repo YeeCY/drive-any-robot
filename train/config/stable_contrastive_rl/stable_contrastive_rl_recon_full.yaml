@@ -8,7 +8,7 @@ batch_size: 100
 eval_batch_size: 100
 epochs: 5
 gpu_ids: [0, 1, 2, 3] # list of gpu ids to use
-num_workers: 16
+num_workers: 10
 lr: 5e-4
 optimizer: adam
 seed: 0
