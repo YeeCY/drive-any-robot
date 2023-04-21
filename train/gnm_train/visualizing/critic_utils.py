@@ -157,7 +157,7 @@ def plot_oracle_critic_pred(
 
     # create line with color bar
     # reference: https://stackoverflow.com/a/49184882
-    vmin, vmax = floor(oracle_critics.min()), ceil(oracle_critics.max())
+    vmin, vmax = floor(oracle_critics.min(), 1), ceil(oracle_critics.max(), 1)
     norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
     cmap = mpl.cm.ScalarMappable(norm=norm, cmap=mpl.cm.jet)
     cmap.set_array([])
