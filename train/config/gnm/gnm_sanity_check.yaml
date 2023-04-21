@@ -2,7 +2,7 @@ project_name: gnm
 run_name: gnm_public
 
 # training setup
-use_wandb: False # set to false if you don't want to log to wandb
+use_wandb: True # set to false if you don't want to log to wandb
 train: supervised
 batch_size: 16  # default = 400
 eval_batch_size: 16  # default = 400

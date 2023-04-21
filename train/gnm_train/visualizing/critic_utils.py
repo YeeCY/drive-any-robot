@@ -41,7 +41,6 @@ def visualize_critic_pred(
     save_folder: str,
     epoch: int,
     num_images_preds: int = 8,
-    # num_oracle_trajs: int = 10,
     use_wandb: bool = True,
     display: bool = False,
 ):

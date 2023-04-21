@@ -266,29 +266,6 @@ def train(
 
     num_batches = len(train_rl_loader)
     for i, vals in enumerate(train_rl_loader):
-        # FIXME (chongyiz)
-        # dist_vals, action_vals = val
-        # (
-        #     dist_obs_image,
-        #     dist_goal_image,
-        #     dist_trans_obs_image,
-        #     dist_trans_goal_image,
-        #     dist_label,
-        #     dist_dataset_index,
-        # ) = dist_vals
-        # (
-        #     action_obs_image,
-        #     action_goal_image,
-        #     action_trans_obs_image,
-        #     action_trans_goal_image,
-        #     action_goal_pos,
-        #     action_label,
-        #     action_dataset_index,
-        # ) = action_vals
-        # dist_obs_data = dist_trans_obs_image.to(device)
-        # dist_goal_data = dist_trans_goal_image.to(device)
-        # dist_label = dist_label.to(device)
-
         (
             obs_image,
             next_obs_image,
@@ -306,14 +283,7 @@ def train(
         next_obs_data = trans_next_obs_image.to(device)
         goal_data = trans_goal_image.to(device)
         action_label = action_label.to(device)
-
-        # DEBUG: normalize waypoints to be within [-1, 1].
-        #   We want to check whether this cause gradient explosion of actor.
-        #   It seems this is not the source of bug.
-        # action_label = (action_label - action_label.min(dim=0, keepdim=True)[0]) / \
-        #                (action_label.max(dim=0, keepdim=True)[0] - action_label.min(dim=0, keepdim=True)[0])
-        # dist_label = (dist_label - dist_label.min(dim=0, keepdim=True)[0]) / \
-        #              (dist_label.max(dim=0, keepdim=True)[0] - dist_label.min(dim=0, keepdim=True)[0])
+        oracle_action = oracle_action[:num_images_log].to(device)
 
         dist_label = dist_label.to(device)
         action_data = torch.cat([
@@ -322,13 +292,13 @@ def train(
         ], dim=-1)
 
         # save oracle data to cpu cause we use cpu to do inference here
-        oracle_obs_data = obs_data[:, None].repeat_interleave(
-            oracle_action.shape[1], dim=1).flatten(0, 1).cpu()
-        oracle_goal_data = goal_data[:, None].repeat_interleave(
-            oracle_action.shape[1], dim=1).flatten(0, 1).cpu()
+        oracle_obs_data = obs_data[:num_images_log, None].repeat_interleave(
+            oracle_action.shape[1], dim=1).flatten(0, 1)
+        oracle_goal_data = goal_data[:num_images_log, None].repeat_interleave(
+            oracle_action.shape[1], dim=1).flatten(0, 1)
         oracle_action_data = torch.cat([
             oracle_action.flatten(0, 1).flatten(-2, -1),
-            dist_label[:, None].repeat_interleave(oracle_action.shape[1], dim=1).flatten(0, 1).cpu()
+            dist_label[:num_images_log, None].repeat_interleave(oracle_action.shape[1], dim=1).flatten(0, 1)
         ], dim=-1)
 
         # DEBUG: try to plot the distribution of waypoints and distances
@@ -524,16 +494,17 @@ def train(
                 use_wandb=use_wandb,
             )
 
+            # TODO (chongyiz): move this code block above
             # critic prediction for oracle actions
             # we do inference on cpu cause the batch size is too large
-            model.cpu()
+            # model.cpu()
             obs_a_repr, g_repr = model.q_network(
                 oracle_obs_data, oracle_action_data, oracle_goal_data)
             oracle_logit = torch.einsum('ikl,jkl->ijl', obs_a_repr, g_repr)
             oracle_logit = torch.diag(torch.mean(oracle_logit, dim=-1)).reshape(
                 [oracle_action.shape[0], oracle_action.shape[1], 1])
             oracle_critic = torch.sigmoid(oracle_logit)
-            model = model.to(device)
+            # model = model.to(device)
             visualize_critic_pred(
                 to_numpy(obs_image),
                 to_numpy(goal_image),
@@ -644,28 +615,6 @@ def evaluate(
 
     with torch.no_grad():
         for i, vals in enumerate(eval_rl_loader):
-            # dist_vals, action_vals = val
-            # (
-            #     dist_obs_image,
-            #     dist_goal_image,
-            #     dist_trans_obs_image,
-            #     dist_trans_goal_image,
-            #     dist_label,
-            #     dist_dataset_index,
-            # ) = dist_vals
-            # (
-            #     action_obs_image,
-            #     action_goal_image,
-            #     action_trans_obs_image,
-            #     action_trans_goal_image,
-            #     action_goal_pos,
-            #     action_label,
-            #     action_dataset_index,
-            # ) = action_vals
-            # dist_obs_data = dist_trans_obs_image.to(device)
-            # dist_goal_data = dist_trans_goal_image.to(device)
-            # dist_label = dist_label.to(device)
-
             (
                 obs_image,
                 next_obs_image,
@@ -683,6 +632,7 @@ def evaluate(
             next_obs_data = trans_next_obs_image.to(device)
             goal_data = trans_goal_image.to(device)
             action_label = action_label.to(device)
+            oracle_action = oracle_action[:num_images_log].to(device)
             dist_label = dist_label.to(device)
             action_data = torch.cat([
                 action_label.reshape([action_label.shape[0], -1]),
@@ -691,13 +641,13 @@ def evaluate(
             )
 
             # save oracle data to cpu cause we use cpu to do inference here
-            oracle_obs_data = obs_data[:, None].repeat_interleave(
-                oracle_action.shape[1], dim=1).flatten(0, 1).cpu()
-            oracle_goal_data = goal_data[:, None].repeat_interleave(
-                oracle_action.shape[1], dim=1).flatten(0, 1).cpu()
+            oracle_obs_data = obs_data[:num_images_log, None].repeat_interleave(
+                oracle_action.shape[1], dim=1).flatten(0, 1)
+            oracle_goal_data = goal_data[:num_images_log, None].repeat_interleave(
+                oracle_action.shape[1], dim=1).flatten(0, 1)
             oracle_action_data = torch.cat([
                 oracle_action.flatten(0, 1).flatten(-2, -1),
-                dist_label[:, None].repeat_interleave(oracle_action.shape[1], dim=1).flatten(0, 1).cpu()
+                dist_label[:num_images_log, None].repeat_interleave(oracle_action.shape[1], dim=1).flatten(0, 1)
             ], dim=-1)
 
             # dist_pred, _ = model(dist_obs_data, dist_goal_data)
@@ -812,14 +762,14 @@ def evaluate(
 
                 # critic prediction for oracle actions
                 # we do inference on cpu cause the batch size is too large
-                model.cpu()
+                # model.cpu()
                 obs_a_repr, g_repr = model.q_network(
                     oracle_obs_data, oracle_action_data, oracle_goal_data)
                 oracle_logit = torch.einsum('ikl,jkl->ijl', obs_a_repr, g_repr)
                 oracle_logit = torch.diag(torch.mean(oracle_logit, dim=-1)).reshape(
                     [oracle_action.shape[0], oracle_action.shape[1], 1])
                 oracle_critic = torch.sigmoid(oracle_logit)
-                model = model.to(device)
+                # model = model.to(device)
 
                 visualize_critic_pred(
                     to_numpy(obs_image),
