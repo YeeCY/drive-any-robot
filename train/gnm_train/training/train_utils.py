@@ -106,12 +106,14 @@ def train_eval_loop(
 
             total_eval_loss = get_total_loss(test_dist_loss, test_action_loss, alpha)
             eval_total_losses.append(total_eval_loss)
-            wandb.log({f"{dataset_type}_total_loss": total_eval_loss})
             print(f"{dataset_type}_total_loss: {total_eval_loss}")
-            wandb.log({f"{dataset_type}_dist_loss": test_dist_loss})
             print(f"{dataset_type}_dist_loss: {test_dist_loss}")
-            wandb.log({f"{dataset_type}_action_loss": test_action_loss})
             print(f"{dataset_type}_action_loss: {test_action_loss}")
+
+            if use_wandb:
+                wandb.log({f"{dataset_type}_total_loss": total_eval_loss})
+                wandb.log({f"{dataset_type}_dist_loss": test_dist_loss})
+                wandb.log({f"{dataset_type}_action_loss": test_action_loss})
 
         checkpoint = {
             "epoch": epoch,
@@ -141,7 +143,8 @@ def train_eval_loop(
                         num_images_log,
                         use_wandb=use_wandb,
                     )
-                    wandb.log({f"{dataset_type}_pairwise_acc": pairwise_accuracy})
+                    if use_wandb:
+                        wandb.log({f"{dataset_type}_pairwise_acc": pairwise_accuracy})
                     print(f"{dataset_type}_pairwise_acc: {pairwise_accuracy}")
     print()
 

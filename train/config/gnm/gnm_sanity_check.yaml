@@ -2,13 +2,13 @@ project_name: gnm
 run_name: gnm_public
 
 # training setup
-use_wandb: True # set to false if you don't want to log to wandb
+use_wandb: False # set to false if you don't want to log to wandb
 train: supervised
 batch_size: 16  # default = 400
 eval_batch_size: 16  # default = 400
 epochs: 30
-gpu_ids: [0] # list of gpu ids to use
-num_workers: 0
+gpu_ids: [0, 1, 2, 3] # list of gpu ids to use
+num_workers: 16
 lr: 5e-4
 optimizer: adam
 seed: 0
