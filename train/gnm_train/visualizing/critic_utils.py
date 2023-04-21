@@ -7,6 +7,8 @@ import wandb
 import yaml
 from gnm_train.visualizing.visualize_utils import (
     numpy_to_img,
+    ceil,
+    floor,
     VIZ_IMAGE_SIZE,
     RED,
     GREEN,
@@ -103,16 +105,6 @@ def visualize_critic_pred(
         if visualize_path is not None:
             save_path = os.path.join(visualize_path, f"{str(i).zfill(4)}.png")
 
-        # compare_waypoints_pred_to_label(
-        #     obs_img,
-        #     goal_img,
-        #     dataset_name,
-        #     goal_pos,
-        #     pred_waypoints,
-        #     label_waypoints,
-        #     save_path,
-        #     display,
-        # )
         plot_oracle_critic_pred(
             obs_img,
             goal_img,
@@ -165,7 +157,8 @@ def plot_oracle_critic_pred(
 
     # create line with color bar
     # reference: https://stackoverflow.com/a/49184882
-    norm = mpl.colors.Normalize(vmin=0.0, vmax=1.0)
+    vmin, vmax = floor(oracle_critics.min()), ceil(oracle_critics.max())
+    norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
     cmap = mpl.cm.ScalarMappable(norm=norm, cmap=mpl.cm.jet)
     cmap.set_array([])
 
@@ -177,7 +170,7 @@ def plot_oracle_critic_pred(
                      for oracle_critic in oracle_critics[:, 0]] + [MAGENTA],
         point_colors=[GREEN, RED],
     )
-    plt.colorbar(cmap, ticks=np.linspace(0.0, 1.0, 11), ax=ax[0],
+    plt.colorbar(cmap, ticks=np.linspace(vmin, vmax, 11), ax=ax[0],
                  fraction=0.046, pad=0.04)
     plot_trajs_and_points_on_image(
         ax[1],
@@ -189,7 +182,7 @@ def plot_oracle_critic_pred(
                      for oracle_critic in oracle_critics[:, 0]] + [MAGENTA],
         point_colors=[GREEN, RED],
     )
-    plt.colorbar(cmap, ticks=np.linspace(0.0, 1.0, 11), ax=ax[1],
+    plt.colorbar(cmap, ticks=np.linspace(vmin, vmax, 11), ax=ax[1],
                  fraction=0.046, pad=0.04)
 
     ax[2].imshow(goal_img)

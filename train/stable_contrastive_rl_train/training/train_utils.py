@@ -529,19 +529,18 @@ def train(
             model.cpu()
             obs_a_repr, g_repr = model.q_network(
                 oracle_obs_data, oracle_action_data, oracle_goal_data)
-            oracle_logits = torch.einsum('ikl,jkl->ijl', obs_a_repr, g_repr)
-            oracle_logits = torch.diag(torch.mean(oracle_logits, dim=-1)).reshape(
+            oracle_logit = torch.einsum('ikl,jkl->ijl', obs_a_repr, g_repr)
+            oracle_logit = torch.diag(torch.mean(oracle_logit, dim=-1)).reshape(
                 [oracle_action.shape[0], oracle_action.shape[1], 1])
-            oracle_critics = torch.sigmoid(oracle_logits)
+            oracle_critic = torch.sigmoid(oracle_logit)
             model = model.to(device)
-
             visualize_critic_pred(
                 to_numpy(obs_image),
                 to_numpy(goal_image),
                 to_numpy(dataset_index),
                 to_numpy(goal_pos),
                 to_numpy(oracle_action),
-                to_numpy(oracle_critics),
+                to_numpy(oracle_critic),
                 to_numpy(action_label),
                 "train",
                 normalized,
@@ -816,10 +815,10 @@ def evaluate(
                 model.cpu()
                 obs_a_repr, g_repr = model.q_network(
                     oracle_obs_data, oracle_action_data, oracle_goal_data)
-                oracle_logits = torch.einsum('ikl,jkl->ijl', obs_a_repr, g_repr)
-                oracle_logits = torch.diag(torch.mean(oracle_logits, dim=-1)).reshape(
+                oracle_logit = torch.einsum('ikl,jkl->ijl', obs_a_repr, g_repr)
+                oracle_logit = torch.diag(torch.mean(oracle_logit, dim=-1)).reshape(
                     [oracle_action.shape[0], oracle_action.shape[1], 1])
-                oracle_critics = torch.sigmoid(oracle_logits)
+                oracle_critic = torch.sigmoid(oracle_logit)
                 model = model.to(device)
 
                 visualize_critic_pred(
@@ -828,7 +827,7 @@ def evaluate(
                     to_numpy(dataset_index),
                     to_numpy(goal_pos),
                     to_numpy(oracle_action),
-                    to_numpy(oracle_critics),
+                    to_numpy(oracle_critic),
                     to_numpy(action_label),
                     eval_type,
                     normalized,
@@ -955,11 +954,11 @@ def get_critic_loss(model, obs, next_obs, action, goal, discount, use_td=False):
         new_goal = goal
 
     obs_a_repr, g_repr, _, _, _, _ = model(obs, action, new_goal)
-    # logits = torch.einsum('ikl,jkl->ijl', obs_a_repr, g_repr)
+    logits = torch.einsum('ikl,jkl->ijl', obs_a_repr, g_repr)
     # obs_a_repr, g_repr = model.q_network(obs, action, goal)
-    outer = torch.bmm(obs_a_repr[..., 0].unsqueeze(0), g_repr[..., 0].permute(1, 0).unsqueeze(0))[0]
-    outer2 = torch.bmm(obs_a_repr[..., 1].unsqueeze(0), g_repr[..., 1].permute(1, 0).unsqueeze(0))[0]
-    logits = torch.stack([outer, outer2], dim=-1)
+    # outer = torch.bmm(obs_a_repr[..., 0].unsqueeze(0), g_repr[..., 0].permute(1, 0).unsqueeze(0))[0]
+    # outer2 = torch.bmm(obs_a_repr[..., 1].unsqueeze(0), g_repr[..., 1].permute(1, 0).unsqueeze(0))[0]
+    # logits = torch.stack([outer, outer2], dim=-1)
 
     # torch.stack([
     #     torch.einsum('ik,jk->ij', obs_a_repr[..., 0], g_repr[..., 0]),
@@ -984,12 +983,12 @@ def get_critic_loss(model, obs, next_obs, action, goal, discount, use_td=False):
 
         _, _, next_obs_a_repr, random_g_repr, _, _ = model(
             next_obs, next_action, random_goal)
-        # next_q = torch.einsum('ikl,jkl->ijl', next_obs_a_repr, random_g_repr)
-        outer = torch.bmm(next_obs_a_repr[..., 0].unsqueeze(0),
-                          random_g_repr[..., 0].permute(1, 0).unsqueeze(0))[0]
-        outer2 = torch.bmm(next_obs_a_repr[..., 1].unsqueeze(0),
-                           random_g_repr[..., 1].permute(1, 0).unsqueeze(0))[0]
-        next_q = torch.stack([outer, outer2], dim=-1)
+        next_q = torch.einsum('ikl,jkl->ijl', next_obs_a_repr, random_g_repr)
+        # outer = torch.bmm(next_obs_a_repr[..., 0].unsqueeze(0),
+        #                   random_g_repr[..., 0].permute(1, 0).unsqueeze(0))[0]
+        # outer2 = torch.bmm(next_obs_a_repr[..., 1].unsqueeze(0),
+        #                    random_g_repr[..., 1].permute(1, 0).unsqueeze(0))[0]
+        # next_q = torch.stack([outer, outer2], dim=-1)
 
         next_q = torch.sigmoid(next_q)
         next_v = torch.min(next_q, dim=-1)[0].detach()
@@ -1067,11 +1066,11 @@ def get_actor_loss(model, obs, orig_action, goal, bc_coef=0.05,
     # q_action = model.q_network(obs, sampled_action, goal)
     obs_a_repr, g_repr, _, _, _, _ = model(obs, sampled_action, goal)
     # obs_a_repr, g_repr, _, _, _, _ = model(obs, mean, goal)
-    # q_action = torch.einsum('ikl,jkl->ijl', obs_a_repr, g_repr)
+    q_action = torch.einsum('ikl,jkl->ijl', obs_a_repr, g_repr)
     # obs_a_repr, g_repr = model.q_network(obs, sampled_action, goal)
-    outer = torch.bmm(obs_a_repr[..., 0].unsqueeze(0), g_repr[..., 0].permute(1, 0).unsqueeze(0))[0]
-    outer2 = torch.bmm(obs_a_repr[..., 1].unsqueeze(0), g_repr[..., 1].permute(1, 0).unsqueeze(0))[0]
-    q_action = torch.stack([outer, outer2], dim=-1)
+    # outer = torch.bmm(obs_a_repr[..., 0].unsqueeze(0), g_repr[..., 0].permute(1, 0).unsqueeze(0))[0]
+    # outer2 = torch.bmm(obs_a_repr[..., 1].unsqueeze(0), g_repr[..., 1].permute(1, 0).unsqueeze(0))[0]
+    # q_action = torch.stack([outer, outer2], dim=-1)
 
     if len(q_action.shape) == 3:  # twin q trick
         assert q_action.shape[2] == 2

@@ -1,6 +1,6 @@
 import numpy as np
-from PIL import Image
 import torch
+from PIL import Image
 
 VIZ_IMAGE_SIZE = (640, 480)
 RED = np.array([1, 0, 0])
@@ -18,8 +18,19 @@ def numpy_to_img(arr: np.ndarray) -> Image:
 
 
 def to_numpy(tensor: torch.Tensor) -> np.ndarray:
-    return tensor.detach().cpu().numpy()
+    # use deep copy to prevent modification of tensor on cpu
+    return tensor.detach().cpu().numpy().copy()
 
 
 def from_numpy(array: np.ndarray) -> torch.Tensor:
     return torch.from_numpy(array).float()
+
+
+def ceil(a, precision=0):
+    # https://stackoverflow.com/questions/58065055/floor-and-ceil-with-number-of-decimals
+    return np.true_divide(np.ceil(a * 10 ** precision), 10 ** precision)
+
+
+def floor(a, precision=0):
+    # https://stackoverflow.com/questions/58065055/floor-and-ceil-with-number-of-decimals
+    return np.true_divide(np.floor(a * 10 ** precision), 10 ** precision)
