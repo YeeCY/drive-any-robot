@@ -76,9 +76,10 @@ def visualize_critic_pred(
         len(batch_obs_images)
         == len(batch_goal_images)
         == len(batch_goals)
-        == len(batch_oracle_waypoints)
         == len(batch_label_waypoints)
     )
+
+    assert len(batch_oracle_waypoints) == num_images_preds
 
     dataset_names = list(data_config.keys())
     dataset_names.sort()

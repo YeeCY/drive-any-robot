@@ -293,12 +293,12 @@ def train(
 
         # save oracle data to cpu cause we use cpu to do inference here
         oracle_obs_data = obs_data[:num_images_log, None].repeat_interleave(
-            oracle_action.shape[1], dim=1).flatten(0, 1)
+            oracle_action.shape[1], dim=1).flatten(0, 1).cpu()
         oracle_goal_data = goal_data[:num_images_log, None].repeat_interleave(
-            oracle_action.shape[1], dim=1).flatten(0, 1)
+            oracle_action.shape[1], dim=1).flatten(0, 1).cpu()
         oracle_action_data = torch.cat([
-            oracle_action.flatten(0, 1).flatten(-2, -1),
-            dist_label[:num_images_log, None].repeat_interleave(oracle_action.shape[1], dim=1).flatten(0, 1)
+            oracle_action.flatten(0, 1).flatten(-2, -1).cpu(),
+            dist_label[:num_images_log, None].repeat_interleave(oracle_action.shape[1], dim=1).flatten(0, 1).cpu()
         ], dim=-1)
 
         # DEBUG: try to plot the distribution of waypoints and distances
@@ -386,12 +386,15 @@ def train(
 
         # preds = model.policy_network(obs_data, goal_data).mean
         # action_data are not used here
+        # model.cpu()
         _, _, _, _, preds, _ = model(obs_data, action_data, goal_data)
-        # preds, _ = model.policy_network(obs_data, goal_data)
+        # preds, _ = model.policy_network(obs_data.cpu(), goal_data.cpu())
+        # model = model.to(device)
 
         # The action of policy is different from the action here (waypoints).
         action_pred = preds[:, :-1]
         action_pred = action_pred.reshape(action_label.shape)
+        # action_label = action_label.cpu()
 
         dist_pred = preds[:, -1]
 
@@ -497,14 +500,16 @@ def train(
             # TODO (chongyiz): move this code block above
             # critic prediction for oracle actions
             # we do inference on cpu cause the batch size is too large
-            # model.cpu()
+            model.cpu()
             obs_a_repr, g_repr = model.q_network(
                 oracle_obs_data, oracle_action_data, oracle_goal_data)
+            # obs_a_repr, g_repr, _, _, _, _ = model(
+            #     oracle_obs_data, oracle_action_data, oracle_goal_data)
             oracle_logit = torch.einsum('ikl,jkl->ijl', obs_a_repr, g_repr)
             oracle_logit = torch.diag(torch.mean(oracle_logit, dim=-1)).reshape(
                 [oracle_action.shape[0], oracle_action.shape[1], 1])
             oracle_critic = torch.sigmoid(oracle_logit)
-            # model = model.to(device)
+            model = model.to(device)
             visualize_critic_pred(
                 to_numpy(obs_image),
                 to_numpy(goal_image),
@@ -642,12 +647,12 @@ def evaluate(
 
             # save oracle data to cpu cause we use cpu to do inference here
             oracle_obs_data = obs_data[:num_images_log, None].repeat_interleave(
-                oracle_action.shape[1], dim=1).flatten(0, 1)
+                oracle_action.shape[1], dim=1).flatten(0, 1).cpu()
             oracle_goal_data = goal_data[:num_images_log, None].repeat_interleave(
-                oracle_action.shape[1], dim=1).flatten(0, 1)
+                oracle_action.shape[1], dim=1).flatten(0, 1).cpu()
             oracle_action_data = torch.cat([
-                oracle_action.flatten(0, 1).flatten(-2, -1),
-                dist_label[:num_images_log, None].repeat_interleave(oracle_action.shape[1], dim=1).flatten(0, 1)
+                oracle_action.flatten(0, 1).flatten(-2, -1).cpu(),
+                dist_label[:num_images_log, None].repeat_interleave(oracle_action.shape[1], dim=1).flatten(0, 1).cpu()
             ], dim=-1)
 
             # dist_pred, _ = model(dist_obs_data, dist_goal_data)
@@ -671,12 +676,15 @@ def evaluate(
 
             # preds = model.policy_network(obs_data, goal_data).mean
             # action_data are not used here
+            # model.cpu()
             _, _, _, _, preds, _ = model(obs_data, action_data, goal_data)
-            # preds, _ = model.policy_network(obs_data, goal_data)
+            # preds, _ = model.policy_network(obs_data.cpu(), goal_data.cpu())
+            # model = model.to(device)
 
             # The action of policy is different from the action here (waypoints).
             action_pred = preds[:, :-1]
             action_pred = action_pred.reshape(action_label.shape)
+            # action_label = action_label.cpu()
 
             dist_pred = preds[:, -1]
 
@@ -762,14 +770,16 @@ def evaluate(
 
                 # critic prediction for oracle actions
                 # we do inference on cpu cause the batch size is too large
-                # model.cpu()
+                model.cpu()
                 obs_a_repr, g_repr = model.q_network(
                     oracle_obs_data, oracle_action_data, oracle_goal_data)
+                # obs_a_repr, g_repr, _, _, _, _ = model(
+                #     oracle_obs_data, oracle_action_data, oracle_goal_data)
                 oracle_logit = torch.einsum('ikl,jkl->ijl', obs_a_repr, g_repr)
                 oracle_logit = torch.diag(torch.mean(oracle_logit, dim=-1)).reshape(
                     [oracle_action.shape[0], oracle_action.shape[1], 1])
                 oracle_critic = torch.sigmoid(oracle_logit)
-                # model = model.to(device)
+                model = model.to(device)
 
                 visualize_critic_pred(
                     to_numpy(obs_image),
@@ -850,12 +860,14 @@ def pairwise_acc(
             # far_pred, _ = model(transf_obs_image, transf_far_image)
             # close_pred = model.policy_network(transf_obs_image, transf_close_image).mean
             # far_pred = model.policy_network(transf_obs_image, transf_far_image).mean
+            # model.cpu()
             dummy_action = torch.zeros([transf_obs_image.shape[0], model.action_size], device=transf_obs_image.device)
             _, _, _, _, close_pred, _ = model(transf_obs_image, dummy_action, transf_close_image)
             _, _, _, _, far_pred, _ = model(transf_obs_image, dummy_action, transf_far_image)
             # close_pred, _ = model.policy_network(transf_obs_image, transf_close_image)
             # far_pred, _ = model.policy_network(transf_obs_image, transf_far_image)
             close_dist_pred, far_dist_pred = close_pred[:, -1], far_pred[:, -1]
+            # model = model.to(device)
 
             close_pred_flat = close_dist_pred.reshape(close_dist_pred.shape[0])
             far_pred_flat = far_dist_pred.reshape(far_dist_pred.shape[0])

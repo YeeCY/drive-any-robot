@@ -167,6 +167,19 @@ class ContrastiveQNetwork(nn.Module):
 
         return obs_a_encoding, goal_encoding
 
+    def critic_parameters(self, recurse: bool = True) -> Iterator[nn.Parameter]:
+        if self.twin_q:
+            params = chain(self.obs_a_linear_layers.named_parameters(recurse=recurse),
+                           self.goal_linear_layers.named_parameters(recurse=recurse),
+                           self.obs_a_linear_layers2.named_parameters(recurse=recurse),
+                           self.goal_linear_layers2.named_parameters(recurse=recurse))
+        else:
+            params = chain(self.obs_a_linear_layers.named_parameters(recurse=recurse),
+                           self.goal_linear_layers.named_parameters(recurse=recurse))
+
+        for name, param in params:
+            yield param
+
 
 class ContrastivePolicy(nn.Module):
     def __init__(
