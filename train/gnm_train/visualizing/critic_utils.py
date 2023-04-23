@@ -35,6 +35,7 @@ def visualize_critic_pred(
     batch_goals: np.ndarray,
     batch_oracle_waypoints: np.ndarray,
     batch_oracle_critics: np.ndarray,
+    batch_pred_waypoints: np.ndarray,
     batch_label_waypoints: np.ndarray,
     eval_type: str,
     normalized: bool,
@@ -76,6 +77,7 @@ def visualize_critic_pred(
         len(batch_obs_images)
         == len(batch_goal_images)
         == len(batch_goals)
+        == len(batch_pred_waypoints)
         == len(batch_label_waypoints)
     )
 
@@ -91,6 +93,7 @@ def visualize_critic_pred(
         goal_img = numpy_to_img(batch_goal_images[i])
         dataset_name = dataset_names[int(dataset_indices[i])]
         goal_pos = batch_goals[i]
+        pred_waypoints = batch_pred_waypoints[i]
         oracle_waypoints = batch_oracle_waypoints[i]
         oracle_critics = batch_oracle_critics[i]
         label_waypoints = batch_label_waypoints[i]
@@ -112,6 +115,7 @@ def visualize_critic_pred(
             goal_pos,
             oracle_waypoints,
             oracle_critics,
+            pred_waypoints,
             label_waypoints,
             save_path,
             display
@@ -130,6 +134,7 @@ def plot_oracle_critic_pred(
     goal_pos: np.ndarray,
     oracle_waypoints: np.ndarray,
     oracle_critics: np.ndarray,
+    pred_waypoints: np.ndarray,
     label_waypoints: np.ndarray,
     save_path: Optional[str] = None,
     display: Optional[bool] = False,
@@ -151,9 +156,9 @@ def plot_oracle_critic_pred(
     fig, ax = plt.subplots(1, 3)
     start_pos = np.array([0, 0])
     if len(oracle_waypoints.shape) > 2:
-        trajs = [*oracle_waypoints, label_waypoints]
+        trajs = [*oracle_waypoints, *pred_waypoints, label_waypoints]
     else:
-        trajs = [oracle_waypoints, label_waypoints]
+        trajs = [oracle_waypoints, pred_waypoints, label_waypoints]
 
     # create line with color bar
     # reference: https://stackoverflow.com/a/49184882
@@ -167,7 +172,7 @@ def plot_oracle_critic_pred(
         trajs,
         [start_pos, goal_pos],
         traj_colors=[np.array(cmap.to_rgba(oracle_critic))
-                     for oracle_critic in oracle_critics[:, 0]] + [MAGENTA],
+                     for oracle_critic in oracle_critics[:, 0]] + [CYAN, MAGENTA],
         point_colors=[GREEN, RED],
     )
     plt.colorbar(cmap, ticks=np.linspace(vmin, vmax, 11), ax=ax[0],
@@ -179,7 +184,7 @@ def plot_oracle_critic_pred(
         trajs,
         [start_pos, goal_pos],
         traj_colors=[np.array(cmap.to_rgba(oracle_critic))
-                     for oracle_critic in oracle_critics[:, 0]] + [MAGENTA],
+                     for oracle_critic in oracle_critics[:, 0]] + [CYAN, MAGENTA],
         point_colors=[GREEN, RED],
     )
     plt.colorbar(cmap, ticks=np.linspace(vmin, vmax, 11), ax=ax[1],

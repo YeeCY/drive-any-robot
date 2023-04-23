@@ -482,20 +482,20 @@ def train(
                 num_images_log,
                 use_wandb=use_wandb,
             )
-            visualize_traj_pred(
-                to_numpy(obs_image),
-                to_numpy(goal_image),
-                to_numpy(dataset_index),
-                to_numpy(goal_pos),
-                to_numpy(action_pred),
-                to_numpy(action_label),
-                "train",
-                normalized,
-                project_folder,
-                epoch,
-                num_images_log,
-                use_wandb=use_wandb,
-            )
+            # visualize_traj_pred(
+            #     to_numpy(obs_image),
+            #     to_numpy(goal_image),
+            #     to_numpy(dataset_index),
+            #     to_numpy(goal_pos),
+            #     to_numpy(action_pred),
+            #     to_numpy(action_label),
+            #     "train",
+            #     normalized,
+            #     project_folder,
+            #     epoch,
+            #     num_images_log,
+            #     use_wandb=use_wandb,
+            # )
 
             # TODO (chongyiz): move this code block above
             # critic prediction for oracle actions
@@ -517,6 +517,7 @@ def train(
                 to_numpy(goal_pos),
                 to_numpy(oracle_action),
                 to_numpy(oracle_critic),
+                to_numpy(action_pred),
                 to_numpy(action_label),
                 "train",
                 normalized,
@@ -753,20 +754,20 @@ def evaluate(
                     num_images_log,
                     use_wandb=use_wandb,
                 )
-                visualize_traj_pred(
-                    to_numpy(obs_image),
-                    to_numpy(goal_image),
-                    to_numpy(dataset_index),
-                    to_numpy(goal_pos),
-                    to_numpy(action_pred),
-                    to_numpy(action_label),
-                    eval_type,
-                    normalized,
-                    project_folder,
-                    epoch,
-                    num_images_log,
-                    use_wandb=use_wandb,
-                )
+                # visualize_traj_pred(
+                #     to_numpy(obs_image),
+                #     to_numpy(goal_image),
+                #     to_numpy(dataset_index),
+                #     to_numpy(goal_pos),
+                #     to_numpy(action_pred),
+                #     to_numpy(action_label),
+                #     eval_type,
+                #     normalized,
+                #     project_folder,
+                #     epoch,
+                #     num_images_log,
+                #     use_wandb=use_wandb,
+                # )
 
                 # critic prediction for oracle actions
                 # we do inference on cpu cause the batch size is too large
@@ -788,6 +789,7 @@ def evaluate(
                     to_numpy(goal_pos),
                     to_numpy(oracle_action),
                     to_numpy(oracle_critic),
+                    to_numpy(action_pred),
                     to_numpy(action_label),
                     eval_type,
                     normalized,
