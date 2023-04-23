@@ -4,11 +4,11 @@ run_name: stable_contrastive_rl_debug
 # training setup
 use_wandb: True  # set to false if you don't want to log wandb
 train: rl
-batch_size: 16  # default = 16, full size = 207
-eval_batch_size: 16  # default = 400
+batch_size: 32  # default = 16, full size = 207
+eval_batch_size: 32  # default = 400
 epochs: 120
-gpu_ids: [0] # list of gpu ids to use
-num_workers: 16
+gpu_ids: [0, 1, 2, 3] # list of gpu ids to use
+num_workers: 24
 lr: 5e-4
 optimizer: adam
 seed: 0
@@ -41,7 +41,7 @@ discount: 0.99
 use_td: False
 
 # GCBC
-bc_coef: 0.5
+bc_coef: 0.2
 mle_gcbc_loss: True
 
 # whether to stop gradients from actor loss to policy image encoder
