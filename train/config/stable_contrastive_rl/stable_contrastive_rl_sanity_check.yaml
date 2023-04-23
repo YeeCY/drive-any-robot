@@ -7,7 +7,7 @@ train: rl
 batch_size: 16  # default = 16, full size = 207
 eval_batch_size: 16  # default = 400
 epochs: 120
-gpu_ids: [0, 1, 2, 3] # list of gpu ids to use
+gpu_ids: [0] # list of gpu ids to use
 num_workers: 16
 lr: 5e-4
 optimizer: adam
@@ -46,6 +46,8 @@ mle_gcbc_loss: True
 
 # whether to stop gradients from actor loss to policy image encoder
 stop_grad_actor_img_encoder: True
+use_actor_waypoint_q_loss: True
+use_actor_dist_q_loss: False
 
 # number of training iterations to update target q network
 target_update_freq: 1

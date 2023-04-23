@@ -371,6 +371,8 @@ def main(config):
             bc_coef=config["bc_coef"],
             mle_gcbc_loss=config["mle_gcbc_loss"],
             stop_grad_actor_img_encoder=config["stop_grad_actor_img_encoder"],
+            use_actor_waypoint_q_loss=config["use_actor_waypoint_q_loss"],
+            use_actor_dist_q_loss=config["use_actor_dist_q_loss"],
             use_wandb=config["use_wandb"],
         )
     else:
