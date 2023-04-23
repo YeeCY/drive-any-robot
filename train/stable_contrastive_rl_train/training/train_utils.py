@@ -410,7 +410,7 @@ def train(
             model.soft_update_target_q_network()
 
         critic_loss_logger.log_data(critic_loss.item())
-        waypoint_binary_acc_logger.log_data(critic_info["waypint_binary_accuracy"].item())
+        waypoint_binary_acc_logger.log_data(critic_info["waypoint_binary_accuracy"].item())
         waypoint_categorical_acc_logger.log_data(critic_info["waypoint_categorical_accuracy"].item())
         waypoint_logits_pos_logger.log_data(critic_info["waypoint_logits_pos"].item())
         waypoint_logits_neg_logger.log_data(critic_info["waypoint_logits_neg"].item())
@@ -478,9 +478,9 @@ def train(
             # critic prediction for oracle actions
             # we do inference on cpu cause the batch size is too large
             model.cpu()
-            obs_a_repr, g_repr = model.q_network(
+            obs_waypoint_repr, _, g_repr = model.q_network(
                 oracle_obs_data, oracle_action_data, oracle_goal_data)
-            oracle_logit = torch.einsum('ikl,jkl->ijl', obs_a_repr, g_repr)
+            oracle_logit = torch.einsum('ikl,jkl->ijl', obs_waypoint_repr, g_repr)
             oracle_logit = torch.diag(torch.mean(oracle_logit, dim=-1)).reshape(
                 [oracle_action.shape[0], oracle_action.shape[1], 1])
             oracle_critic = torch.sigmoid(oracle_logit)
@@ -706,7 +706,7 @@ def evaluate(
             # action_loss_logger.log_data(action_loss.item())
 
             critic_loss_logger.log_data(critic_loss.item())
-            waypoint_binary_acc_logger.log_data(critic_info["waypint_binary_accuracy"].item())
+            waypoint_binary_acc_logger.log_data(critic_info["waypoint_binary_accuracy"].item())
             waypoint_categorical_acc_logger.log_data(critic_info["waypoint_categorical_accuracy"].item())
             waypoint_logits_pos_logger.log_data(critic_info["waypoint_logits_pos"].item())
             waypoint_logits_neg_logger.log_data(critic_info["waypoint_logits_neg"].item())
@@ -715,7 +715,7 @@ def evaluate(
             dist_categorical_acc_logger.log_data(critic_info["dist_categorical_accuracy"].item())
             dist_logits_pos_logger.log_data(critic_info["dist_logits_pos"].item())
             dist_logits_neg_logger.log_data(critic_info["dist_logits_neg"].item())
-            dist_logits_logger.log_data(critic_info["dist_loggers"].item())
+            dist_logits_logger.log_data(critic_info["dist_logits"].item())
 
             actor_loss_logger.log_data(actor_loss.item())
             actor_waypoint_q_loss.log_data(actor_info["actor_waypoint_q_loss"].item())
@@ -768,9 +768,9 @@ def evaluate(
                 # critic prediction for oracle actions
                 # we do inference on cpu cause the batch size is too large
                 model.cpu()
-                obs_a_repr, g_repr = model.q_network(
+                obs_waypoint_repr, _, g_repr = model.q_network(
                     oracle_obs_data, oracle_action_data, oracle_goal_data)
-                oracle_logit = torch.einsum('ikl,jkl->ijl', obs_a_repr, g_repr)
+                oracle_logit = torch.einsum('ikl,jkl->ijl', obs_waypoint_repr, g_repr)
                 oracle_logit = torch.diag(torch.mean(oracle_logit, dim=-1)).reshape(
                     [oracle_action.shape[0], oracle_action.shape[1], 1])
                 oracle_critic = torch.sigmoid(oracle_logit)
@@ -1034,7 +1034,8 @@ def get_actor_loss(model, obs, orig_action, goal, bc_coef=0.05,
         q_waypoint = torch.min(q_waypoint, dim=-1)[0]
         q_dist = torch.min(q_dist, dim=-1)[0]
 
-    actor_q_loss, actor_waypoint_q_loss, actor_dist_q_loss = 0, 0, 0
+    actor_q_loss, actor_waypoint_q_loss, actor_dist_q_loss = \
+        torch.zeros_like(distance_mean), torch.zeros_like(distance_mean), torch.zeros_like(distance_mean)
     if use_actor_waypoint_q_loss:
         actor_waypoint_q_loss = -torch.diag(q_waypoint)
         actor_q_loss += actor_waypoint_q_loss
