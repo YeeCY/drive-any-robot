@@ -19,7 +19,7 @@ from gnm_train.visualizing.visualize_utils import (
 )
 from gnm_train.visualizing.action_utils import (
     gen_bearings_from_waypoints,
-    # plot_trajs_and_points,
+    plot_trajs_and_points,
     plot_trajs_and_points_on_image,
 )
 
@@ -156,23 +156,44 @@ def plot_oracle_critic_pred(
     fig, ax = plt.subplots(1, 3)
     start_pos = np.array([0, 0])
     if len(oracle_waypoints.shape) > 2:
-        trajs = [*oracle_waypoints, *pred_waypoints, label_waypoints]
+        oracle_trajs = [*oracle_waypoints]
     else:
-        trajs = [oracle_waypoints, pred_waypoints, label_waypoints]
+        oracle_trajs = [oracle_waypoints]
+    if len(pred_waypoints.shape) > 2:
+        trajs = [*pred_waypoints, label_waypoints]
+    else:
+        trajs = [pred_waypoints, label_waypoints]
 
     # create line with color bar
     # reference: https://stackoverflow.com/a/49184882
-    vmin, vmax = floor(oracle_critics.min(), 1), ceil(oracle_critics.max(), 1)
-    norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
-    cmap = mpl.cm.ScalarMappable(norm=norm, cmap=mpl.cm.jet)
-    cmap.set_array([])
-
     plot_trajs_and_points(
         ax[0],
         trajs,
         [start_pos, goal_pos],
+        traj_colors=[CYAN, MAGENTA],
+        point_colors=[GREEN, RED],
+    )
+    plot_trajs_and_points_on_image(
+        ax[1],
+        obs_img,
+        dataset_name,
+        trajs,
+        [start_pos, goal_pos],
+        traj_colors=[CYAN, MAGENTA],
+        point_colors=[GREEN, RED],
+    )
+
+    vmin, vmax = floor(oracle_critics.min(), 1), ceil(oracle_critics.max(), 1)
+    norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
+    cmap = mpl.cm.ScalarMappable(norm=norm, cmap=mpl.cm.jet)
+    cmap.set_array([])
+    plot_trajs_and_points(
+        ax[0],
+        oracle_trajs,
+        [start_pos, goal_pos],
         traj_colors=[np.array(cmap.to_rgba(oracle_critic))
-                     for oracle_critic in oracle_critics[:, 0]] + [CYAN, MAGENTA],
+                     for oracle_critic in oracle_critics[:, 0]],
+        traj_labels=["oracle"] * len(oracle_critics),
         point_colors=[GREEN, RED],
     )
     plt.colorbar(cmap, ticks=np.linspace(vmin, vmax, 11), ax=ax[0],
@@ -181,7 +202,7 @@ def plot_oracle_critic_pred(
         ax[1],
         obs_img,
         dataset_name,
-        trajs,
+        oracle_trajs,
         [start_pos, goal_pos],
         traj_colors=[np.array(cmap.to_rgba(oracle_critic))
                      for oracle_critic in oracle_critics[:, 0]] + [CYAN, MAGENTA],
@@ -209,65 +230,65 @@ def plot_oracle_critic_pred(
         plt.close(fig)
 
 
-def plot_trajs_and_points(
-    ax: plt.Axes,
-    list_trajs: list,
-    list_points: list,
-    traj_colors: list = [CYAN, MAGENTA],
-    point_colors: list = [RED, GREEN],
-    # traj_labels: Optional[list] = ["prediction", "ground truth"],
-    point_labels: Optional[list] = ["robot", "goal"],
-    quiver_freq: int = 1,
-    default_coloring: bool = True,
-):
-    """
-    Plot trajectories and points that could potentially have a yaw.
-
-    Args:
-        ax: matplotlib axis
-        list_trajs: list of trajectories, each trajectory is a numpy array of shape (horizon, 2) (if there is no yaw) or (horizon, 4) (if there is yaw)
-        list_points: list of points, each point is a numpy array of shape (2,)
-        traj_colors: list of colors for trajectories
-        point_colors: list of colors for points
-        point_labels: list of labels for points
-        quiver_freq: frequency of quiver plot (if the trajectory data includes the yaw of the robot)
-    """
-    assert (
-        len(list_trajs) <= len(traj_colors) or default_coloring
-    ), "Not enough colors for trajectories"
-    assert len(list_points) <= len(point_colors), "Not enough colors for points"
-    # assert (
-    #     len(list_trajs) == len(traj_labels) or default_coloring
-    # ), "Not enough labels for trajectories"
-    assert len(list_points) == len(point_labels), "Not enough labels for points"
-
-    for i, traj in enumerate(list_trajs):
-        ax.plot(
-            traj[:, 0],
-            traj[:, 1],
-            color=traj_colors[i],
-            # label=traj_labels[i],
-        )
-        if traj.shape[1] > 2:  # traj data also includes yaw of the robot
-            bearings = gen_bearings_from_waypoints(traj)
-            ax.quiver(
-                traj[::quiver_freq, 0],
-                traj[::quiver_freq, 1],
-                bearings[::quiver_freq, 0],
-                bearings[::quiver_freq, 1],
-                color=traj_colors[i] * 0.5,
-                scale=1.0,
-            )
-    for i, pt in enumerate(list_points):
-        ax.plot(
-            pt[0],
-            pt[1],
-            color=point_colors[i],
-            marker="o",
-            markersize=7.0,
-            label=point_labels[i],
-        )
-    ax.legend()
-    # put the legend below the plot
-    ax.legend(bbox_to_anchor=(0.0, -0.5), loc="upper left", ncol=2)
-    ax.set_aspect("equal", "box")
+# def plot_trajs_and_points(
+#     ax: plt.Axes,
+#     list_trajs: list,
+#     list_points: list,
+#     traj_colors: list = [CYAN, MAGENTA],
+#     point_colors: list = [RED, GREEN],
+#     traj_labels: Optional[list] = ["prediction", "ground truth"],
+#     point_labels: Optional[list] = ["robot", "goal"],
+#     quiver_freq: int = 1,
+#     default_coloring: bool = True,
+# ):
+#     """
+#     Plot trajectories and points that could potentially have a yaw.
+#
+#     Args:
+#         ax: matplotlib axis
+#         list_trajs: list of trajectories, each trajectory is a numpy array of shape (horizon, 2) (if there is no yaw) or (horizon, 4) (if there is yaw)
+#         list_points: list of points, each point is a numpy array of shape (2,)
+#         traj_colors: list of colors for trajectories
+#         point_colors: list of colors for points
+#         point_labels: list of labels for points
+#         quiver_freq: frequency of quiver plot (if the trajectory data includes the yaw of the robot)
+#     """
+#     assert (
+#         len(list_trajs) <= len(traj_colors) or default_coloring
+#     ), "Not enough colors for trajectories"
+#     assert len(list_points) <= len(point_colors), "Not enough colors for points"
+#     # assert (
+#     #     len(list_trajs) == len(traj_labels) or default_coloring
+#     # ), "Not enough labels for trajectories"
+#     assert len(list_points) == len(point_labels), "Not enough labels for points"
+#
+#     for i, traj in enumerate(list_trajs):
+#         ax.plot(
+#             traj[:, 0],
+#             traj[:, 1],
+#             color=traj_colors[i],
+#             # label=traj_labels[i],
+#         )
+#         if traj.shape[1] > 2:  # traj data also includes yaw of the robot
+#             bearings = gen_bearings_from_waypoints(traj)
+#             ax.quiver(
+#                 traj[::quiver_freq, 0],
+#                 traj[::quiver_freq, 1],
+#                 bearings[::quiver_freq, 0],
+#                 bearings[::quiver_freq, 1],
+#                 color=traj_colors[i] * 0.5,
+#                 scale=1.0,
+#             )
+#     for i, pt in enumerate(list_points):
+#         ax.plot(
+#             pt[0],
+#             pt[1],
+#             color=point_colors[i],
+#             marker="o",
+#             markersize=7.0,
+#             label=point_labels[i],
+#         )
+#     ax.legend()
+#     # put the legend below the plot
+#     ax.legend(bbox_to_anchor=(0.0, -0.5), loc="upper left", ncol=2)
+#     ax.set_aspect("equal", "box")
