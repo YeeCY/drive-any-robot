@@ -391,17 +391,18 @@ class RLDataset(Dataset):
             ]
         )
 
+        # TODO (chongyi): we get bugs here! Fix it.
         # construct oracle actions spanning -oracle_angles to oracle_angles
         traj_len = torch.sum(
             torch.linalg.norm(waypoints[1:, :2] - waypoints[:-1, :2], dim=-1)
         )
-        oracle_angles = np.pi / 2 + torch.linspace(
+        oracle_angles = torch.linspace(
             -np.deg2rad(self.oracle_angles), np.deg2rad(self.oracle_angles),
             self.num_oracle_trajs)
         if traj_len > 0:
             oracle_end_wpts = torch.stack([
-                traj_len * torch.sin(oracle_angles),
                 traj_len * torch.cos(oracle_angles),
+                traj_len * torch.sin(oracle_angles),
             ], dim=-1)
         else:
             oracle_end_wpts = torch.stack([
@@ -413,15 +414,15 @@ class RLDataset(Dataset):
         first_waypoint = waypoints[0]
         first_waypoint_dist = torch.linalg.norm(first_waypoint[:2])
         waypoint_offset = torch.stack([
-            first_waypoint_dist * torch.sin(oracle_angles),
             first_waypoint_dist * torch.cos(oracle_angles),
+            first_waypoint_dist * torch.sin(oracle_angles),
         ], dim=-1)
         oracle_waypoints += waypoint_offset[:, None]
         if self.learn_angle:
             oracle_waypoints = torch.cat([
                 oracle_waypoints,
-                torch.sin(oracle_angles)[:, None, None].repeat_interleave(self.len_traj_pred, axis=1),
                 torch.cos(oracle_angles)[:, None, None].repeat_interleave(self.len_traj_pred, axis=1),
+                torch.sin(oracle_angles)[:, None, None].repeat_interleave(self.len_traj_pred, axis=1),
             ], dim=-1)
         else:
             oracle_waypoints = torch.cat([
