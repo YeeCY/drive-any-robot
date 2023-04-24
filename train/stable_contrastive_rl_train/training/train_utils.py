@@ -24,9 +24,8 @@ from torch.distributions import (
 def train_eval_rl_loop(
     model: nn.Module,
     optimizer: Dict[str, Optimizer],
-    # train_dist_loader: DataLoader,
-    # train_action_loader: DataLoader,
-    train_rl_loader: DataLoader,
+    train_dist_loader: DataLoader,
+    train_action_loader: DataLoader,
     test_dataloaders: Dict[str, DataLoader],
     epochs: int,
     device: torch.device,
@@ -80,7 +79,8 @@ def train_eval_rl_loop(
         train(
             model,
             optimizer,
-            train_rl_loader,
+            train_dist_loader,
+            train_action_loader,
             device,
             project_folder,
             normalized,
@@ -182,7 +182,8 @@ def train_eval_rl_loop(
 def train(
     model: nn.Module,
     optimizer: Dict[str, Optimizer],
-    train_rl_loader: DataLoader,
+    train_dist_loader: DataLoader,
+    train_waypoint_loader: DataLoader,
     device: torch.device,
     project_folder: str,
     normalized: bool,
@@ -291,42 +292,81 @@ def train(
             [action_orien_cos_sim_logger, multi_action_orien_cos_sim_logger]
         )
 
-    num_batches = len(train_rl_loader)
-    for i, vals in enumerate(train_rl_loader):
+    num_batches = min(len(train_dist_loader), len(train_waypoint_loader))
+    for i, val in enumerate(zip(train_dist_loader, train_waypoint_loader)):
+        dist_vals, waypoint_vals = val
         (
-            obs_image,
-            next_obs_image,
-            goal_image,
-            trans_obs_image,
-            trans_next_obs_image,
-            trans_goal_image,
-            goal_pos,
-            action_label,
-            oracle_action,
+            dist_obs_image,
+            dist_next_obs_image,
+            dist_goal_image,
+            dist_trans_obs_image,
+            dist_trans_next_obs_image,
+            dist_trans_goal_image,
             dist_label,
-            dataset_index,
-        ) = vals
-        obs_data = trans_obs_image.to(device)
-        next_obs_data = trans_next_obs_image.to(device)
-        goal_data = trans_goal_image.to(device)
-        action_label = action_label.to(device)
-        oracle_action = oracle_action[:num_images_log].to(device)
-
+            dist_dataset_index,
+        ) = dist_vals
+        (
+            waypoint_obs_image,
+            waypoint_next_obs_image,
+            waypoint_goal_image,
+            waypoint_trans_obs_image,
+            waypoint_trans_next_obs_image,
+            waypoint_trans_goal_image,
+            waypoint_goal_pos,
+            waypoint_label,
+            waypoint_oracle,
+            waypoint_dataset_index,
+        ) = waypoint_vals
+        # (
+        #     obs_image,
+        #     next_obs_image,
+        #     goal_image,
+        #     trans_obs_image,
+        #     trans_next_obs_image,
+        #     trans_goal_image,
+        #     goal_pos,
+        #     action_label,
+        #     oracle_action,
+        #     dist_label,
+        #     dataset_index,
+        # ) = vals
+        dist_obs_data = dist_trans_obs_image.to(device)
+        dist_next_obs_data = dist_trans_next_obs_image.to(device)
+        dist_goal_data = dist_trans_goal_image.to(device)
         dist_label = dist_label.to(device)
-        action_data = torch.cat([
-            action_label.reshape([action_label.shape[0], -1]),
-            dist_label
-        ], dim=-1)
+
+        waypoint_obs_data = waypoint_trans_obs_image.to(device)
+        waypoint_next_obs_data = waypoint_trans_next_obs_image.to(device)
+        waypoint_goal_data = waypoint_trans_goal_image.to(device)
+        waypoint_label = waypoint_label.to(device)
+        waypoint_oracle = waypoint_oracle[:num_images_log]
+
+        obs_data = (dist_obs_data, waypoint_obs_data)
+        next_obs_data = (dist_next_obs_data, waypoint_next_obs_data)
+        action_data = (dist_label, waypoint_label)
+        goal_data = (dist_goal_data, waypoint_goal_data)
+
+        # obs_data = trans_obs_image.to(device)
+        # next_obs_data = trans_next_obs_image.to(device)
+        # goal_data = trans_goal_image.to(device)
+        # action_label = action_label.to(device)
+        # oracle_action = oracle_action[:num_images_log].to(device)
+        #
+        # dist_label = dist_label.to(device)
+        # action_data = torch.cat([
+        #     action_label.reshape([action_label.shape[0], -1]),
+        #     dist_label
+        # ], dim=-1)
 
         # save oracle data to cpu cause we use cpu to do inference here
-        oracle_obs_data = obs_data[:num_images_log, None].repeat_interleave(
-            oracle_action.shape[1], dim=1).flatten(0, 1).cpu()
-        oracle_goal_data = goal_data[:num_images_log, None].repeat_interleave(
-            oracle_action.shape[1], dim=1).flatten(0, 1).cpu()
-        oracle_action_data = torch.cat([
-            oracle_action.flatten(0, 1).flatten(-2, -1).cpu(),
-            dist_label[:num_images_log, None].repeat_interleave(oracle_action.shape[1], dim=1).flatten(0, 1).cpu()
-        ], dim=-1)
+        waypoint_oracle_obs_data = waypoint_obs_data[:num_images_log, None].repeat_interleave(
+            waypoint_oracle.shape[1], dim=1).flatten(0, 1).cpu()
+        waypoint_oracle_goal_data = waypoint_goal_data[:num_images_log, None].repeat_interleave(
+            waypoint_oracle.shape[1], dim=1).flatten(0, 1).cpu()
+        # oracle_action_data = torch.cat([
+        #     oracle_action.flatten(0, 1).flatten(-2, -1).cpu(),
+        #     dist_label[:num_images_log, None].repeat_interleave(oracle_action.shape[1], dim=1).flatten(0, 1).cpu()
+        # ], dim=-1)
 
         # Important: the order of loss computation and optimizer update matter!
         # compute critic loss
@@ -891,6 +931,11 @@ def pairwise_acc(
 
 
 def get_critic_loss(model, obs, next_obs, action, goal, discount, use_td=False):
+    waypoint_obs, dist_obs = obs
+    waypoint_next_obs, dist_next_obs = next_obs
+    waypoint, dist = action
+    waypoint_goal, dist_goal = goal
+
     batch_size = obs.shape[0]
 
     bce_with_logits_loss = nn.BCEWithLogitsLoss(reduction='none')
@@ -900,11 +945,18 @@ def get_critic_loss(model, obs, next_obs, action, goal, discount, use_td=False):
 
     if use_td:
         # extract next goal from fusion of observations and contexts.
-        new_goal = next_obs[:, -3:]
+        waypoint_new_goal = waypoint_next_obs[:, -3:]
+        dist_new_goal = dist_next_obs[:, -3:]
     else:
-        new_goal = goal
+        waypoint_new_goal = waypoint_goal
+        dist_new_goal = dist_goal
 
-    obs_waypoint_repr, obs_dist_repr, g_repr = model(obs, action, new_goal)[0:3]
+    # obs_waypoint_repr, obs_dist_repr, g_repr = model(obs, action, new_goal)[0:3]
+    obs_waypoint_repr, obs_dist_repr, g_repr = model(
+        waypoint_obs, dist_obs,
+        waypoint, dist,
+        waypoint_new_goal, dist_new_goal
+    )[0:3]
     waypoint_logits = torch.einsum('ikl,jkl->ijl', obs_waypoint_repr, g_repr)
     dist_logits = torch.einsum('ikl,jkl->ijl', obs_dist_repr, g_repr)
 
@@ -913,6 +965,7 @@ def get_critic_loss(model, obs, next_obs, action, goal, discount, use_td=False):
     assert len(dist_logits.shape) == 3
 
     if use_td:
+        raise NotImplementedError
         goal_indices = torch.roll(
             torch.arange(batch_size, dtype=torch.int64), -1)
 
@@ -1010,8 +1063,12 @@ def get_actor_loss(model, obs, orig_action, goal, bc_coef=0.05,
     """
     assert use_actor_waypoint_q_loss or use_actor_dist_q_loss
 
-    orig_waypoint = orig_action[:, :model.action_size - 1]
-    orig_distance = orig_action[:, -1]
+    waypoint_obs, dist_obs = obs
+    waypoint, dist = orig_action
+    waypoint_goal, dist_goal = goal
+
+    # orig_waypoint = orig_action[:, :model.action_size - 1]
+    # orig_distance = orig_action[:, -1]
 
     mean, std = model(
         obs, orig_action, goal, stop_grad_actor_img_encoder=stop_grad_actor_img_encoder)[-2:]

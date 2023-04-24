@@ -99,83 +99,105 @@ class ContrastiveQNetwork(nn.Module):
         self.action_size = action_size
         self.twin_q = twin_q
 
-        self.obs_waypoint_linear_layers = nn.Sequential(
+        self.waypoint_obs_linear_layers = nn.Sequential(
             nn.Linear(self.img_encoder.obs_encoding_size + self.action_size - 1, 256),
             nn.ReLU(),
             nn.Linear(256, 16)
         )
-        self.obs_dist_linear_layers = nn.Sequential(
+        self.dist_obs_linear_layers = nn.Sequential(
             nn.Linear(self.img_encoder.obs_encoding_size + 1, 256),
             nn.ReLU(),
             nn.Linear(256, 16)
         )
 
-        self.goal_linear_layers = nn.Sequential(
+        self.waypoint_goal_linear_layers = nn.Sequential(
+            nn.Linear(self.img_encoder.goal_encoding_size, 256),
+            nn.ReLU(),
+            nn.Linear(256, 16),
+        )
+        self.dist_goal_linear_layers = nn.Sequential(
             nn.Linear(self.img_encoder.goal_encoding_size, 256),
             nn.ReLU(),
             nn.Linear(256, 16),
         )
 
         if self.twin_q:
-            self.obs_waypoint_linear_layers2 = nn.Sequential(
+            self.waypoint_obs_linear_layers2 = nn.Sequential(
                 nn.Linear(self.img_encoder.obs_encoding_size + self.action_size - 1, 256),
                 nn.ReLU(),
                 nn.Linear(256, 16)
             )
-            self.obs_dist_linear_layers2 = nn.Sequential(
+            self.dist_obs_linear_layers2 = nn.Sequential(
                 nn.Linear(self.img_encoder.obs_encoding_size + 1, 256),
                 nn.ReLU(),
                 nn.Linear(256, 16)
             )
 
-            self.goal_linear_layers2 = nn.Sequential(
+            self.waypoint_goal_linear_layers2 = nn.Sequential(
+                nn.Linear(self.img_encoder.goal_encoding_size, 256),
+                nn.ReLU(),
+                nn.Linear(256, 16),
+            )
+            self.dist_goal_linear_layers2 = nn.Sequential(
                 nn.Linear(self.img_encoder.goal_encoding_size, 256),
                 nn.ReLU(),
                 nn.Linear(256, 16),
             )
 
     def forward(
-        self, obs_img: torch.tensor, action: torch.tensor, goal_img: torch.tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        self, waypoint_obs_img: torch.tensor, dist_obs_img: torch.tensor,
+        waypoint: torch.tensor, dist: torch.tensor,
+        waypoint_goal_img: torch.tensor, dist_goal_img: torch.tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         TODO
         """
-        waypoint, dist = action[:, :self.action_size - 1], action[:, [-1]]
-        obs_encoding, goal_encoding = self.img_encoder(obs_img, goal_img)
-        obs_waypoint_encoding = self.obs_waypoint_linear_layers(
-            torch.cat([obs_encoding, waypoint], dim=-1))
-        obs_dist_encoding = self.obs_dist_linear_layers(
-            torch.cat([obs_encoding, dist], dim=-1))
-        goal_encoding = self.goal_linear_layers(goal_encoding)
+        waypoint_obs_encoding, waypoint_goal_encoding = self.img_encoder(
+            waypoint_obs_img, waypoint_goal_img)
+        dist_obs_encoding, dist_goal_encoding = self.img_encoder(
+            dist_obs_img, dist_goal_img)
+
+        waypoint_obs_repr = self.obs_waypoint_linear_layers(
+            torch.cat([waypoint_obs_encoding, waypoint], dim=-1))
+        dist_obs_repr = self.obs_dist_linear_layers(
+            torch.cat([dist_obs_encoding, dist], dim=-1))
+        waypoint_goal_repr = self.waypoint_goal_linear_layers(waypoint_goal_encoding)
+        dist_goal_repr = self.dist_goal_linear_layers(dist_goal_encoding)
 
         if self.twin_q:
-            obs_encoding2, goal_encoding2 = self.img_encoder(obs_img, goal_img)
-            obs_waypoint_encoding2 = self.obs_waypoint_linear_layers2(
-                torch.cat([obs_encoding2, waypoint], dim=-1))
-            obs_dist_encoding2 = self.obs_dist_linear_layers2(
-                torch.cat([obs_encoding, dist], dim=-1))
-            goal_encoding2 = self.goal_linear_layers2(goal_encoding2)
+            # obs_encoding2, goal_encoding2 = self.img_encoder(obs_img, goal_img)
+            # reuse encoding from the image encoder
+            waypoint_obs_repr2 = self.obs_waypoint_linear_layers2(
+                torch.cat([waypoint_obs_encoding, waypoint], dim=-1))
+            dist_obs_repr2 = self.obs_dist_linear_layers2(
+                torch.cat([dist_obs_encoding, dist], dim=-1))
+            waypoint_goal_repr2 = self.waypoint_goal_linear_layers2(waypoint_goal_encoding)
+            dist_goal_repr2 = self.dist_goal_linear_layers2(dist_goal_encoding)
 
-            obs_waypoint_encoding = torch.stack(
-                [obs_waypoint_encoding, obs_waypoint_encoding2], dim=-1)
-            obs_dist_encoding = torch.stack(
-                [obs_dist_encoding, obs_dist_encoding2], dim=-1)
-            goal_encoding = torch.stack([goal_encoding, goal_encoding2], dim=-1)
+            waypoint_obs_repr = torch.stack(
+                [waypoint_obs_repr, waypoint_obs_repr2], dim=-1)
+            dist_obs_repr = torch.stack(
+                [dist_obs_repr, dist_obs_repr2], dim=-1)
+            waypoint_goal_repr = torch.stack([waypoint_goal_repr, waypoint_goal_repr2], dim=-1)
+            dist_goal_repr = torch.stack([dist_goal_repr, dist_goal_repr2], dim=-1)
 
-        return obs_waypoint_encoding, obs_dist_encoding, goal_encoding
+        return waypoint_obs_repr, dist_obs_repr, waypoint_goal_repr, dist_goal_repr
 
     def critic_parameters(self, recurse: bool = True) -> Iterator[nn.Parameter]:
         if self.twin_q:
-            params = chain(self.obs_waypoint_linear_layers.named_parameters(recurse=recurse),
-                           self.obs_dist_linear_layers.named_parameters(recurse=recurse),
-                           self.goal_linear_layers.named_parameters(recurse=recurse),
-                           self.obs_waypoint_linear_layers2.named_parameters(recurse=recurse),
-                           self.obs_dist_linear_layers2.named_parameters(recurse=recurse),
-                           self.goal_linear_layers2.named_parameters(recurse=recurse))
+            params = chain(self.waypoint_obs_linear_layers.named_parameters(recurse=recurse),
+                           self.dist_obs_linear_layers.named_parameters(recurse=recurse),
+                           self.waypoint_goal_linear_layers.named_parameters(recurse=recurse),
+                           self.dist_goal_linear_layers.named_parameters(recurse=recurse),
+                           self.waypoint_obs_linear_layers2.named_parameters(recurse=recurse),
+                           self.dist_obs_linear_layers2.named_parameters(recurse=recurse),
+                           self.waypoint_goal_linear_layers2.named_parameters(recurse=recurse),
+                           self.dist_goal_linear_layers2.named_parameters(recurse=recurse))
         else:
-            params = chain(self.obs_waypoint_linear_layers.named_parameters(recurse=recurse),
-                           self.obs_dist_linear_layers.named_parameters(recurse=recurse),
-                           self.goal_linear_layers.named_parameters(recurse=recurse))
+            params = chain(self.waypoint_obs_linear_layers.named_parameters(recurse=recurse),
+                           self.dist_obs_linear_layers.named_parameters(recurse=recurse),
+                           self.waypoint_goal_linear_layers.named_parameters(recurse=recurse),
+                           self.dist_goal_linear_layers.named_parameters(recurse=recurse))
 
         for name, param in params:
             yield param
@@ -200,7 +222,13 @@ class ContrastivePolicy(nn.Module):
         self.fixed_std = fixed_std
         self.learn_angle = True
 
-        self.linear_layers = nn.Sequential(
+        self.waypoint_linear_layers = nn.Sequential(
+            nn.Linear(self.img_encoder.obs_encoding_size + self.img_encoder.goal_encoding_size, 256),
+            nn.ReLU(),
+            nn.Linear(256, 32),
+            nn.ReLU(),
+        )
+        self.dist_linear_layers = nn.Sequential(
             nn.Linear(self.img_encoder.obs_encoding_size + self.img_encoder.goal_encoding_size, 256),
             nn.ReLU(),
             nn.Linear(256, 32),
@@ -225,29 +253,38 @@ class ContrastivePolicy(nn.Module):
             )
 
     def forward(
-        self, obs_img: torch.tensor, goal_img: torch.tensor, detach_img_encode: bool = True,
+        self, waypoint_obs_img: torch.tensor, dist_obs_img: torch.tensor,
+        waypoint_goal_img: torch.tensor, dist_goal_img: torch.tensor,
+        detach_img_encode: bool = True,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        obs_encoding, goal_encoding = self.img_encoder(obs_img, goal_img)
+        waypoint_obs_encoding, waypoint_goal_encoding = self.img_encoder(waypoint_obs_img, waypoint_goal_img)
+        dist_obs_encoding, dist_goal_encoding = self.img_encoder(dist_obs_img, dist_goal_img)
+        device = waypoint_obs_encoding.device
+        batch_size = waypoint_obs_encoding.shape[0]
 
         # DELETEME (chongyiz)
         # if detach_img_encode:
         #     obs_encoding = obs_encoding.detach()
         #     goal_encoding = goal_encoding.detach()
 
-        obs_goal_encoding = self.linear_layers(
-            torch.cat([obs_encoding, goal_encoding], dim=-1))
+        # TODO (start from here)
 
-        waypoint_mu = self.waypoint_mu_layers(obs_goal_encoding)
-        dist_mu = self.dist_mu_layers(obs_goal_encoding)
+        waypoint_obs_goal_encoding = self.waypoint_linear_layers(
+            torch.cat([waypoint_obs_encoding, waypoint_goal_encoding], dim=-1))
+        dist_obs_goal_encoding = self.dist_linear_layers(
+            torch.cat([dist_obs_encoding, dist_goal_encoding], dim=-1))
+
+        waypoint_mu = self.waypoint_mu_layers(waypoint_obs_goal_encoding)
+        dist_mu = self.dist_mu_layers(dist_obs_goal_encoding)
         if self.fixed_std is None:
-            waypoint_std = self.waypoint_std_layers(obs_goal_encoding) + self.min_std
-            dist_std = self.dist_std_layers(obs_goal_encoding) + self.min_std
+            waypoint_std = self.waypoint_std_layers(waypoint_obs_goal_encoding) + self.min_std
+            dist_std = self.dist_std_layers(dist_obs_goal_encoding) + self.min_std
 
             std = torch.cat([waypoint_std, dist_std], dim=-1)
         else:
             std = torch.from_numpy(np.array([self.fixed_std, ])).float().to(
-                obs_img.device)
-            std = std.repeat(obs_img.shape[0], 1)
+                device)
+            std = std.repeat(batch_size, 1)
 
         # augment outputs to match labels size-wise
         waypoint_mu = waypoint_mu.reshape(

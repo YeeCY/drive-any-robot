@@ -181,7 +181,9 @@ class StableContrastiveRL(BaseRLModel):
     #     # return dist_pred, action_pred
 
     def forward(
-        self, obs_img: torch.tensor, action: torch.tensor, goal_img: torch.tensor,
+        self, waypoint_obs_img: torch.tensor, dist_obs_img: torch.tensor,
+        waypoint: torch.tensor, dist: torch.tensor,
+        waypoint_goal_img: torch.tensor, dist_goal_img: torch.tensor,
         stop_grad_actor_img_encoder: bool = True
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor,
                torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -198,7 +200,8 @@ class StableContrastiveRL(BaseRLModel):
             std (torch.Tensor): predicted policy std
         """
         obs_waypoint_repr, obs_dist_repr, g_repr = self.q_network(
-            obs_img, action, goal_img)
+            waypoint_obs_img, dist_obs_img, waypoint, dist,
+            waypoint_goal_img, dist_goal_img)
         target_obs_waypoint_repr, target_obs_dist_repr, target_g_repr = self.target_q_network(
             obs_img, action, goal_img)
         mean, std = self.policy_network(obs_img, goal_img,

@@ -39,7 +39,7 @@ class GeometricClassBalancer:
             return None  # no valid classes to sample
 
         # TODO (chongyiz): do we need to shift this geometric distribution one timestep into the future?
-        probs = self.discount ** np.asarray(valid_classes)
+        probs = self.discount ** (np.asarray(valid_classes) - np.min(valid_classes))
         probs = probs / np.sum(probs, keepdims=True)
         class_choice = np.random.choice(valid_classes, p=probs)
 
