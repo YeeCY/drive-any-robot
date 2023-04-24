@@ -186,7 +186,8 @@ class StableContrastiveRL(BaseRLModel):
         waypoint_goal_img: torch.tensor, dist_goal_img: torch.tensor,
         stop_grad_actor_img_encoder: bool = True
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor,
-               torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+               torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor,
+               torch.Tensor, torch.Tensor]:
         """
         Forward pass of the model
         We want to use DataParallel feature of pytorch
@@ -203,10 +204,13 @@ class StableContrastiveRL(BaseRLModel):
             waypoint_obs_img, dist_obs_img, waypoint, dist,
             waypoint_goal_img, dist_goal_img)
         target_obs_waypoint_repr, target_obs_dist_repr, target_g_repr = self.target_q_network(
-            obs_img, action, goal_img)
-        mean, std = self.policy_network(obs_img, goal_img,
-                                        detach_img_encode=stop_grad_actor_img_encoder)
+            waypoint_obs_img, dist_obs_img, waypoint, dist,
+            waypoint_goal_img, dist_goal_img)
+        waypoint_mean, dist_mean, waypoint_std, dist_std = self.policy_network(
+            waypoint_obs_img, dist_obs_img,
+            waypoint_goal_img, dist_goal_img,
+            detach_img_encode=stop_grad_actor_img_encoder)
 
         return obs_waypoint_repr, obs_dist_repr, g_repr, \
                target_obs_waypoint_repr, target_obs_dist_repr, target_g_repr, \
-               mean, std
+               waypoint_mean, dist_mean, waypoint_std, dist_std

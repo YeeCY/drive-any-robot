@@ -363,6 +363,8 @@ def train(
             waypoint_oracle.shape[1], dim=1).flatten(0, 1).cpu()
         waypoint_oracle_goal_data = waypoint_goal_data[:num_images_log, None].repeat_interleave(
             waypoint_oracle.shape[1], dim=1).flatten(0, 1).cpu()
+        dummy_dist = torch.zeros_like(dist_label)[:num_images_log, None].repeat_interleave(
+            waypoint_oracle.shape[1], dim=1).flatten(0, 1).cpu()
         # oracle_action_data = torch.cat([
         #     oracle_action.flatten(0, 1).flatten(-2, -1).cpu(),
         #     dist_label[:num_images_log, None].repeat_interleave(oracle_action.shape[1], dim=1).flatten(0, 1).cpu()
@@ -395,32 +397,34 @@ def train(
         # preds = model.policy_network(obs_data, goal_data).mean
         # action_data are not used here
         # model.cpu()
-        preds = model(obs_data, action_data, goal_data)[-2]
+        waypoint_pred, dist_pred = model(waypoint_obs_data, dist_obs_data,
+                                         waypoint_label, dist_label,
+                                         waypoint_goal_data, dist_goal_data)[-4:-2]
         # preds, _ = model.policy_network(obs_data.cpu(), goal_data.cpu())
         # model = model.to(device)
 
         # The action of policy is different from the action here (waypoints).
-        action_pred = preds[:, :-1]
-        action_pred = action_pred.reshape(action_label.shape)
+        # action_pred = preds[:, :-1]
+        # action_pred = action_pred.reshape(action_label.shape)
         # action_label = action_label.cpu()
 
-        dist_pred = preds[:, -1]
+        # dist_pred = preds[:, -1]
 
         action_waypts_cos_sim = F.cosine_similarity(
-            action_pred[:2], action_label[:2], dim=-1
+            waypoint_pred[:2], waypoint_label[:2], dim=-1
         ).mean()
         multi_action_waypts_cos_sim = F.cosine_similarity(
-            torch.flatten(action_pred[:2], start_dim=1),
-            torch.flatten(action_label[:2], start_dim=1),
+            torch.flatten(waypoint_pred[:2], start_dim=1),
+            torch.flatten(waypoint_label[:2], start_dim=1),
             dim=-1,
         ).mean()
         if learn_angle:
             action_orien_cos_sim = F.cosine_similarity(
-                action_pred[2:], action_label[2:], dim=-1
+                waypoint_pred[2:], waypoint_label[2:], dim=-1
             ).mean()
             multi_action_orien_cos_sim = F.cosine_similarity(
-                torch.flatten(action_pred[2:], start_dim=1),
-                torch.flatten(action_label[2:], start_dim=1),
+                torch.flatten(waypoint_pred[2:], start_dim=1),
+                torch.flatten(waypoint_label[2:], start_dim=1),
                 dim=-1,
             ).mean()
             action_orien_cos_sim_logger.log_data(action_orien_cos_sim.item())
@@ -489,8 +493,8 @@ def train(
 
         if i % image_log_freq == 0:
             visualize_dist_pred(
-                to_numpy(obs_image),
-                to_numpy(goal_image),
+                to_numpy(dist_obs_image),
+                to_numpy(dist_goal_image),
                 to_numpy(dist_pred),
                 to_numpy(dist_label),
                 "train",
@@ -518,9 +522,11 @@ def train(
             # critic prediction for oracle actions
             # we do inference on cpu cause the batch size is too large
             model.cpu()
-            obs_waypoint_repr, _, g_repr = model.q_network(
-                oracle_obs_data, oracle_action_data, oracle_goal_data)
-            oracle_logit = torch.einsum('ikl,jkl->ijl', obs_waypoint_repr, g_repr)
+            waypoint_obs_repr, _, waypoint_g_repr, _ = model.q_network(
+                waypoint_oracle_obs_data, waypoint_oracle_obs_data,
+                waypoint_oracle, dummy_dist,
+                waypoint_oracle_goal_data, waypoint_oracle_goal_data)
+            oracle_logit = torch.einsum('ikl,jkl->ijl', waypoint_obs_repr, waypoint_g_repr)
             oracle_logit = torch.diag(torch.mean(oracle_logit, dim=-1)).reshape(
                 [oracle_action.shape[0], oracle_action.shape[1], 1])
             oracle_critic = torch.sigmoid(oracle_logit)
@@ -952,13 +958,13 @@ def get_critic_loss(model, obs, next_obs, action, goal, discount, use_td=False):
         dist_new_goal = dist_goal
 
     # obs_waypoint_repr, obs_dist_repr, g_repr = model(obs, action, new_goal)[0:3]
-    obs_waypoint_repr, obs_dist_repr, g_repr = model(
+    waypoint_obs_repr, dist_obs_repr, waypoint_g_repr, dist_g_repr = model(
         waypoint_obs, dist_obs,
         waypoint, dist,
         waypoint_new_goal, dist_new_goal
-    )[0:3]
-    waypoint_logits = torch.einsum('ikl,jkl->ijl', obs_waypoint_repr, g_repr)
-    dist_logits = torch.einsum('ikl,jkl->ijl', obs_dist_repr, g_repr)
+    )[0:4]
+    waypoint_logits = torch.einsum('ikl,jkl->ijl', waypoint_obs_repr, waypoint_g_repr)
+    dist_logits = torch.einsum('ikl,jkl->ijl', dist_obs_repr, dist_g_repr)
 
     # Make sure to use the twin Q trick.
     assert len(waypoint_logits.shape) == 3
@@ -1070,47 +1076,61 @@ def get_actor_loss(model, obs, orig_action, goal, bc_coef=0.05,
     # orig_waypoint = orig_action[:, :model.action_size - 1]
     # orig_distance = orig_action[:, -1]
 
-    mean, std = model(
-        obs, orig_action, goal, stop_grad_actor_img_encoder=stop_grad_actor_img_encoder)[-2:]
-    waypoint_mean, distance_mean = mean[:, :model.action_size - 1], mean[:, -1]
-    waypoint_std, distance_std = std[:, :model.action_size - 1], std[:, -1]
+    # mean, std = model(
+    #     obs, orig_action, goal, stop_grad_actor_img_encoder=stop_grad_actor_img_encoder)[-2:]
+    waypoint_mean, distance_mean, waypoint_std, distance_std = model(
+        waypoint_obs, dist_obs,
+        waypoint, dist,
+        waypoint_goal, dist_goal,
+        stop_grad_actor_img_encoder=stop_grad_actor_img_encoder
+    )[-4:]
+    # waypoint_mean, distance_mean = mean[:, :model.action_size - 1], mean[:, -1]
+    # waypoint_std, distance_std = std[:, :model.action_size - 1], std[:, -1]
 
     waypoint_dist = Independent(Normal(waypoint_mean, waypoint_std,
                                        validate_args=False), reinterpreted_batch_ndims=1)
     distance_dist = Independent(Normal(distance_mean, distance_std, validate_args=False),
                                 reinterpreted_batch_ndims=1)
-    dist = Independent(Normal(mean, std, validate_args=False),
-                       reinterpreted_batch_ndims=1)
+    # dist = Independent(Normal(mean, std, validate_args=False),
+    #                    reinterpreted_batch_ndims=1)
 
-    sampled_action = dist.rsample()
-    obs_waypoint_repr, obs_dist_repr, g_repr = model(obs, sampled_action, goal)[0:3]
-    q_waypoint = torch.einsum('ikl,jkl->ijl', obs_waypoint_repr, g_repr)
-    q_dist = torch.einsum('ikl,jkl->ijl', obs_dist_repr, g_repr)
+    # sampled_action = dist.rsample()
+    sampled_waypoint = waypoint_dist.rsample()
+    sampled_dist = distance_dist.rsample()
 
-    if len(q_waypoint.shape) == 3:  # twin q trick
-        assert q_waypoint.shape[2] == 2
-        assert q_dist.shape[2] == 2
-        q_waypoint = torch.min(q_waypoint, dim=-1)[0]
-        q_dist = torch.min(q_dist, dim=-1)[0]
+    waypoint_obs_repr, dist_obs_repr, waypoint_g_repr, dist_g_repr = model(
+        waypoint_obs, dist_obs,
+        sampled_waypoint, sampled_dist,
+        waypoint_goal, dist_goal)[0:4]
+    waypoint_q = torch.einsum('ikl,jkl->ijl', waypoint_obs_repr, waypoint_g_repr)
+    dist_q = torch.einsum('ikl,jkl->ijl', dist_obs_repr, dist_g_repr)
+    # q_waypoint = torch.einsum('ikl,jkl->ijl', obs_waypoint_repr, g_repr)
+    # q_dist = torch.einsum('ikl,jkl->ijl', obs_dist_repr, g_repr)
+
+    if len(waypoint_q.shape) == 3:  # twin q trick
+        assert waypoint_q.shape[2] == 2
+        assert dist_q.shape[2] == 2
+        waypoint_q = torch.min(waypoint_q, dim=-1)[0]
+        dist_q = torch.min(dist_q, dim=-1)[0]
 
     actor_q_loss, actor_waypoint_q_loss, actor_dist_q_loss = \
         torch.zeros_like(distance_mean), torch.zeros_like(distance_mean), torch.zeros_like(distance_mean)
     if use_actor_waypoint_q_loss:
-        actor_waypoint_q_loss = -torch.diag(q_waypoint)
+        actor_waypoint_q_loss = -torch.diag(waypoint_q)
         actor_q_loss += actor_waypoint_q_loss
     if use_actor_dist_q_loss:
-        actor_dist_q_loss = -torch.diag(q_dist)
+        actor_dist_q_loss = -torch.diag(dist_q)
         actor_q_loss += actor_dist_q_loss
 
     # gcbc_loss = -dist.log_prob(orig_action)
     # gcbc_loss = F.mse_loss(mean[:, :model.action_size - 1], orig_action[:, :model.action_size - 1]) \
     #             + 1e-2 * F.mse_loss(mean[:, -1], orig_action[:, -1])
-    waypoint_gcbc_mle_loss = -waypoint_dist.log_prob(orig_waypoint)
-    dist_gcbc_mle_loss = -distance_dist.log_prob(orig_distance)
+    waypoint_gcbc_mle_loss = -waypoint_dist.log_prob(waypoint)
+    dist_gcbc_mle_loss = -distance_dist.log_prob(dist)
     gcbc_mle_loss = 0.5 * dist_gcbc_mle_loss + 0.5 * waypoint_gcbc_mle_loss
 
-    waypoint_gcbc_mse_loss = F.mse_loss(mean[:, :model.action_size - 1], orig_action[:, :model.action_size - 1])
-    dist_gcbc_mse_loss = F.mse_loss(mean[:, -1], orig_action[:, -1])
+    waypoint_gcbc_mse_loss = F.mse_loss(waypoint_mean, waypoint)
+    dist_gcbc_mse_loss = F.mse_loss(distance_mean, dist)
     gcbc_mse_loss = 0.5 * (1e-2 * dist_gcbc_mse_loss) + 0.5 * waypoint_gcbc_mse_loss
 
     if mle_gcbc_loss:

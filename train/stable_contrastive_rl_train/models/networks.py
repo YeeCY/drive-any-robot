@@ -256,7 +256,7 @@ class ContrastivePolicy(nn.Module):
         self, waypoint_obs_img: torch.tensor, dist_obs_img: torch.tensor,
         waypoint_goal_img: torch.tensor, dist_goal_img: torch.tensor,
         detach_img_encode: bool = True,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         waypoint_obs_encoding, waypoint_goal_encoding = self.img_encoder(waypoint_obs_img, waypoint_goal_img)
         dist_obs_encoding, dist_goal_encoding = self.img_encoder(dist_obs_img, dist_goal_img)
         device = waypoint_obs_encoding.device
@@ -300,9 +300,9 @@ class ContrastivePolicy(nn.Module):
         waypoint_mu = waypoint_mu.reshape(
             (waypoint_mu.shape[0], self.action_size - 1))
 
-        mu = torch.cat([waypoint_mu, dist_mu], dim=-1)
+        # mu = torch.cat([waypoint_mu, dist_mu], dim=-1)
 
-        return mu, std
+        return waypoint_mu, dist_mu, waypoint_std, dist_std
 
     # def parameters(self, recurse: bool = True) -> Iterator[nn.Parameter]:
     #     for name, param in chain(self.linear_layers.named_parameters(recurse=recurse),
