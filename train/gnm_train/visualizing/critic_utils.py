@@ -99,7 +99,7 @@ def visualize_critic_pred(
         label_waypoints = batch_label_waypoints[i]
 
         if normalized:
-            # pred_waypoints *= data_config[dataset_name]["metric_waypoint_spacing"]
+            pred_waypoints[..., :2] *= data_config[dataset_name]["metric_waypoint_spacing"]
             label_waypoints[..., :2] *= data_config[dataset_name]["metric_waypoint_spacing"]
             oracle_waypoints[..., :2] *= data_config[dataset_name]["metric_waypoint_spacing"]
             goal_pos *= data_config[dataset_name]["metric_waypoint_spacing"]
