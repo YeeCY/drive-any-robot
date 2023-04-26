@@ -218,10 +218,41 @@ class RLDataset(Dataset):
                 dataset_index (torch.Tensor): index of the datapoint in the dataset [for identifying the dataset for visualization when using multiple datasets]
         """
         f_curr, f_goal, curr_time, goal_time = self.index_to_data[i]
+        # f_curr, _, curr_time, _ = self.index_to_data[i]
+        # We need to resample goal for each data
         with open(os.path.join(self.data_folder, f_curr, "traj_data.pkl"), "rb") as f:
             curr_traj_data = pickle.load(f)
         curr_traj_len = len(curr_traj_data["position"])
         assert curr_time < curr_traj_len, f"{curr_time} and {curr_traj_len}"
+        #
+        # max_len = min(
+        #     int(self.max_dist_cat * self.waypoint_spacing),
+        #     curr_traj_len - curr_time - 1,
+        # )
+        #
+        # # sample a distance from the distance categories as long as it is less than the trajectory length
+        # filter_func = (
+        #     lambda dist: int(dist * self.waypoint_spacing) <= max_len
+        # )
+        # len_to_goal = self.label_balancer.sample(filter_func)
+        #
+        # # if the length to the goal is negative, then we are using negative mining (sample an goal from another trajectory)
+        # if len_to_goal == -1:
+        #     new = np.random.randint(1, len(self.traj_names))
+        #     f_rand = self.traj_names[(i + new) % len(self.traj_names)]
+        #     with open(
+        #             os.path.join(self.data_folder, f_rand, "traj_data.pkl"),
+        #             "rb",
+        #     ) as f4:
+        #         rand_traj_data = pickle.load(f4)
+        #     rand_traj_len = len(rand_traj_data["position"])
+        #     goal_time = np.random.randint(rand_traj_len)
+        #     f_goal = f_rand
+        # else:
+        #     goal_time = curr_time + int(
+        #         len_to_goal * self.waypoint_spacing
+        #     )
+        #     f_goal = f_curr
 
         transf_obs_images = []
         transf_next_obs_images = []
@@ -356,18 +387,18 @@ class RLDataset(Dataset):
                 ]
             )
 
-            # TODO (chongyiz): we get bugs here. fit it!
+            # TODO (chongyi): we get bugs here! Fix it.
             # construct oracle actions spanning -oracle_angles to oracle_angles
             traj_len = torch.sum(
                 torch.linalg.norm(waypoints[1:, :2] - waypoints[:-1, :2], dim=-1)
             )
-            oracle_angles = np.pi / 2 + torch.linspace(
+            oracle_angles = torch.linspace(
                 -np.deg2rad(self.oracle_angles), np.deg2rad(self.oracle_angles),
                 self.num_oracle_trajs)
             if traj_len > 0:
                 oracle_end_wpts = torch.stack([
-                    traj_len * torch.sin(oracle_angles),
                     traj_len * torch.cos(oracle_angles),
+                    traj_len * torch.sin(oracle_angles),
                 ], dim=-1)
             else:
                 oracle_end_wpts = torch.stack([
@@ -379,18 +410,11 @@ class RLDataset(Dataset):
             first_waypoint = waypoints[0]
             first_waypoint_dist = torch.linalg.norm(first_waypoint[:2])
             waypoint_offset = torch.stack([
-                first_waypoint_dist * torch.sin(oracle_angles),
                 first_waypoint_dist * torch.cos(oracle_angles),
+                first_waypoint_dist * torch.sin(oracle_angles),
             ], dim=-1)
             oracle_waypoints += waypoint_offset[:, None]
             if self.learn_angle:
-                # assert waypoints.shape[1] == 3
-                # angle_repr = torch.zeros_like(waypoints[:, :2])
-                # angle_repr[:, 0] = torch.cos(waypoints[:, 2])
-                # angle_repr[:, 1] = torch.sin(waypoints[:, 2])
-                # return torch.concat((waypoints[:, :2], angle_repr), axis=1)
-
-                # add cosine and sine
                 oracle_waypoints = torch.cat([
                     oracle_waypoints,
                     torch.cos(oracle_angles)[:, None, None].repeat_interleave(self.len_traj_pred, axis=1),

@@ -157,9 +157,9 @@ class ContrastiveQNetwork(nn.Module):
         dist_obs_encoding, dist_goal_encoding = self.img_encoder(
             dist_obs_img, dist_goal_img)
 
-        waypoint_obs_repr = self.obs_waypoint_linear_layers(
+        waypoint_obs_repr = self.waypoint_obs_linear_layers(
             torch.cat([waypoint_obs_encoding, waypoint], dim=-1))
-        dist_obs_repr = self.obs_dist_linear_layers(
+        dist_obs_repr = self.dist_obs_linear_layers(
             torch.cat([dist_obs_encoding, dist], dim=-1))
         waypoint_goal_repr = self.waypoint_goal_linear_layers(waypoint_goal_encoding)
         dist_goal_repr = self.dist_goal_linear_layers(dist_goal_encoding)
@@ -167,9 +167,9 @@ class ContrastiveQNetwork(nn.Module):
         if self.twin_q:
             # obs_encoding2, goal_encoding2 = self.img_encoder(obs_img, goal_img)
             # reuse encoding from the image encoder
-            waypoint_obs_repr2 = self.obs_waypoint_linear_layers2(
+            waypoint_obs_repr2 = self.waypoint_obs_linear_layers2(
                 torch.cat([waypoint_obs_encoding, waypoint], dim=-1))
-            dist_obs_repr2 = self.obs_dist_linear_layers2(
+            dist_obs_repr2 = self.dist_obs_linear_layers(
                 torch.cat([dist_obs_encoding, dist], dim=-1))
             waypoint_goal_repr2 = self.waypoint_goal_linear_layers2(waypoint_goal_encoding)
             dist_goal_repr2 = self.dist_goal_linear_layers2(dist_goal_encoding)
@@ -280,11 +280,13 @@ class ContrastivePolicy(nn.Module):
             waypoint_std = self.waypoint_std_layers(waypoint_obs_goal_encoding) + self.min_std
             dist_std = self.dist_std_layers(dist_obs_goal_encoding) + self.min_std
 
-            std = torch.cat([waypoint_std, dist_std], dim=-1)
+            # std = torch.cat([waypoint_std, dist_std], dim=-1)
         else:
             std = torch.from_numpy(np.array([self.fixed_std, ])).float().to(
                 device)
             std = std.repeat(batch_size, 1)
+            waypoint_std, dist_std = torch.split(
+                std, split_size_or_sections=self.action_size - 1, dim=-1)
 
         # augment outputs to match labels size-wise
         waypoint_mu = waypoint_mu.reshape(
