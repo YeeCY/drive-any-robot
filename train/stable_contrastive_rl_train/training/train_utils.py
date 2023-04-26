@@ -534,7 +534,7 @@ def train(
             waypoint_oracle_logit = torch.einsum('ikl,jkl->ijl', waypoint_obs_repr, waypoint_g_repr)
             waypoint_oracle_logit = torch.diag(torch.mean(waypoint_oracle_logit, dim=-1)).reshape(
                 waypoint_oracle.shape[0], waypoint_oracle.shape[1], 1)
-            waypoint_oracle_logit = torch.sigmoid(waypoint_oracle_logit)
+            waypoint_oracle_critic = torch.sigmoid(waypoint_oracle_logit)
             model = model.to(device)
             visualize_critic_pred(
                 to_numpy(waypoint_obs_image),
@@ -542,7 +542,7 @@ def train(
                 to_numpy(waypoint_dataset_index),
                 to_numpy(waypoint_goal_pos),
                 to_numpy(waypoint_oracle),
-                to_numpy(waypoint_oracle_logit),
+                to_numpy(waypoint_oracle_critic),
                 to_numpy(waypoint_pred),
                 to_numpy(waypoint_label),
                 "train",
@@ -840,7 +840,7 @@ def evaluate(
                 waypoint_oracle_logit = torch.einsum('ikl,jkl->ijl', waypoint_obs_repr, waypoint_g_repr)
                 waypoint_oracle_logit = torch.diag(torch.mean(waypoint_oracle_logit, dim=-1)).reshape(
                     waypoint_oracle.shape[0], waypoint_oracle.shape[1], 1)
-                waypoint_oracle_logit = torch.sigmoid(waypoint_oracle_logit)
+                waypoint_oracle_critic = torch.sigmoid(waypoint_oracle_logit)
                 model = model.to(device)
                 visualize_critic_pred(
                     to_numpy(waypoint_obs_image),
@@ -848,7 +848,7 @@ def evaluate(
                     to_numpy(waypoint_dataset_index),
                     to_numpy(waypoint_goal_pos),
                     to_numpy(waypoint_oracle),
-                    to_numpy(waypoint_oracle_logit),
+                    to_numpy(waypoint_oracle_critic),
                     to_numpy(waypoint_pred),
                     to_numpy(waypoint_label),
                     eval_type,

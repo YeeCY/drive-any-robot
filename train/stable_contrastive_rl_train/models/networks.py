@@ -50,13 +50,15 @@ class ContrastiveImgEncoder(nn.Module):
             nn.ReLU(),
         )
         stacked_mobilenet = MobileNetEncoder(
-            num_images=2 + self.context_size
+            num_images=1
         )  # stack the goal and the current observation
         self.goal_mobilenet = stacked_mobilenet.features
         self.compress_goal = nn.Sequential(
-            nn.Linear(stacked_mobilenet.last_channel, 1024),
-            nn.ReLU(),
-            nn.Linear(1024, self.goal_encoding_size),
+            # nn.Linear(stacked_mobilenet.last_channel, 1024),
+            # nn.ReLU(),
+            # nn.Linear(1024, self.goal_encoding_size),
+            # nn.ReLU(),
+            nn.Linear(stacked_mobilenet.last_channel, self.goal_encoding_size),
             nn.ReLU(),
         )
 
@@ -68,15 +70,13 @@ class ContrastiveImgEncoder(nn.Module):
     def forward(
         self, obs_img: torch.tensor, goal_img: torch.tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        TODO
-        """
         obs_encoding = self.obs_mobilenet(obs_img)
         obs_encoding = self.flatten(obs_encoding)
         obs_encoding = self.compress_observation(obs_encoding)
 
-        obs_goal_input = torch.cat([obs_img, goal_img], dim=1)
-        goal_encoding = self.goal_mobilenet(obs_goal_input)
+        # obs_goal_input = torch.cat([obs_img, goal_img], dim=1)
+        # goal_encoding = self.goal_mobilenet(obs_goal_input)
+        goal_encoding = self.goal_mobilenet(goal_img)
         goal_encoding = self.flatten(goal_encoding)
         goal_encoding = self.compress_goal(goal_encoding)
 
