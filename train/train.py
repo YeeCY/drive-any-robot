@@ -109,7 +109,7 @@ def main(config):
                             end_slack=data_config["end_slack"],
                         )
                     else:
-                        if output_type == "rl":
+                        if config["train"] == "rl":
                             dataset = RLDataset(
                                 data_folder=data_config["data_folder"],
                                 data_split_folder=data_config[data_split_type],
