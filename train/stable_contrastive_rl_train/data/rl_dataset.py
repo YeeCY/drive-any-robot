@@ -408,12 +408,12 @@ class RLDataset(Dataset):
             oracle_waypoints = oracle_end_wpts[:, None] * \
                                torch.linspace(0, 1, self.len_traj_pred)[None, :, None]
             first_waypoint = waypoints[0]
-            first_waypoint_dist = torch.linalg.norm(first_waypoint[:2])
-            waypoint_offset = torch.stack([
-                first_waypoint_dist * torch.cos(oracle_angles),
-                first_waypoint_dist * torch.sin(oracle_angles),
-            ], dim=-1)
-            oracle_waypoints += waypoint_offset[:, None]
+            # first_waypoint_dist = torch.linalg.norm(first_waypoint[:2])
+            # waypoint_offset = torch.stack([
+            #     first_waypoint_dist * torch.cos(oracle_angles),
+            #     first_waypoint_dist * torch.sin(oracle_angles),
+            # ], dim=-1)
+            oracle_waypoints += first_waypoint[:2]
             if self.learn_angle:
                 oracle_waypoints = torch.cat([
                     oracle_waypoints,

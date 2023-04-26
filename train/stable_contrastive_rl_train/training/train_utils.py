@@ -985,7 +985,7 @@ def get_critic_loss(model, obs, next_obs, action, goal, discount, use_td=False):
         waypoint_obs, dist_obs,
         waypoint, dist,
         waypoint_new_goal, dist_new_goal
-    )[0:4]
+    )[:4]
     waypoint_logits = torch.einsum('ikl,jkl->ijl', waypoint_obs_repr, waypoint_g_repr)
     dist_logits = torch.einsum('ikl,jkl->ijl', dist_obs_repr, dist_g_repr)
 
@@ -994,23 +994,41 @@ def get_critic_loss(model, obs, next_obs, action, goal, discount, use_td=False):
     assert len(dist_logits.shape) == 3
 
     if use_td:
-        raise NotImplementedError
         goal_indices = torch.roll(
             torch.arange(batch_size, dtype=torch.int64), -1)
 
-        random_goal = new_goal[goal_indices]
+        waypoint_rand_goal = waypoint_new_goal[goal_indices]
+        dist_rand_goal = dist_new_goal[goal_indices]
 
-        # next_dist = model.policy_network(next_obs, random_goal)
         # action was not used here
-        next_mean, next_std = model(next_obs, action, random_goal)[-2:]
-        next_dist = Independent(Normal(next_mean, next_std, validate_args=False),
-                                reinterpreted_batch_ndims=1)
-        next_action = next_dist.rsample()
+        next_waypoint_mean, next_dist_mean, next_waypoint_std, next_dist_std = model(
+            waypoint_next_obs, dist_next_obs,
+            waypoint, dist,
+            waypoint_rand_goal, dist_rand_goal
+        )[-4:]
 
-        next_obs_waypoint_repr, next_obs_dist_repr, random_g_repr = model(
-            next_obs, next_action, random_goal)[3:6]
-        next_waypoint_q = torch.einsum('ikl,jkl->ijl', next_obs_waypoint_repr, random_g_repr)
-        next_dist_q = torch.einsum('ikl,jkl->ijl', next_obs_dist_repr, random_g_repr)
+        next_waypoint_dist = Independent(
+            Normal(next_waypoint_mean, next_waypoint_std, validate_args=False),
+            reinterpreted_batch_ndims=1
+        )
+        next_distance_dist = Independent(
+            Normal(next_dist_mean, next_dist_std, validate_args=False),
+            reinterpreted_batch_ndims=1
+        )
+        next_waypoint = next_waypoint_dist.rsample()
+        next_dist =next_distance_dist.rsample()
+
+        # next_obs_waypoint_repr, next_obs_dist_repr, random_g_repr = model(
+        #     next_obs, next_action, random_goal)[3:6]
+        next_waypoint_obs_repr, next_dist_obs_repr, next_waypoint_rand_g_repr, next_dist_rand_g_repr = model(
+            waypoint_next_obs, dist_next_obs,
+            next_waypoint, next_dist,
+            waypoint_rand_goal, dist_rand_goal
+        )[:4]
+        next_waypoint_q = torch.einsum('ikl,jkl->ijl',
+                                       next_waypoint_obs_repr, next_waypoint_rand_g_repr)
+        next_dist_q = torch.einsum('ikl,jkl->ijl',
+                                   next_dist_obs_repr, next_dist_rand_g_repr)
 
         next_waypoint_q = torch.sigmoid(next_waypoint_q)
         next_dist_q = torch.sigmoid(next_dist_q)
@@ -1124,7 +1142,7 @@ def get_actor_loss(model, obs, orig_action, goal, bc_coef=0.05,
     waypoint_obs_repr, dist_obs_repr, waypoint_g_repr, dist_g_repr = model(
         waypoint_obs, dist_obs,
         sampled_waypoint, sampled_dist,
-        waypoint_goal, dist_goal)[0:4]
+        waypoint_goal, dist_goal)[:4]
     waypoint_q = torch.einsum('ikl,jkl->ijl', waypoint_obs_repr, waypoint_g_repr)
     dist_q = torch.einsum('ikl,jkl->ijl', dist_obs_repr, dist_g_repr)
     # q_waypoint = torch.einsum('ikl,jkl->ijl', obs_waypoint_repr, g_repr)
