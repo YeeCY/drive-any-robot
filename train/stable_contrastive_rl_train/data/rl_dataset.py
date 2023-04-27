@@ -123,9 +123,9 @@ class RLDataset(Dataset):
 
         self.index_to_data = []
         if self.discount >= 0:
-            label_balancer = GeometricClassBalancer(self.distance_categories, self.discount)
+            self.label_balancer = GeometricClassBalancer(self.distance_categories, self.discount)
         else:
-            label_balancer = RandomizedClassBalancer(self.distance_categories)
+            self.label_balancer = RandomizedClassBalancer(self.distance_categories)
 
         dataset_type = "action" if self.is_action else "distance"
         index_to_data_path = os.path.join(
@@ -172,7 +172,7 @@ class RLDataset(Dataset):
                             lambda dist: int(dist * self.waypoint_spacing) <= max_len
                             and dist not in sampled_dists
                         )
-                        len_to_goal = label_balancer.sample(filter_func)
+                        len_to_goal = self.label_balancer.sample(filter_func)
                         sampled_dists.append(len_to_goal)
 
                         # break the loop if there are no more valid distances to sample
@@ -217,42 +217,42 @@ class RLDataset(Dataset):
                 action_label (torch.Tensor): tensor of shape (5, 2) or (5, 4) (if training with angle) containing the action labels from the observation to the goal
                 dataset_index (torch.Tensor): index of the datapoint in the dataset [for identifying the dataset for visualization when using multiple datasets]
         """
-        f_curr, f_goal, curr_time, goal_time = self.index_to_data[i]
-        # f_curr, _, curr_time, _ = self.index_to_data[i]
+        # f_curr, f_goal, curr_time, goal_time = self.index_to_data[i]
+        f_curr, _, curr_time, _ = self.index_to_data[i]
         # We need to resample goal for each data
         with open(os.path.join(self.data_folder, f_curr, "traj_data.pkl"), "rb") as f:
             curr_traj_data = pickle.load(f)
         curr_traj_len = len(curr_traj_data["position"])
         assert curr_time < curr_traj_len, f"{curr_time} and {curr_traj_len}"
-        #
-        # max_len = min(
-        #     int(self.max_dist_cat * self.waypoint_spacing),
-        #     curr_traj_len - curr_time - 1,
-        # )
-        #
-        # # sample a distance from the distance categories as long as it is less than the trajectory length
-        # filter_func = (
-        #     lambda dist: int(dist * self.waypoint_spacing) <= max_len
-        # )
-        # len_to_goal = self.label_balancer.sample(filter_func)
-        #
-        # # if the length to the goal is negative, then we are using negative mining (sample an goal from another trajectory)
-        # if len_to_goal == -1:
-        #     new = np.random.randint(1, len(self.traj_names))
-        #     f_rand = self.traj_names[(i + new) % len(self.traj_names)]
-        #     with open(
-        #             os.path.join(self.data_folder, f_rand, "traj_data.pkl"),
-        #             "rb",
-        #     ) as f4:
-        #         rand_traj_data = pickle.load(f4)
-        #     rand_traj_len = len(rand_traj_data["position"])
-        #     goal_time = np.random.randint(rand_traj_len)
-        #     f_goal = f_rand
-        # else:
-        #     goal_time = curr_time + int(
-        #         len_to_goal * self.waypoint_spacing
-        #     )
-        #     f_goal = f_curr
+
+        max_len = min(
+            int(self.max_dist_cat * self.waypoint_spacing),
+            curr_traj_len - curr_time - 1,
+        )
+
+        # sample a distance from the distance categories as long as it is less than the trajectory length
+        filter_func = (
+            lambda dist: int(dist * self.waypoint_spacing) <= max_len
+        )
+        len_to_goal = self.label_balancer.sample(filter_func)
+
+        # if the length to the goal is negative, then we are using negative mining (sample an goal from another trajectory)
+        if len_to_goal == -1:
+            new = np.random.randint(1, len(self.traj_names))
+            f_rand = self.traj_names[(i + new) % len(self.traj_names)]
+            with open(
+                os.path.join(self.data_folder, f_rand, "traj_data.pkl"),
+                "rb",
+            ) as f4:
+                rand_traj_data = pickle.load(f4)
+            rand_traj_len = len(rand_traj_data["position"])
+            goal_time = np.random.randint(rand_traj_len)
+            f_goal = f_rand
+        else:
+            goal_time = curr_time + int(
+                len_to_goal * self.waypoint_spacing
+            )
+            f_goal = f_curr
 
         transf_obs_images = []
         transf_next_obs_images = []

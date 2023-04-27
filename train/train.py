@@ -271,9 +271,9 @@ def main(config):
             #     lr=lr),
             'critic_optimizer': optimizer_cls(model.q_network.parameters(), lr=lr),
             'actor_optimizer': optimizer_cls(model.policy_network.parameters(), lr=lr),
-            'optimizer': optimizer_cls(
-                chain(model.q_network.parameters(), model.policy_network.parameters()),
-                lr=lr)
+            # 'optimizer': optimizer_cls(
+            #     chain(model.q_network.parameters(), model.policy_network.parameters()),
+            #     lr=lr)
         }
 
     current_epoch = 0
