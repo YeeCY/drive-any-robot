@@ -183,7 +183,7 @@ def plot_oracle_critic_pred(
         point_colors=[GREEN, RED],
     )
 
-    vmin, vmax = floor(oracle_critics.min(), 1), ceil(oracle_critics.max(), 1)
+    vmin, vmax = floor(oracle_critics.min(), 6), ceil(oracle_critics.max(), 6)
     norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
     cmap = mpl.cm.ScalarMappable(norm=norm, cmap=mpl.cm.jet)
     cmap.set_array([])
