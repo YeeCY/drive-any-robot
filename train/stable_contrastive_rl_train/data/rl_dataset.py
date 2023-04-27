@@ -363,7 +363,7 @@ class RLDataset(Dataset):
             goals_appendage = pos_goal * np.ones(
                 (self.len_traj_pred - traj_len, param_dim)
             )
-            pos_list = np.concatenate((pos_list, goals_appendage), axis=0)
+            pos_list = np.concatenate((pos_list, goals_appendage), axis=0)  # (x, y, angle)
             pos_nplist = np.array(pos_list[1:])
             yaw = curr_traj_data["yaw"][curr_time]
             waypoints = to_local_coords(pos_nplist, pos_list[0], yaw)
@@ -389,42 +389,67 @@ class RLDataset(Dataset):
 
             # TODO (chongyi): we get bugs here! Fix it.
             # construct oracle actions spanning -oracle_angles to oracle_angles
-            traj_len = torch.sum(
-                torch.linalg.norm(waypoints[1:, :2] - waypoints[:-1, :2], dim=-1)
-            )
-            oracle_angles = torch.linspace(
+            # traj_len = torch.sum(
+            #     torch.linalg.norm(waypoints[1:, :2] - waypoints[:-1, :2], dim=-1)
+            # )
+            # oracle_angles = torch.linspace(
+            #     -np.deg2rad(self.oracle_angles), np.deg2rad(self.oracle_angles),
+            #     self.num_oracle_trajs)
+            # if traj_len > 0:
+            #     oracle_end_wpts = torch.stack([
+            #         traj_len * torch.cos(oracle_angles),
+            #         traj_len * torch.sin(oracle_angles),
+            #     ], dim=-1)
+            # else:
+            #     oracle_end_wpts = torch.stack([
+            #         torch.zeros_like(oracle_angles),
+            #         torch.zeros_like(oracle_angles)
+            #     ], dim=-1)
+            # oracle_waypoints = oracle_end_wpts[:, None] * \
+            #                    torch.linspace(0, 1, self.len_traj_pred)[None, :, None]
+            # first_waypoint = waypoints[0]
+            # # first_waypoint_dist = torch.linalg.norm(first_waypoint[:2])
+            # # waypoint_offset = torch.stack([
+            # #     first_waypoint_dist * torch.cos(oracle_angles),
+            # #     first_waypoint_dist * torch.sin(oracle_angles),
+            # # ], dim=-1)
+            # oracle_waypoints += first_waypoint[:2]
+            # if self.learn_angle:
+            #     oracle_waypoints = torch.cat([
+            #         oracle_waypoints,
+            #         torch.cos(oracle_angles)[:, None, None].repeat_interleave(self.len_traj_pred, axis=1),
+            #         torch.sin(oracle_angles)[:, None, None].repeat_interleave(self.len_traj_pred, axis=1),
+            #     ], dim=-1)
+            # else:
+            #     oracle_waypoints = torch.cat([
+            #         oracle_waypoints,
+            #         oracle_angles[:, None, None].repeat_interleave(self.len_traj_pred, dim=1),
+            #     ], dim=-1)
+            # data.append(oracle_waypoints)
+
+            # pos_list = np.concatenate((pos_list, goals_appendage), axis=0)  # (x, y, angle)
+            # pos_nplist = np.array(pos_list[1:])
+            oracle_angles = np.linspace(
                 -np.deg2rad(self.oracle_angles), np.deg2rad(self.oracle_angles),
                 self.num_oracle_trajs)
-            if traj_len > 0:
-                oracle_end_wpts = torch.stack([
-                    traj_len * torch.cos(oracle_angles),
-                    traj_len * torch.sin(oracle_angles),
-                ], dim=-1)
-            else:
-                oracle_end_wpts = torch.stack([
-                    torch.zeros_like(oracle_angles),
-                    torch.zeros_like(oracle_angles)
-                ], dim=-1)
-            oracle_waypoints = oracle_end_wpts[:, None] * \
-                               torch.linspace(0, 1, self.len_traj_pred)[None, :, None]
-            first_waypoint = waypoints[0]
-            # first_waypoint_dist = torch.linalg.norm(first_waypoint[:2])
-            # waypoint_offset = torch.stack([
-            #     first_waypoint_dist * torch.cos(oracle_angles),
-            #     first_waypoint_dist * torch.sin(oracle_angles),
-            # ], dim=-1)
-            oracle_waypoints += first_waypoint[:2]
-            if self.learn_angle:
-                oracle_waypoints = torch.cat([
-                    oracle_waypoints,
-                    torch.cos(oracle_angles)[:, None, None].repeat_interleave(self.len_traj_pred, axis=1),
-                    torch.sin(oracle_angles)[:, None, None].repeat_interleave(self.len_traj_pred, axis=1),
-                ], dim=-1)
-            else:
-                oracle_waypoints = torch.cat([
-                    oracle_waypoints,
-                    oracle_angles[:, None, None].repeat_interleave(self.len_traj_pred, dim=1),
-                ], dim=-1)
+            oracle_yaws = curr_traj_data["yaw"][curr_time] + oracle_angles
+
+            oracle_waypoints = []
+            for oracle_angle, oracle_yaw in zip(oracle_angles, oracle_yaws):
+                pos_np = pos_nplist.copy()
+                pos_np[:, 2] -= oracle_angle
+                oracle_waypoint = to_local_coords(pos_np, pos_list[0], oracle_yaw)
+
+                oracle_waypoints.append(oracle_waypoint)
+            oracle_waypoints = np.asarray(oracle_waypoints)
+            oracle_waypoints = torch.Tensor(oracle_waypoints.astype(float))
+
+            if self.learn_angle:  # localize the waypoint angles[
+                oracle_waypoints = calculate_sin_cos(oracle_waypoints)
+            if self.normalize:
+                oracle_waypoints[..., :2] /= (
+                    self.data_config["metric_waypoint_spacing"] * self.waypoint_spacing
+                )  # only divide the dx and dy
             data.append(oracle_waypoints)
         else:
             # temporal distance

@@ -80,11 +80,11 @@ def calculate_sin_cos(waypoints: torch.Tensor) -> torch.Tensor:
     Returns:
         torch.Tensor: waypoints with sin and cos of the angle
     """
-    assert waypoints.shape[1] == 3
-    angle_repr = torch.zeros_like(waypoints[:, :2])
-    angle_repr[:, 0] = torch.cos(waypoints[:, 2])
-    angle_repr[:, 1] = torch.sin(waypoints[:, 2])
-    return torch.concat((waypoints[:, :2], angle_repr), axis=1)
+    assert waypoints.shape[-1] == 3
+    angle_repr = torch.zeros_like(waypoints[..., :2])
+    angle_repr[..., 0] = torch.cos(waypoints[..., 2])
+    angle_repr[..., 1] = torch.sin(waypoints[..., 2])
+    return torch.concat((waypoints[..., :2], angle_repr), axis=-1)
 
 
 def img_path_to_data(path: str, transform: transforms, aspect_ratio: float = IMAGE_ASPECT_RATIO) -> torch.Tensor:

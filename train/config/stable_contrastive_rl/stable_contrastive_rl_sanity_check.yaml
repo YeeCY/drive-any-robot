@@ -41,7 +41,7 @@ discount: 0.99
 use_td: True
 
 # GCBC
-bc_coef: 0.25
+bc_coef: 0.05  # td = 0.01 - 0.05
 mle_gcbc_loss: True
 
 # whether to stop gradients from actor loss to policy image encoder
