@@ -8,7 +8,7 @@ batch_size: 200
 eval_batch_size: 200
 epochs: 3
 gpu_ids: [0, 1, 2, 3] # list of gpu ids to use
-num_workers: 20
+num_workers: 16
 lr: 5e-4
 optimizer: adam
 seed: 0
@@ -38,7 +38,7 @@ context_size: 5
 discount: 0.99
 
 # whether to use C-Learning (TD) or Contrastive NCE (MC)
-use_td: False
+use_td: True
 
 # GCBC
 bc_coef: 0.01  # td = 0.01 - 0.05
