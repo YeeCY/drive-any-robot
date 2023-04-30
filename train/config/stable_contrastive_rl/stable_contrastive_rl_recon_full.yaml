@@ -1,5 +1,5 @@
 project_name: stable_contrastive_rl
-run_name: stable_contrastive_rl_debug
+run_name: stable_contrastive_rl_recon_full_debug
 
 # training setup
 use_wandb: True # set to false if you don't want to log to wandb
