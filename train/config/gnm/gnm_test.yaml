@@ -1,5 +1,5 @@
 project_name: gnm
-run_name: gnm_debug
+run_name: gnm_test
 
 # training setup
 use_wandb: True # set to false if you don't want to log to wandb
@@ -53,7 +53,7 @@ datasets:
     negative_mining: True # negative mining from the ViNG paper (Shah et al.)
 
 # logging stuff
-print_log_freq: 100 # in iterations
+print_log_freq: 500 # in iterations
 image_log_freq: 1000 # in iterations
 num_images_log: 8 # number of images to log in a logging iteration
-pairwise_test_freq: 2 # in epochs
+pairwise_test_freq: 1 # in epochs
