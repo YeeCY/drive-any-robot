@@ -152,6 +152,19 @@ class ContrastiveQNetwork(nn.Module):
         """
         TODO
         """
+
+        # augment inputs to match labels size-wise
+        waypoint = waypoint.reshape(
+            (waypoint.shape[0], 5, 4)
+        ).clone()  # don't modify the original waypoint
+        waypoint[:, 1:, :2] = waypoint[:, 1:, :2] - waypoint[:, :-1, :2]
+        # if self.learn_angle:
+        #     waypoint_mu[:, :, 2:] = F.normalize(
+        #         waypoint_mu[:, :, 2:].clone(), dim=-1
+        #     )  # normalize the angle prediction
+        waypoint = waypoint.reshape(
+            (waypoint.shape[0], self.action_size - 1))
+
         waypoint_obs_encoding, waypoint_goal_encoding = self.img_encoder(
             waypoint_obs_img, waypoint_goal_img)
         dist_obs_encoding, dist_goal_encoding = self.img_encoder(
@@ -266,8 +279,6 @@ class ContrastivePolicy(nn.Module):
         # if detach_img_encode:
         #     obs_encoding = obs_encoding.detach()
         #     goal_encoding = goal_encoding.detach()
-
-        # TODO (start from here)
 
         waypoint_obs_goal_encoding = self.waypoint_linear_layers(
             torch.cat([waypoint_obs_encoding, waypoint_goal_encoding], dim=-1))
