@@ -34,9 +34,11 @@ def visualize_critic_pred(
     dataset_indices: np.ndarray,
     batch_goals: np.ndarray,
     batch_oracle_waypoints: np.ndarray,
-    batch_oracle_critics: np.ndarray,
+    batch_oracle_waypoints_critic: np.ndarray,
     batch_pred_waypoints: np.ndarray,
+    batch_pred_waypoints_critic: np.ndarray,
     batch_label_waypoints: np.ndarray,
+    batch_label_waypoints_critic: np.ndarray,
     eval_type: str,
     normalized: bool,
     save_folder: str,
@@ -93,10 +95,12 @@ def visualize_critic_pred(
         goal_img = numpy_to_img(batch_goal_images[i])
         dataset_name = dataset_names[int(dataset_indices[i])]
         goal_pos = batch_goals[i]
-        pred_waypoints = batch_pred_waypoints[i]
         oracle_waypoints = batch_oracle_waypoints[i]
-        oracle_critics = batch_oracle_critics[i]
+        oracle_waypoints_critic = batch_oracle_waypoints_critic[i]
+        pred_waypoints = batch_pred_waypoints[i]
+        pred_waypoints_critic = batch_pred_waypoints_critic[i]
         label_waypoints = batch_label_waypoints[i]
+        label_waypoints_critic = batch_label_waypoints_critic[i]
 
         if normalized:
             pred_waypoints[..., :2] *= data_config[dataset_name]["metric_waypoint_spacing"]
@@ -114,9 +118,11 @@ def visualize_critic_pred(
             dataset_name,
             goal_pos,
             oracle_waypoints,
-            oracle_critics,
+            oracle_waypoints_critic,
             pred_waypoints,
+            pred_waypoints_critic,
             label_waypoints,
+            label_waypoints_critic,
             save_path,
             display
         )
@@ -133,9 +139,11 @@ def plot_oracle_critic_pred(
     dataset_name: str,
     goal_pos: np.ndarray,
     oracle_waypoints: np.ndarray,
-    oracle_critics: np.ndarray,
+    oracle_waypoints_critic: np.ndarray,
     pred_waypoints: np.ndarray,
+    pred_waypoints_critic: np.ndarray,
     label_waypoints: np.ndarray,
+    label_waypoints_critic: np.ndarray,
     save_path: Optional[str] = None,
     display: Optional[bool] = False,
 ):
@@ -166,49 +174,78 @@ def plot_oracle_critic_pred(
 
     # create line with color bar
     # reference: https://stackoverflow.com/a/49184882
-    plot_trajs_and_points(
-        ax[0],
-        trajs,
-        [start_pos, goal_pos],
-        traj_colors=[CYAN, MAGENTA],
-        point_colors=[GREEN, RED],
-    )
-    plot_trajs_and_points_on_image(
-        ax[1],
-        obs_img,
-        dataset_name,
-        trajs,
-        [start_pos, goal_pos],
-        traj_colors=[CYAN, MAGENTA],
-        point_colors=[GREEN, RED],
-    )
+    # plot_trajs_and_points(
+    #     ax[0],
+    #     trajs,
+    #     [start_pos, goal_pos],
+    #     traj_colors=[CYAN, MAGENTA],
+    #     point_colors=[GREEN, RED],
+    #     traj_width=0.5,
+    # )
+    # plot_trajs_and_points_on_image(
+    #     ax[1],
+    #     obs_img,
+    #     dataset_name,
+    #     trajs,
+    #     [start_pos, goal_pos],
+    #     traj_colors=[CYAN, MAGENTA],
+    #     point_colors=[GREEN, RED],
+    #     traj_width=1.5,
+    # )
 
-    vmin, vmax = floor(oracle_critics.min(), 6), ceil(oracle_critics.max(), 6)
-    norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
-    cmap = mpl.cm.ScalarMappable(norm=norm, cmap=mpl.cm.jet)
-    cmap.set_array([])
+    critic_min, critic_max = oracle_waypoints_critic.min(), oracle_waypoints_critic.max()
+    normalized_oracle_waypoints_critic = (
+        oracle_waypoints_critic - critic_min) / (critic_max - critic_min)
+    # sort_idxs = np.argsort(normalized_oracle_waypoints_critic, axis=0)[:, 0]
+    # normalized_oracle_waypoints_critic = normalized_oracle_waypoints_critic[sort_idxs][:, 0]
+    normalized_pred_waypoints_critic = (
+        pred_waypoints_critic - critic_min) / (critic_max - critic_min)
+    normalized_label_waypoints_critic = (
+        label_waypoints_critic - critic_min) / (critic_max - critic_min)
+
+    # vmin, vmax = floor(oracle_critics.min(), 6), ceil(oracle_critics.max(), 6)
+    # norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
+    # cmap = mpl.cm.ScalarMappable(norm=norm, )
+    sm = plt.cm.ScalarMappable(cmap=plt.cm.jet, norm=plt.Normalize(vmin=0, vmax=1))
     plot_trajs_and_points(
         ax[0],
-        oracle_trajs,
+        np.array(oracle_trajs)[..., :2],  # don't plot yaws
         [start_pos, goal_pos],
-        traj_colors=[np.array(cmap.to_rgba(oracle_critic))
-                     for oracle_critic in oracle_critics[:, 0]],
-        traj_labels=["oracle"] * len(oracle_critics),
+        traj_colors=sm.to_rgba(normalized_oracle_waypoints_critic)[:, :3],
+        traj_labels=["oracle"] * len(oracle_waypoints_critic),
         point_colors=[GREEN, RED],
     )
-    plt.colorbar(cmap, ticks=np.linspace(vmin, vmax, 11), ax=ax[0],
+    plot_trajs_and_points(
+        ax[0],
+        trajs,
+        [start_pos, goal_pos],
+        traj_colors=[sm.to_rgba(normalized_pred_waypoints_critic)[:, :3],
+                     sm.to_rgba(normalized_label_waypoints_critic)[:, :3]],
+        point_colors=[GREEN, RED],
+    )
+    plt.colorbar(sm, ticks=np.linspace(0, 1, 11), ax=ax[0],
                  fraction=0.046, pad=0.04)
+
     plot_trajs_and_points_on_image(
         ax[1],
         obs_img,
         dataset_name,
-        oracle_trajs,
+        trajs,
         [start_pos, goal_pos],
-        traj_colors=[np.array(cmap.to_rgba(oracle_critic))
-                     for oracle_critic in oracle_critics[:, 0]] + [CYAN, MAGENTA],
+        traj_colors=[sm.to_rgba(normalized_pred_waypoints_critic)[:, :3],
+                     sm.to_rgba(normalized_label_waypoints_critic)[:, :3]],
         point_colors=[GREEN, RED],
     )
-    plt.colorbar(cmap, ticks=np.linspace(vmin, vmax, 11), ax=ax[1],
+    plot_trajs_and_points_on_image(
+        ax[1],
+        obs_img,
+        dataset_name,
+        np.array(oracle_trajs),
+        [start_pos, goal_pos],
+        traj_colors=sm.to_rgba(normalized_oracle_waypoints_critic)[:, :3],
+        point_colors=[GREEN, RED],
+    )
+    plt.colorbar(sm, ticks=np.linspace(0, 1, 11), ax=ax[1],
                  fraction=0.046, pad=0.04)
 
     ax[2].imshow(goal_img)

@@ -432,19 +432,20 @@ class RLDataset(Dataset):
             oracle_angles = np.linspace(
                 -np.deg2rad(self.oracle_angles), np.deg2rad(self.oracle_angles),
                 self.num_oracle_trajs)
-            oracle_yaws = curr_traj_data["yaw"][curr_time] + oracle_angles
+            # yaw = curr_traj_data["yaw"][curr_time]
 
             oracle_waypoints = []
-            for oracle_angle, oracle_yaw in zip(oracle_angles, oracle_yaws):
-                pos_np = pos_nplist.copy()
-                pos_np[:, 2] -= oracle_angle
-                oracle_waypoint = to_local_coords(pos_np, pos_list[0], oracle_yaw)
+            for oracle_angle in oracle_angles:
+                pos_np = np.array(pos_list[1:])
+                # pos_np[:, 2] -= oracle_angle
+                oracle_waypoint = to_local_coords(pos_np, pos_list[0], yaw - oracle_angle)
 
                 oracle_waypoints.append(oracle_waypoint)
             oracle_waypoints = np.asarray(oracle_waypoints)
             oracle_waypoints = torch.Tensor(oracle_waypoints.astype(float))
 
-            if self.learn_angle:  # localize the waypoint angles[
+            if self.learn_angle:  # localize the waypoint angles
+                oracle_waypoints[:, 1:, 2] -= oracle_waypoints[:, [0], 2]
                 oracle_waypoints = calculate_sin_cos(oracle_waypoints)
             if self.normalize:
                 oracle_waypoints[..., :2] /= (

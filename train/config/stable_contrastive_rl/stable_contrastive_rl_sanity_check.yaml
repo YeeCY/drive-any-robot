@@ -2,12 +2,12 @@ project_name: stable_contrastive_rl
 run_name: stable_contrastive_rl_sanity_check_debug
 
 # training setup
-use_wandb: True # set to false if you don't want to log to wandb
+use_wandb: False # set to false if you don't want to log to wandb
 train: rl
 batch_size: 32  # default = 16, full size = 207
 eval_batch_size: 32  # default = 400
 epochs: 120
-gpu_ids: [0] # list of gpu ids to use
+gpu_ids: [0, 1] # list of gpu ids to use
 num_workers: 32
 lr: 5e-4
 optimizer: adam
@@ -38,7 +38,7 @@ context_size: 5
 discount: 0.99
 
 # whether to use C-Learning (TD) or Contrastive NCE (MC)
-use_td: True
+use_td: False
 
 # GCBC
 bc_coef: 0.25  # td = 0.01 - 0.05
@@ -60,7 +60,7 @@ action:
   min_dist_cat: 2
   max_dist_cat: 12
 oracle_angles: 45  # degree
-num_oracle_trajs: 10
+num_oracle_trajs: 9
 close_far_threshold: 6  # distance threshold used to seperate the close and the far subgoals that are sampled per datapoint
 
 # action output params

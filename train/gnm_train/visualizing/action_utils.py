@@ -182,6 +182,8 @@ def plot_trajs_and_points_on_image(
     list_points: list,
     traj_colors: list = [CYAN, MAGENTA],
     point_colors: list = [RED, GREEN],
+    traj_width=2.5,
+    point_size=10.0,
 ):
     """
     Plot trajectories and points on an image. If there is no configuration for the camera interinstics of the dataset, the image will be plotted as is.
@@ -234,7 +236,7 @@ def plot_trajs_and_points_on_image(
                     traj_pixels[:250, 0],
                     traj_pixels[:250, 1],
                     color=traj_colors[i],
-                    lw=2.5,
+                    lw=traj_width,
                 )
 
         for i, point in enumerate(list_points):
@@ -251,7 +253,7 @@ def plot_trajs_and_points_on_image(
                 pt_pixels[:250, 1],
                 color=point_colors[i],
                 marker="o",
-                markersize=10.0,
+                markersize=point_size,
             )
         ax.xaxis.set_visible(False)
         ax.yaxis.set_visible(False)
@@ -269,6 +271,8 @@ def plot_trajs_and_points(
     point_labels: Optional[list] = ["robot", "goal"],
     quiver_freq: int = 1,
     default_coloring: bool = True,
+    traj_width=1.5,
+    point_size=7.0,
 ):
     """
     Plot trajectories and points that could potentially have a yaw.
@@ -298,6 +302,7 @@ def plot_trajs_and_points(
             traj[:, 1],
             color=traj_colors[i],
             label=traj_labels[i],
+            linewidth=traj_width,
         )
         if traj.shape[1] > 2:  # traj data also includes yaw of the robot
             bearings = gen_bearings_from_waypoints(traj)
@@ -315,7 +320,7 @@ def plot_trajs_and_points(
             pt[1],
             color=point_colors[i],
             marker="o",
-            markersize=7.0,
+            markersize=point_size,
             label=point_labels[i],
         )
     ax.legend()
