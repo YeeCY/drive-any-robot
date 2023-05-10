@@ -232,7 +232,6 @@ def main(config):
             config["min_log_std"],
             config["max_log_std"],
             config["fixed_std"],
-            config["use_td"],
             config["soft_target_tau"],
         )
     else:
