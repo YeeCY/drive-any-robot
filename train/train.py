@@ -232,6 +232,7 @@ def main(config):
             config["min_log_std"],
             config["max_log_std"],
             config["fixed_std"],
+            config["use_td"],
             config["soft_target_tau"],
         )
     else:
@@ -271,9 +272,6 @@ def main(config):
             #     lr=lr),
             'critic_optimizer': optimizer_cls(model.q_network.parameters(), lr=lr),
             'actor_optimizer': optimizer_cls(model.policy_network.parameters(), lr=lr),
-            # 'optimizer': optimizer_cls(
-            #     chain(model.q_network.parameters(), model.policy_network.parameters()),
-            #     lr=lr)
         }
 
     current_epoch = 0

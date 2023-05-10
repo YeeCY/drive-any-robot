@@ -196,24 +196,24 @@ class ContrastiveQNetwork(nn.Module):
 
         return waypoint_obs_repr, dist_obs_repr, waypoint_goal_repr, dist_goal_repr
 
-    def critic_parameters(self, recurse: bool = True) -> Iterator[nn.Parameter]:
-        if self.twin_q:
-            params = chain(self.waypoint_obs_linear_layers.named_parameters(recurse=recurse),
-                           self.dist_obs_linear_layers.named_parameters(recurse=recurse),
-                           self.waypoint_goal_linear_layers.named_parameters(recurse=recurse),
-                           self.dist_goal_linear_layers.named_parameters(recurse=recurse),
-                           self.waypoint_obs_linear_layers2.named_parameters(recurse=recurse),
-                           self.dist_obs_linear_layers2.named_parameters(recurse=recurse),
-                           self.waypoint_goal_linear_layers2.named_parameters(recurse=recurse),
-                           self.dist_goal_linear_layers2.named_parameters(recurse=recurse))
-        else:
-            params = chain(self.waypoint_obs_linear_layers.named_parameters(recurse=recurse),
-                           self.dist_obs_linear_layers.named_parameters(recurse=recurse),
-                           self.waypoint_goal_linear_layers.named_parameters(recurse=recurse),
-                           self.dist_goal_linear_layers.named_parameters(recurse=recurse))
-
-        for name, param in params:
-            yield param
+    # def critic_parameters(self, recurse: bool = True) -> Iterator[nn.Parameter]:
+    #     if self.twin_q:
+    #         params = chain(self.waypoint_obs_linear_layers.named_parameters(recurse=recurse),
+    #                        self.dist_obs_linear_layers.named_parameters(recurse=recurse),
+    #                        self.waypoint_goal_linear_layers.named_parameters(recurse=recurse),
+    #                        self.dist_goal_linear_layers.named_parameters(recurse=recurse),
+    #                        self.waypoint_obs_linear_layers2.named_parameters(recurse=recurse),
+    #                        self.dist_obs_linear_layers2.named_parameters(recurse=recurse),
+    #                        self.waypoint_goal_linear_layers2.named_parameters(recurse=recurse),
+    #                        self.dist_goal_linear_layers2.named_parameters(recurse=recurse))
+    #     else:
+    #         params = chain(self.waypoint_obs_linear_layers.named_parameters(recurse=recurse),
+    #                        self.dist_obs_linear_layers.named_parameters(recurse=recurse),
+    #                        self.waypoint_goal_linear_layers.named_parameters(recurse=recurse),
+    #                        self.dist_goal_linear_layers.named_parameters(recurse=recurse))
+    #
+    #     for name, param in params:
+    #         yield param
 
 
 class ContrastivePolicy(nn.Module):

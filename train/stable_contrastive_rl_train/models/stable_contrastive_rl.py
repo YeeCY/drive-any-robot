@@ -39,6 +39,7 @@ class StableContrastiveRL(BaseRLModel):
         min_log_std: Optional[float] = -13,
         max_log_std: Optional[float] = -2,
         fixed_std: Optional[list] = None,
+        use_target: Optional[list] = False,
         soft_target_tau: Optional[float] = 0.005,
     ) -> None:
         """
@@ -52,6 +53,7 @@ class StableContrastiveRL(BaseRLModel):
         self.min_log_std = min_log_std
         self.max_log_std = max_log_std
         self.fixed_std = fixed_std
+        self.use_target = use_target
         self.soft_target_tau = soft_target_tau
 
         # action size = waypoint sizes + distance size
@@ -98,11 +100,12 @@ class StableContrastiveRL(BaseRLModel):
             self.obs_encoding_size,
             self.goal_encoding_size
         )
-        self.target_img_encoder = ContrastiveImgEncoder(
-            self.context_size,
-            self.obs_encoding_size,
-            self.goal_encoding_size
-        )
+        if self.use_target:
+            self.target_img_encoder = ContrastiveImgEncoder(
+                self.context_size,
+                self.obs_encoding_size,
+                self.goal_encoding_size
+            )
         self.policy_image_encoder = ContrastiveImgEncoder(
             self.context_size,
             self.obs_encoding_size,
@@ -111,14 +114,17 @@ class StableContrastiveRL(BaseRLModel):
 
         self.q_network = ContrastiveQNetwork(
             self.img_encoder, self.action_size, self.twin_q)
-        self.target_q_network = ContrastiveQNetwork(
-            self.target_img_encoder, self.action_size, self.twin_q)
+        if self.use_target:
+            self.target_q_network = ContrastiveQNetwork(
+                self.target_img_encoder, self.action_size, self.twin_q)
 
         self.policy_network = ContrastivePolicy(
             self.policy_image_encoder, self.action_size, fixed_std=self.fixed_std)
 
-        copy_model_params_from_to(self.q_network.critic_parameters(),
-                                  self.target_q_network.critic_parameters())
+        # copy_model_params_from_to(self.q_network.critic_parameters(),
+        #                           self.target_q_network.critic_parameters())
+        if self.use_target:
+            copy_model_params_from_to(self.q_network, self.target_q_network)
 
         # self.soft_target_tau = soft_target_tau
         # self.target_update_period = target_update_period
@@ -141,9 +147,7 @@ class StableContrastiveRL(BaseRLModel):
 
     def soft_update_target_q_network(self):
         soft_update_from_to(
-            self.q_network.critic_parameters(),
-            self.target_q_network.critic_parameters(),
-            self.soft_target_tau
+            self.q_network, self.target_q_network, self.soft_target_tau
         )
 
     # def forward(
