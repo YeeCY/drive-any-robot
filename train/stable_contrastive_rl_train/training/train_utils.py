@@ -475,7 +475,7 @@ def train(
         # (actor_loss + critic_loss).backward()
         # optimizer['optimizer'].step()
 
-        if use_td and (i % target_update_freq == 0):
+        if i % target_update_freq == 0:
             model.soft_update_target_q_network()
 
         critic_loss_logger.log_data(critic_loss.item())
