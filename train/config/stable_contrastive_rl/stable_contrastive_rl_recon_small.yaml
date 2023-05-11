@@ -4,8 +4,8 @@ run_name: stable_contrastive_rl_recon_small_debug
 # training setup
 use_wandb: True # set to false if you don't want to log to wandb
 train: rl
-batch_size: 200  # 200 for mc, 160 for td
-eval_batch_size: 200  # 200 for mc, 160 for td
+batch_size: 100  # 200 for mc, 160 for td
+eval_batch_size: 100  # 200 for mc, 160 for td
 epochs: 3
 gpu_ids: [0, 1, 2, 3] # list of gpu ids to use
 num_workers: 16
