@@ -495,6 +495,35 @@ def train(
         action_waypts_cos_sim_logger.log_data(action_waypts_cos_sim.item())
         multi_action_waypts_cos_sim_logger.log_data(multi_action_waypts_cos_sim.item())
 
+        # release GPU memory
+        del dist_obs_data
+        del dist_next_obs_data
+        del dist_goal_data
+
+        del waypoint_obs_data
+        del waypoint_next_obs_data
+        del waypoint_goal_data
+
+        del critic_loss
+        del critic_info
+        del actor_loss
+        del actor_info
+
+        del waypoint_pred_logit
+        del waypoint_pred_obs_repr
+        del waypoint_pred_g_repr
+        del waypoint_label_logit
+        del waypoint_label_obs_repr
+        del waypoint_label_g_repr
+
+        del action_waypts_cos_sim
+        del multi_action_waypts_cos_sim
+        if learn_angle:
+            del action_orien_cos_sim
+            del multi_action_orien_cos_sim
+
+        torch.cuda.empty_cache()
+
         if use_wandb:
             data_log = {}
             for var in variables:
@@ -545,13 +574,18 @@ def train(
             waypoint_oracle_critic = []
             for idx in range(waypoint_oracle.shape[1]):
                 waypoint_oracle_obs_repr, _, waypoint_oracle_g_repr = model(
-                    waypoint_oracle_obs_data[:, idx], waypoint_obs_data,
+                    waypoint_oracle_obs_data[:, idx], waypoint_oracle_obs_data[:, idx],
                     waypoint_oracle[:, idx].flatten(1), dist_label,
-                    waypoint_oracle_goal_data[:, idx], waypoint_goal_data)[0:3]
+                    waypoint_oracle_goal_data[:, idx], waypoint_oracle_goal_data[:, idx])[0:3]
                 waypoint_oracle_logit = torch.einsum(
                     'ikl,jkl->ijl', waypoint_oracle_obs_repr, waypoint_oracle_g_repr)
                 waypoint_oracle_logit = torch.diag(torch.mean(waypoint_oracle_logit, dim=-1))
                 waypoint_oracle_critic.append(torch.sigmoid(waypoint_oracle_logit)[:, None])
+
+                del waypoint_oracle_logit
+                del waypoint_oracle_obs_repr
+                del waypoint_oracle_g_repr
+                torch.cuda.empty_cache()
             waypoint_oracle_critic = torch.stack(waypoint_oracle_critic, dim=1)
 
             visualize_critic_pred(
@@ -572,6 +606,24 @@ def train(
                 num_images_log,
                 use_wandb=use_wandb,
             )
+
+        del dist_obs_image
+        del dist_goal_image
+        del dist_pred
+        del dist_label
+
+        del waypoint_obs_image
+        del waypoint_goal_image
+        del waypoint_dataset_index
+        del waypoint_goal_pos
+        del waypoint_oracle
+        del waypoint_oracle_critic
+        del waypoint_pred
+        del waypoint_pred_critic
+        del waypoint_label
+        del waypoint_label_critic
+        torch.cuda.empty_cache()
+
     return
 
 
@@ -836,6 +888,35 @@ def evaluate(
             action_waypts_cos_sim_logger.log_data(action_waypts_cos_sim.item())
             multi_action_waypts_cos_sim_logger.log_data(multi_action_waypts_cos_sim.item())
 
+            # release GPU memory
+            del dist_obs_data
+            del dist_next_obs_data
+            del dist_goal_data
+
+            del waypoint_obs_data
+            del waypoint_next_obs_data
+            del waypoint_goal_data
+
+            del critic_loss
+            del critic_info
+            del actor_loss
+            del actor_info
+
+            del waypoint_pred_logit
+            del waypoint_pred_obs_repr
+            del waypoint_pred_g_repr
+            del waypoint_label_logit
+            del waypoint_label_obs_repr
+            del waypoint_label_g_repr
+
+            del action_waypts_cos_sim
+            del multi_action_waypts_cos_sim
+            if learn_angle:
+                del action_orien_cos_sim
+                del multi_action_orien_cos_sim
+
+            torch.cuda.empty_cache()
+
             if i % print_log_freq == 0:
                 log_display = f"(epoch {epoch}) (batch {i}/{num_batches - 1}) "
                 for var in variables:
@@ -871,13 +952,18 @@ def evaluate(
                 waypoint_oracle_critic = []
                 for idx in range(waypoint_oracle.shape[1]):
                     waypoint_oracle_obs_repr, _, waypoint_oracle_g_repr = model(
-                        waypoint_oracle_obs_data[:, idx], waypoint_obs_data,
+                        waypoint_oracle_obs_data[:, idx], waypoint_oracle_obs_data[:, idx],
                         waypoint_oracle[:, idx].flatten(1), dist_label,
-                        waypoint_oracle_goal_data[:, idx], waypoint_goal_data)[0:3]
+                        waypoint_oracle_goal_data[:, idx], waypoint_oracle_goal_data[:, idx])[0:3]
                     waypoint_oracle_logit = torch.einsum(
                         'ikl,jkl->ijl', waypoint_oracle_obs_repr, waypoint_oracle_g_repr)
                     waypoint_oracle_logit = torch.diag(torch.mean(waypoint_oracle_logit, dim=-1))
                     waypoint_oracle_critic.append(torch.sigmoid(waypoint_oracle_logit)[:, None])
+
+                    del waypoint_oracle_logit
+                    del waypoint_oracle_obs_repr
+                    del waypoint_oracle_g_repr
+                    torch.cuda.empty_cache()
                 waypoint_oracle_critic = torch.stack(waypoint_oracle_critic, dim=1)
 
                 visualize_critic_pred(
@@ -906,6 +992,24 @@ def evaluate(
     print()
     if use_wandb:
         wandb.log(data_log)
+
+    del dist_obs_image
+    del dist_goal_image
+    del dist_pred
+    del dist_label
+
+    del waypoint_obs_image
+    del waypoint_goal_image
+    del waypoint_dataset_index
+    del waypoint_goal_pos
+    del waypoint_oracle
+    del waypoint_oracle_critic
+    del waypoint_pred
+    del waypoint_pred_critic
+    del waypoint_label
+    del waypoint_label_critic
+    torch.cuda.empty_cache()
+
     return critic_loss_logger.average(), actor_loss_logger.average()
 
 

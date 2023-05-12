@@ -2,7 +2,7 @@ project_name: stable_contrastive_rl
 run_name: stable_contrastive_rl_recon_small_debug
 
 # training setup
-use_wandb: True # set to false if you don't want to log to wandb
+use_wandb: False # set to false if you don't want to log to wandb
 train: rl
 batch_size: 100  # 200 for mc, 160 for td
 eval_batch_size: 100  # 200 for mc, 160 for td
@@ -38,7 +38,7 @@ context_size: 5
 discount: 0.99
 
 # whether to use C-Learning (TD) or Contrastive NCE (MC)
-use_td: True
+use_td: False
 
 # GCBC
 bc_coef: 0.25  # td = 0.01 - 0.05
