@@ -607,6 +607,9 @@ def train(
                 use_wandb=use_wandb,
             )
 
+            del waypoint_oracle_critic
+            torch.cuda.empty_cache()
+
         del dist_obs_image
         del dist_goal_image
         del dist_pred
@@ -617,7 +620,6 @@ def train(
         del waypoint_dataset_index
         del waypoint_goal_pos
         del waypoint_oracle
-        del waypoint_oracle_critic
         del waypoint_pred
         del waypoint_pred_critic
         del waypoint_label
@@ -984,6 +986,9 @@ def evaluate(
                     num_images_log,
                     use_wandb=use_wandb,
                 )
+
+                del waypoint_oracle_critic
+                torch.cuda.empty_cache()
     data_log = {}
     for var in variables:
         log_display = f"(epoch {epoch}) "
@@ -1003,7 +1008,6 @@ def evaluate(
     del waypoint_dataset_index
     del waypoint_goal_pos
     del waypoint_oracle
-    del waypoint_oracle_critic
     del waypoint_pred
     del waypoint_pred_critic
     del waypoint_label
