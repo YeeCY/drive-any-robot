@@ -7,7 +7,7 @@ train: rl
 batch_size: 32  # default = 16, full size = 207
 eval_batch_size: 32  # default = 400
 epochs: 1  # evaluation epochs
-gpu_ids: [0] # list of gpu ids to use
+gpu_ids: [1] # list of gpu ids to use
 num_workers: 32
 lr: 5e-4
 optimizer: adam
@@ -81,7 +81,9 @@ datasets:
 
 #load_run: gnm_release/train/logs/<project_name>/<log_run_name>/latest.pth
 #load_run: drive-any-robot/train/logs/gnm/gnm_debug_2023_03_10_20_05_22/latest.pth
-load_run: stable_contrastive_rl/stable_contrastive_rl_debug_2023_04_30_17_28_17  # random checkpoint for testing
+#load_run: stable_contrastive_rl/stable_contrastive_rl_debug_2023_04_30_17_28_17  # random checkpoint for testing
+# MC
+load_run: stable_contrastive_rl/stable_contrastive_rl_debug_2023_04_12_13_08_54
 
 # logging stuff
 print_log_freq: 100 # in iterations

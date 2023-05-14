@@ -1,15 +1,11 @@
 import wandb
 import os
 import numpy as np
-from sklearn.metrics import roc_curve, auc, roc_auc_score
-from typing import Dict
+from sklearn.metrics import roc_auc_score
+from typing import List, Optional, Dict
 
+from gnm_train.visualizing.action_utils import visualize_traj_pred
 from gnm_train.visualizing.distance_utils import visualize_dist_pred, visualize_dist_pairwise_pred
-from stable_contrastive_rl_train.visualizing.critic_utils import visualize_critic_pred
-from stable_contrastive_rl_train.training.train_utils import (
-    get_critic_loss,
-    get_actor_loss,
-)
 from gnm_train.visualizing.visualize_utils import to_numpy
 from gnm_train.training.logger import Logger
 
@@ -17,38 +13,26 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
-# from torch.optim import Adam
-from torch.optim import Optimizer
-from torch.distributions import (
-    Normal,
-    Independent
-)
+from torch.optim import Adam
 
 
-def eval_rl_loop(
+def eval_loop(
     model: nn.Module,
-    # optimizer: Dict[str, Optimizer],
+    # optimizer: Adam,
     # train_dist_loader: DataLoader,
     # train_action_loader: DataLoader,
     test_dataloaders: Dict[str, DataLoader],
     epochs: int,
     device: torch.device,
     project_folder: str,
-    normalized: bool,
+    # normalized: bool,
     print_log_freq: int = 100,
     image_log_freq: int = 1000,
     num_images_log: int = 8,
-    pairwise_test_freq: int = 5,
+    # pairwise_test_freq: int = 5,
     current_epoch: int = 0,
-    # target_update_freq: int = 1,
-    discount: float = 0.99,
-    use_td: bool = True,
-    bc_coef: float = 0.05,
-    mle_gcbc_loss: bool = False,
-    # stop_grad_actor_img_encoder: bool = True,
-    use_actor_waypoint_q_loss: bool = False,
-    use_actor_dist_q_loss: bool = False,
-    learn_angle: bool = True,
+    # alpha: float = 0.5,
+    # learn_angle: bool = True,
     use_wandb: bool = True,
 ):
     """
@@ -57,7 +41,8 @@ def eval_rl_loop(
     Args:
         model: model to train
         optimizer: optimizer to use
-        train_rl_loader: dataloader for training RL algorithm
+        train_dist_loader: dataloader for training distance predictions
+        train_action_loader: dataloader for training action predictions
         test_dataloaders: dict of dataloaders for testing
         epochs: number of epochs to train
         device: device to train on
@@ -67,17 +52,17 @@ def eval_rl_loop(
         num_images_log: number of images to log to wandb
         pairwise_test_freq: frequency of testing pairwise distance accuracy
         current_epoch: epoch to start training from
-        discount: discount factor
-        use_td: whether to use C-Learning (TD) or Contrastive NCE (MC)
+        alpha: tradeoff between distance and action loss
         learn_angle: whether to learn the angle or not
         use_wandb: whether to log to wandb or not
         load_best: whether to load the best model or not
     """
-    assert 0 <= discount <= 1
+    # assert 0 <= alpha <= 1
+    # latest_path = os.path.join(project_folder, f"latest.pth")
 
     for epoch in range(current_epoch, current_epoch + epochs):
         # print(
-        #     f"Start Stable Contrastive RL Training Epoch {epoch}/{current_epoch + epochs - 1}"
+        #     f"Start GNM Training Epoch {epoch}/{current_epoch + epochs - 1}"
         # )
         # train(
         #     model,
@@ -88,64 +73,59 @@ def eval_rl_loop(
         #     project_folder,
         #     normalized,
         #     epoch,
-        #     target_update_freq,
-        #     discount,
-        #     use_td,
-        #     bc_coef,
-        #     mle_gcbc_loss,
-        #     stop_grad_actor_img_encoder,
-        #     use_actor_waypoint_q_loss,
-        #     use_actor_dist_q_loss,
+        #     alpha,
         #     learn_angle,
         #     print_log_freq,
         #     image_log_freq,
         #     num_images_log,
         #     use_wandb,
         # )
-
+        #
         # eval_total_losses = []
-        # eval_critic_losses, eval_actor_losses = [], []
         # for dataset_type in test_dataloaders:
-            # print(
-            #     f"Start {dataset_type} Stable Contrastive RL Testing Epoch {epoch}/{current_epoch + epochs - 1}"
-            # )
-            # dist_loader = test_dataloaders[dataset_type]["distance"]
-            # action_loader = test_dataloaders[dataset_type]["action"]
-            # test_critic_loss, test_actor_loss = evaluate(
-            #     dataset_type,
-            #     model,
-            #     dist_loader,
-            #     action_loader,
-            #     device,
-            #     project_folder,
-            #     normalized,
-            #     epoch,
-            #     discount,
-            #     use_td,
-            #     bc_coef,
-            #     mle_gcbc_loss,
-            #     use_actor_waypoint_q_loss,
-            #     use_actor_dist_q_loss,
-            #     learn_angle,
-            #     print_log_freq,
-            #     image_log_freq,
-            #     num_images_log,
-            #     use_wandb,
-            # )
-            #
-            # # total_eval_loss = get_total_loss(test_dist_loss, test_action_loss, alpha)
-            # # eval_total_losses.append(total_eval_loss)
-            # eval_critic_losses.append(test_critic_loss)
-            # eval_actor_losses.append(test_actor_loss)
-            # # wandb.log({f"{dataset_type}_total_loss": total_eval_loss})
-            # # print(f"{dataset_type}_total_loss: {total_eval_loss}")
-            #
-            # if use_wandb:
-            #     wandb.log({f"{dataset_type}_critic_loss": test_critic_loss})
-            #     wandb.log({f"{dataset_type}_actor_loss": test_actor_loss})
-            #
-            # print(f"{dataset_type}_critic_loss: {test_critic_loss}")
-            # print(f"{dataset_type}_actor_loss: {test_actor_loss}")
+        #     print(
+        #         f"Start {dataset_type} GNM Testing Epoch {epoch}/{current_epoch + epochs - 1}"
+        #     )
+        #     dist_loader = test_dataloaders[dataset_type]["distance"]
+        #     action_loader = test_dataloaders[dataset_type]["action"]
+        #     test_dist_loss, test_action_loss = evaluate(
+        #         dataset_type,
+        #         model,
+        #         dist_loader,
+        #         action_loader,
+        #         device,
+        #         project_folder,
+        #         normalized,
+        #         epoch,
+        #         alpha,
+        #         learn_angle,
+        #         print_log_freq,
+        #         image_log_freq,
+        #         num_images_log,
+        #         use_wandb,
+        #     )
+        #
+        #     total_eval_loss = get_total_loss(test_dist_loss, test_action_loss, alpha)
+        #     eval_total_losses.append(total_eval_loss)
+        #     print(f"{dataset_type}_total_loss: {total_eval_loss}")
+        #     print(f"{dataset_type}_dist_loss: {test_dist_loss}")
+        #     print(f"{dataset_type}_action_loss: {test_action_loss}")
+        #
+        #     if use_wandb:
+        #         wandb.log({f"{dataset_type}_total_loss": total_eval_loss})
+        #         wandb.log({f"{dataset_type}_dist_loss": test_dist_loss})
+        #         wandb.log({f"{dataset_type}_action_loss": test_action_loss})
+        #
+        # checkpoint = {
+        #     "epoch": epoch,
+        #     "model": model,
+        #     "optimizer": optimizer,
+        #     "avg_eval_loss": np.mean(eval_total_losses),
+        # }
+        #
+        # numbered_path = os.path.join(project_folder, f"{epoch}.pth")
+        # torch.save(checkpoint, latest_path)
+        # torch.save(checkpoint, numbered_path)  # keep track of model at every epoch
 
         print(f"Start Pairwise Testing Epoch {epoch}/{current_epoch + epochs - 1}")
         for dataset_type in test_dataloaders:
@@ -224,17 +204,11 @@ def pairwise_acc(
             transf_close_image = transf_close_image.to(device)
             transf_far_image = transf_far_image.to(device)
 
-            dummy_action = torch.zeros([batch_size, model.action_size], device=transf_obs_image.device)
-            close_dist_pred = model(transf_obs_image, transf_obs_image,
-                                    dummy_action[:, :model.action_size - 1], dummy_action[:, [-1]],
-                                    transf_close_image, transf_close_image)[-3]
+            close_pred, _ = model(transf_obs_image, transf_close_image)
+            far_pred, _ = model(transf_obs_image, transf_far_image)
 
-            far_dist_pred = model(transf_obs_image, transf_obs_image,
-                                  dummy_action[:, :model.action_size - 1], dummy_action[:, [-1]],
-                                  transf_far_image, transf_far_image)[-3]
-
-            close_pred_flat = close_dist_pred.reshape(close_dist_pred.shape[0])
-            far_pred_flat = far_dist_pred.reshape(far_dist_pred.shape[0])
+            close_pred_flat = close_pred.reshape(close_pred.shape[0])
+            far_pred_flat = far_pred.reshape(far_pred.shape[0])
 
             close_pred_flat = to_numpy(close_pred_flat)
             far_pred_flat = to_numpy(far_pred_flat)
@@ -261,8 +235,8 @@ def pairwise_acc(
                     to_numpy(obs_image),
                     to_numpy(close_image),
                     to_numpy(far_image),
-                    to_numpy(close_dist_pred),
-                    to_numpy(far_dist_pred),
+                    to_numpy(close_pred),
+                    to_numpy(far_pred),
                     to_numpy(close_dist_label),
                     to_numpy(far_dist_label),
                     eval_type,

@@ -15,10 +15,8 @@ from gnm_train.models.siamese import SiameseModel
 from gnm_train.models.stacked import StackedModel
 from gnm_train.data.gnm_dataset import GNM_Dataset
 from gnm_train.data.pairwise_distance_dataset import PairwiseDistanceDataset
-from gnm_train.training.train_utils import (
-    load_model,
-    get_saved_optimizer,
-)
+from gnm_train.training.train_utils import load_model
+from gnm_train.evaluation.eval_utils import eval_loop
 
 from stable_contrastive_rl_train.data.rl_dataset import RLDataset
 from stable_contrastive_rl_train.models.base_model import DataParallel
@@ -288,28 +286,23 @@ def main(config):
         except AssertionError:
             assert type(model.module) != StableContrastiveRL
 
-        raise NotImplementedError
-
-        assert train_dist_loader is not None
-        assert train_action_loader is not None
-
         eval_loop(
             model=model,
-            optimizer=optimizer,
-            train_dist_loader=train_dist_loader,
-            train_action_loader=train_action_loader,
+            # optimizer=optimizer,
+            # train_dist_loader=train_dist_loader,
+            # train_action_loader=train_action_loader,
             test_dataloaders=test_dataloaders,
             epochs=config["epochs"],
             device=device,
             project_folder=config["project_folder"],
-            normalized=config["normalize"],
+            # normalized=config["normalize"],
             print_log_freq=config["print_log_freq"],
             image_log_freq=config["image_log_freq"],
             num_images_log=config["num_images_log"],
-            pairwise_test_freq=config["pairwise_test_freq"],
+            # pairwise_test_freq=config["pairwise_test_freq"],
             current_epoch=current_epoch,
-            learn_angle=config["learn_angle"],
-            alpha=config["alpha"],
+            # learn_angle=config["learn_angle"],
+            # alpha=config["alpha"],
             use_wandb=config["use_wandb"],
         )
     elif config["train"] == "rl":
