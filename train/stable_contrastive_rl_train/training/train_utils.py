@@ -1318,7 +1318,7 @@ def get_actor_loss(model, obs, orig_action, goal, bc_coef=0.05,
     #             + 1e-2 * F.mse_loss(mean[:, -1], orig_action[:, -1])
     waypoint_gcbc_mle_loss = -waypoint_dist.log_prob(waypoint)
     dist_gcbc_mle_loss = -distance_dist.log_prob(dist)
-    gcbc_mle_loss = 0.5 * dist_gcbc_mle_loss + 0.5 * waypoint_gcbc_mle_loss
+    gcbc_mle_loss = 0.5 * (1e-2 * dist_gcbc_mle_loss) + 0.5 * waypoint_gcbc_mle_loss
 
     waypoint_gcbc_mse_loss = F.mse_loss(waypoint_mean, waypoint)
     dist_gcbc_mse_loss = F.mse_loss(distance_mean, dist)
