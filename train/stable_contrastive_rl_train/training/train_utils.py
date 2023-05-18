@@ -651,7 +651,7 @@ def train(
 
             del metric_waypoint_spacing
             del global_waypoint_pred
-            del waypoint_oracle
+            # del waypoint_oracle
             del waypoint_oracle_critic
             torch.cuda.empty_cache()
 
@@ -1076,7 +1076,7 @@ def evaluate(
 
                 del metric_waypoint_spacing
                 del global_waypoint_pred
-                del waypoint_oracle
+                # del waypoint_oracle
                 del waypoint_oracle_critic
                 torch.cuda.empty_cache()
     data_log = {}
