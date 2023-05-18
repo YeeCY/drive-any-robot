@@ -179,7 +179,7 @@ class ContrastiveQNetwork(nn.Module):
             # reuse encoding from the image encoder
             waypoint_obs_repr2 = self.waypoint_obs_linear_layers2(
                 torch.cat([waypoint_obs_encoding, waypoint], dim=-1))
-            dist_obs_repr2 = self.dist_obs_linear_layers(
+            dist_obs_repr2 = self.dist_obs_linear_layers2(
                 torch.cat([dist_obs_encoding, dist], dim=-1))
             waypoint_goal_repr2 = self.waypoint_goal_linear_layers2(waypoint_goal_encoding)
             dist_goal_repr2 = self.dist_goal_linear_layers2(dist_goal_encoding)

@@ -387,7 +387,7 @@ class RLDataset(Dataset):
                 ]
             )
 
-            # TODO (chongyi): we get bugs here! Fix it.
+            # TODO (chongyi): we get sin/cos bugs here! Fix it.
             # construct oracle actions spanning -oracle_angles to oracle_angles
             # traj_len = torch.sum(
             #     torch.linalg.norm(waypoints[1:, :2] - waypoints[:-1, :2], dim=-1)
@@ -437,21 +437,27 @@ class RLDataset(Dataset):
             oracle_waypoints = []
             for oracle_angle in oracle_angles:
                 pos_np = np.array(pos_list[1:])
-                # pos_np[:, 2] -= oracle_angle
+                pos_np[1:, 2] += oracle_angle
                 oracle_waypoint = to_local_coords(pos_np, pos_list[0], yaw - oracle_angle)
+                oracle_waypoint[0, 2] += oracle_angle
 
                 oracle_waypoints.append(oracle_waypoint)
             oracle_waypoints = np.asarray(oracle_waypoints)
             oracle_waypoints = torch.Tensor(oracle_waypoints.astype(float))
 
             if self.learn_angle:  # localize the waypoint angles
-                oracle_waypoints[:, 1:, 2] -= oracle_waypoints[:, [0], 2]
+                # oracle_waypoints[:, 1:, 2] -= oracle_waypoints[:, [0], 2]
                 oracle_waypoints = calculate_sin_cos(oracle_waypoints)
             if self.normalize:
                 oracle_waypoints[..., :2] /= (
                     self.data_config["metric_waypoint_spacing"] * self.waypoint_spacing
                 )  # only divide the dx and dy
+
             data.append(oracle_waypoints)
+
+            data.append(torch.Tensor(pos_list[0].astype(float)))
+            data.append(torch.Tensor(np.array(yaw).astype(float)))
+            # data.append(torch.Tensor(pos_list.astype(float)))
         else:
             # temporal distance
             if f_curr == f_goal:

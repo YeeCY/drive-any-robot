@@ -1,11 +1,13 @@
 import wandb
 import os
+import yaml
 import numpy as np
 from typing import Dict
 
 from gnm_train.visualizing.distance_utils import visualize_dist_pred, visualize_dist_pairwise_pred
 from stable_contrastive_rl_train.visualizing.critic_utils import visualize_critic_pred
 from gnm_train.visualizing.visualize_utils import to_numpy
+from gnm_train.data.data_utils import calculate_sin_cos
 from gnm_train.training.logger import Logger
 
 import torch
@@ -18,6 +20,10 @@ from torch.distributions import (
     Normal,
     Independent
 )
+
+# load data_config.yaml
+with open(os.path.join(os.path.dirname(__file__), "../data/data_config.yaml"), "r") as f:
+    data_config = yaml.safe_load(f)
 
 
 def train_eval_rl_loop(
@@ -316,6 +322,8 @@ def train(
             waypoint_goal_pos,
             waypoint_label,
             waypoint_oracle,
+            waypoint_curr_pos,
+            waypoint_yaw,
             waypoint_dataset_index,
         ) = waypoint_vals
         # (
@@ -340,7 +348,9 @@ def train(
         waypoint_next_obs_data = waypoint_trans_next_obs_image.to(device)
         waypoint_goal_data = waypoint_trans_goal_image.to(device)
         waypoint_label = waypoint_label.to(device)
-        waypoint_oracle = waypoint_oracle.to(device)
+        # waypoint_oracle = waypoint_oracle.to(device)
+        waypoint_curr_pos = waypoint_curr_pos.to(device)
+        waypoint_yaw = waypoint_yaw.to(device)
 
         obs_data = (waypoint_obs_data, dist_obs_data)
         next_obs_data = (waypoint_next_obs_data, dist_next_obs_data)
@@ -563,10 +573,42 @@ def train(
             #     use_wandb=use_wandb,
             # )
 
-            # TODO (chongyiz): move this code block above
-            # critic prediction for oracle actions
-            # we do inference on cpu cause the batch size is too large
-            # model.cpu()
+            # construct oracle waypoints via predicted waypoints
+            dataset_names = list(data_config.keys())
+            dataset_names.sort()
+            metric_waypoint_spacing = []
+            for idx in waypoint_dataset_index:
+                waypoint_dataset_name = dataset_names[int(idx)]
+                waypoint_spacing = data_config[waypoint_dataset_name]["metric_waypoint_spacing"]
+                metric_waypoint_spacing.append(waypoint_spacing)
+            metric_waypoint_spacing = torch.tensor(
+                metric_waypoint_spacing, dtype=waypoint_label.dtype, device=device)
+
+            global_waypoint_pred = local_to_global_waypoint(
+                waypoint_pred, waypoint_curr_pos, waypoint_yaw, metric_waypoint_spacing,
+                learn_angle=learn_angle, normalized=normalized)
+
+            oracle_angles = torch.linspace(
+                -np.deg2rad(45), np.deg2rad(45),
+                9, dtype=waypoint_yaw.dtype, device=device)
+
+            waypoint_oracle = []
+            for oracle_angle in oracle_angles:
+                global_waypoint_oracle = global_waypoint_pred.clone()
+                global_waypoint_oracle[:, 1:, 2] += oracle_angle
+                global_waypoint_oracle = batch_to_local_coords(
+                    global_waypoint_oracle, waypoint_curr_pos, waypoint_yaw - oracle_angle)
+                global_waypoint_oracle[:, 0, 2] += oracle_angle
+
+                waypoint_oracle.append(global_waypoint_oracle)
+            waypoint_oracle = torch.stack(waypoint_oracle, dim=1)
+
+            if learn_angle:  # localize the waypoint angles
+                waypoint_oracle = calculate_sin_cos(waypoint_oracle)
+            if normalized:
+                waypoint_oracle[..., :2] /= (
+                    metric_waypoint_spacing[:, None, None, None]
+                )
 
             # (chongyiz): Since we are using DataParallel, we have to use the same batch size
             #   as training to make sure outputs from the networks are consistent (using for loop).
@@ -765,6 +807,8 @@ def evaluate(
                 waypoint_goal_pos,
                 waypoint_label,
                 waypoint_oracle,
+                waypoint_curr_pos,
+                waypoint_yaw,
                 waypoint_dataset_index,
             ) = waypoint_vals
             dist_obs_data = dist_trans_obs_image.to(device)
@@ -776,7 +820,9 @@ def evaluate(
             waypoint_next_obs_data = waypoint_trans_next_obs_image.to(device)
             waypoint_goal_data = waypoint_trans_goal_image.to(device)
             waypoint_label = waypoint_label.to(device)
-            waypoint_oracle = waypoint_oracle.to(device)
+            # waypoint_oracle = waypoint_oracle.to(device)
+            waypoint_curr_pos = waypoint_curr_pos.to(device)
+            waypoint_yaw = waypoint_yaw.to(device)
 
             obs_data = (waypoint_obs_data, dist_obs_data)
             next_obs_data = (waypoint_next_obs_data, dist_next_obs_data)
@@ -951,6 +997,44 @@ def evaluate(
                 #     num_images_log,
                 #     use_wandb=use_wandb,
                 # )
+
+                # construct oracle waypoints via predicted waypoints
+                dataset_names = list(data_config.keys())
+                dataset_names.sort()
+                metric_waypoint_spacing = []
+                for idx in waypoint_dataset_index:
+                    waypoint_dataset_name = dataset_names[int(idx)]
+                    waypoint_spacing = data_config[waypoint_dataset_name]["metric_waypoint_spacing"]
+                    metric_waypoint_spacing.append(waypoint_spacing)
+                metric_waypoint_spacing = torch.tensor(
+                    metric_waypoint_spacing, dtype=waypoint_label.dtype, device=device)
+
+                global_waypoint_pred = local_to_global_waypoint(
+                    waypoint_pred, waypoint_curr_pos, waypoint_yaw, metric_waypoint_spacing,
+                    learn_angle=learn_angle, normalized=normalized)
+
+                oracle_angles = torch.linspace(
+                    -np.deg2rad(45), np.deg2rad(45),
+                    9, dtype=waypoint_yaw.dtype, device=device)
+
+                waypoint_oracle = []
+                for oracle_angle in oracle_angles:
+                    global_waypoint_oracle = global_waypoint_pred.clone()
+                    global_waypoint_oracle[:, 1:, 2] += oracle_angle
+                    global_waypoint_oracle = batch_to_local_coords(
+                        global_waypoint_oracle, waypoint_curr_pos, waypoint_yaw - oracle_angle)
+                    global_waypoint_oracle[:, 0, 2] += oracle_angle
+
+                    waypoint_oracle.append(global_waypoint_oracle)
+                waypoint_oracle = torch.stack(waypoint_oracle, dim=1)
+
+                if learn_angle:  # localize the waypoint angles
+                    waypoint_oracle = calculate_sin_cos(waypoint_oracle)
+                if normalized:
+                    waypoint_oracle[..., :2] /= (
+                        metric_waypoint_spacing[:, None, None, None]
+                    )
+
                 waypoint_oracle_critic = []
                 for idx in range(waypoint_oracle.shape[1]):
                     waypoint_oracle_obs_repr, _, waypoint_oracle_g_repr = model(
@@ -1318,7 +1402,7 @@ def get_actor_loss(model, obs, orig_action, goal, bc_coef=0.05,
     #             + 1e-2 * F.mse_loss(mean[:, -1], orig_action[:, -1])
     waypoint_gcbc_mle_loss = -waypoint_dist.log_prob(waypoint)
     dist_gcbc_mle_loss = -distance_dist.log_prob(dist)
-    gcbc_mle_loss = 0.5 * (1e-2 * dist_gcbc_mle_loss) + 0.5 * waypoint_gcbc_mle_loss
+    gcbc_mle_loss = 0.5 * dist_gcbc_mle_loss + 0.5 * (0.25 * waypoint_gcbc_mle_loss)  # balance loss scales
 
     waypoint_gcbc_mse_loss = F.mse_loss(waypoint_mean, waypoint)
     dist_gcbc_mse_loss = F.mse_loss(distance_mean, dist)
@@ -1390,3 +1474,67 @@ def optimizer_to(optim, device):
                     subparam.data = subparam.data.to(device)
                     if subparam._grad is not None:
                         subparam._grad.data = subparam._grad.data.to(device)
+
+
+def batch_yaw_rotmat(yaw):
+    return torch.stack([
+        torch.stack([torch.cos(yaw), -torch.sin(yaw), torch.zeros_like(yaw)], dim=-1),
+        torch.stack([torch.sin(yaw), torch.cos(yaw), torch.zeros_like(yaw)], dim=-1),
+        torch.stack([torch.zeros_like(yaw), torch.zeros_like(yaw), torch.ones_like(yaw)], dim=-1),
+        ],
+        dim=1
+    )
+
+
+def batch_to_local_coords(
+    positions, curr_pos, curr_yaw
+):
+    rotmat = batch_yaw_rotmat(curr_yaw)
+    if positions.shape[-1] == 2:
+        rotmat = rotmat[:, :2, :2]
+    elif positions.shape[-1] == 3:
+        pass
+    else:
+        raise ValueError
+
+    return torch.matmul(positions - curr_pos[:, None], rotmat)
+
+
+def batch_to_global_coords(
+    positions, curr_pos, curr_yaw
+):
+    rotmat = batch_yaw_rotmat(curr_yaw)
+    if positions.shape[-1] == 2:
+        rotmat = rotmat[:, :2, :2]
+    elif positions.shape[-1] == 3:
+        pass
+    else:
+        raise ValueError
+
+    return torch.matmul(positions, torch.linalg.inv(rotmat)) + curr_pos[:, None]
+
+
+def local_to_global_waypoint(
+        waypoint, curr_pos, yaw, metric_waypoint_spacing, learn_angle=True, normalized=True):
+    waypoint_pos = waypoint[..., :2]
+    if normalized:
+        waypoint_pos *= metric_waypoint_spacing[:, None, None]
+    if learn_angle:
+        waypoint_angle = torch.arctan2(
+            waypoint[..., [3]], waypoint[..., [2]])
+        waypoint_angle[:, 1:] += waypoint_angle[:, [0]]
+
+    local_waypoint = torch.cat(
+        [waypoint_pos, waypoint_angle], dim=-1)
+
+    global_waypoint = batch_to_global_coords(
+        local_waypoint, curr_pos, yaw)
+
+    # force angles to stay in [-pi, pi)
+    global_waypoint[..., 2] = torch.arctan2(
+        torch.sin(global_waypoint[..., 2]), torch.cos(global_waypoint[..., 2]))
+
+    # if learn_angle:
+    #     global_waypoint[:, 1:, 2] += global_waypoint[:, [0], 2]
+
+    return global_waypoint

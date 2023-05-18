@@ -271,8 +271,11 @@ def plot_trajs_and_points(
     point_labels: Optional[list] = ["robot", "goal"],
     quiver_freq: int = 1,
     default_coloring: bool = True,
-    traj_width=1.5,
-    point_size=7.0,
+    bearing_headlength: Optional[list] = [5, 5],
+    bearing_headaxislength: Optional[list] = [4.5, 4.5],
+    bearing_headwidth: Optional[list] = [3, 3],
+    traj_width: float = 1.5,
+    point_size: float = 7.0,
 ):
     """
     Plot trajectories and points that could potentially have a yaw.
@@ -313,6 +316,9 @@ def plot_trajs_and_points(
                 bearings[::quiver_freq, 1],
                 color=traj_colors[i] * 0.5,
                 scale=1.0,
+                headlength=bearing_headlength[i],
+                headaxislength=bearing_headaxislength[i],
+                headwidth=bearing_headwidth[i],
             )
     for i, pt in enumerate(list_points):
         ax.plot(

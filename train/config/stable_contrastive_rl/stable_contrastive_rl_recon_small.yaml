@@ -47,7 +47,7 @@ mle_gcbc_loss: True
 # whether to stop gradients from actor loss to policy image encoder
 stop_grad_actor_img_encoder: True
 use_actor_waypoint_q_loss: True
-use_actor_dist_q_loss: False
+use_actor_dist_q_loss: True
 
 # number of training iterations to update target q network
 target_update_freq: 1

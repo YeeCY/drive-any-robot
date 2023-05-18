@@ -224,6 +224,9 @@ def plot_oracle_critic_pred(
         traj_colors=[sm.to_rgba(normalized_pred_waypoints_critic)[:, :3],
                      sm.to_rgba(normalized_label_waypoints_critic)[:, :3]],
         point_colors=[GREEN, RED],
+        bearing_headlength=[2, 5],
+        bearing_headaxislength=[1.5, 4.5],
+        bearing_headwidth=[6, 3],
     )
     plt.colorbar(sm, ticks=np.linspace(0, 1, 11), ax=ax[0],
                  fraction=0.046, pad=0.04)
