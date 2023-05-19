@@ -394,6 +394,14 @@ def train(
         waypoint_label_logit = torch.diag(torch.mean(waypoint_label_logits, dim=-1))
         waypoint_label_critic = torch.sigmoid(waypoint_label_logit)[:, None]
 
+        del waypoint_pred_logit
+        del waypoint_pred_obs_repr
+        del waypoint_pred_g_repr
+        del waypoint_label_logit
+        del waypoint_label_obs_repr
+        del waypoint_label_g_repr
+        torch.cuda.empty_cache()
+
         # (chongyiz): Since we are using DataParallel, we have to use the same batch size
         #   as training to make sure outputs from the networks are consistent (using for loop).
         #   Otherwise, the critic predictions are not correct.
@@ -493,12 +501,12 @@ def train(
         del actor_loss
         del actor_info
 
-        del waypoint_pred_logit
-        del waypoint_pred_obs_repr
-        del waypoint_pred_g_repr
-        del waypoint_label_logit
-        del waypoint_label_obs_repr
-        del waypoint_label_g_repr
+        # del waypoint_pred_logit
+        # del waypoint_pred_obs_repr
+        # del waypoint_pred_g_repr
+        # del waypoint_label_logit
+        # del waypoint_label_obs_repr
+        # del waypoint_label_g_repr
 
         del action_waypts_cos_sim
         del multi_action_waypts_cos_sim
@@ -849,6 +857,14 @@ def evaluate(
             waypoint_label_logit = torch.diag(torch.mean(waypoint_label_logits, dim=-1))
             waypoint_label_critic = torch.sigmoid(waypoint_label_logit)[:, None]
 
+            del waypoint_pred_logit
+            del waypoint_pred_obs_repr
+            del waypoint_pred_g_repr
+            del waypoint_label_logit
+            del waypoint_label_obs_repr
+            del waypoint_label_g_repr
+            torch.cuda.empty_cache()
+
             # (chongyiz): Since we are using DataParallel, we have to use the same batch size
             #   as training to make sure outputs from the networks are consistent (using for loop).
             #   Otherwise, the critic predictions are not correct.
@@ -936,12 +952,12 @@ def evaluate(
             del actor_loss
             del actor_info
 
-            del waypoint_pred_logit
-            del waypoint_pred_obs_repr
-            del waypoint_pred_g_repr
-            del waypoint_label_logit
-            del waypoint_label_obs_repr
-            del waypoint_label_g_repr
+            # del waypoint_pred_logit
+            # del waypoint_pred_obs_repr
+            # del waypoint_pred_g_repr
+            # del waypoint_label_logit
+            # del waypoint_label_obs_repr
+            # del waypoint_label_g_repr
 
             del action_waypts_cos_sim
             del multi_action_waypts_cos_sim
