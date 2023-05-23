@@ -1,5 +1,6 @@
 import wandb
 import os
+import pickle
 import numpy as np
 from sklearn.metrics import roc_auc_score
 from typing import List, Optional, Dict
@@ -34,6 +35,7 @@ def eval_loop(
     # alpha: float = 0.5,
     # learn_angle: bool = True,
     use_wandb: bool = True,
+    save_failure_index_to_data: bool = False,
 ):
     """
     Train and evaluate the model for several epochs.
@@ -131,7 +133,7 @@ def eval_loop(
         for dataset_type in test_dataloaders:
             if "pairwise" in test_dataloaders[dataset_type]:
                 pairwise_dist_loader = test_dataloaders[dataset_type]["pairwise"]
-                pairwise_accuracy, pairwise_auc = pairwise_acc(
+                pairwise_accuracy, pairwise_auc, failure_index_to_data = pairwise_acc(
                     model,
                     pairwise_dist_loader,
                     device,
@@ -142,6 +144,7 @@ def eval_loop(
                     image_log_freq,
                     num_images_log,
                     use_wandb=use_wandb,
+                    save_failure_index_to_data=save_failure_index_to_data,
                 )
 
                 if use_wandb:
@@ -150,6 +153,17 @@ def eval_loop(
 
                 print(f"{dataset_type}_pairwise_acc: {pairwise_accuracy}")
                 print(f"{dataset_type}_pairwise_auc: {pairwise_auc}")
+
+    if save_failure_index_to_data:
+        # save failure_idxs_to_data
+        failure_index_to_data_path = os.path.join(
+            project_folder,
+            "pairwise_dist_prediction_failure_index_to_data.pkl",
+        )
+        with open(failure_index_to_data_path, "wb") as f:
+            pickle.dump(failure_index_to_data, f)
+        print(f"Distance pairwise prediction failure index saved to: {os.path.abspath(failure_index_to_data_path)}")
+
     print()
 
 
@@ -165,6 +179,7 @@ def pairwise_acc(
     num_images_log: int = 8,
     use_wandb: bool = True,
     display: bool = False,
+    save_failure_index_to_data: bool = False,
 ):
     """
     Evaluate the model on the pairwise distance accuracy metric. Given 1 observation and 2 subgoals, the model should determine which goal is closer.
@@ -184,21 +199,37 @@ def pairwise_acc(
     """
     correct_list = []
     auc_list = []
+    failure_index_to_data = dict(
+        f_close=[], f_far=[], curr_time=[], close_time=[], far_time=[], context_times=[])
+
     model.eval()
     num_batches = len(eval_loader)
 
     with torch.no_grad():
         for i, vals in enumerate(eval_loader):
-            (
-                obs_image,
-                close_image,
-                far_image,
-                transf_obs_image,
-                transf_close_image,
-                transf_far_image,
-                close_dist_label,
-                far_dist_label,
-            ) = vals
+            if save_failure_index_to_data:
+                (
+                    obs_image,
+                    close_image,
+                    far_image,
+                    transf_obs_image,
+                    transf_close_image,
+                    transf_far_image,
+                    close_dist_label,
+                    far_dist_label,
+                    index_to_data,
+                ) = vals
+            else:
+                (
+                    obs_image,
+                    close_image,
+                    far_image,
+                    transf_obs_image,
+                    transf_close_image,
+                    transf_far_image,
+                    close_dist_label,
+                    far_dist_label,
+                ) = vals
             batch_size = transf_obs_image.shape[0]
             transf_obs_image = transf_obs_image.to(device)
             transf_close_image = transf_close_image.to(device)
@@ -214,8 +245,24 @@ def pairwise_acc(
             far_pred_flat = to_numpy(far_pred_flat)
 
             correct = np.where(far_pred_flat > close_pred_flat, 1, 0)
+            if save_failure_index_to_data:
+                failure_idx = np.arange(batch_size)[np.logical_not(correct)]
             correct_list.append(correct.copy())
             correct[batch_size // 2:] = np.logical_not(correct[batch_size // 2:]).astype(np.int)
+
+            if save_failure_index_to_data:
+                failure_index_to_data["f_close"].extend(
+                    np.array(index_to_data["f_close"])[failure_idx].tolist())
+                failure_index_to_data["f_far"].extend(
+                    np.array(index_to_data["f_far"])[failure_idx].tolist())
+                failure_index_to_data["curr_time"].extend(
+                    index_to_data["curr_time"][failure_idx].numpy().tolist())
+                failure_index_to_data["close_time"].extend(
+                    index_to_data["close_time"][failure_idx].numpy().tolist())
+                failure_index_to_data["far_time"].extend(
+                    index_to_data["far_time"][failure_idx].numpy().tolist())
+                failure_index_to_data["context_times"].extend(
+                    index_to_data["context_times"][failure_idx].numpy().tolist())
 
             # compute AUC here: does this make sense ewith binary classifier predicting 0/1 only?
             # use the difference between regression numbers as score here.
@@ -248,4 +295,4 @@ def pairwise_acc(
                 )
         if len(correct_list) == 0:
             return 0
-        return np.concatenate(correct_list).mean(), np.asarray(auc_list).mean()
+        return np.concatenate(correct_list).mean(), np.asarray(auc_list).mean(), failure_index_to_data

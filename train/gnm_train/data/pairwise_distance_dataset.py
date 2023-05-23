@@ -272,3 +272,210 @@ class PairwiseDistanceDataset(Dataset):
             close_dist_label,
             far_dist_label,
         )
+
+
+class PairwiseDistanceEvalDataset(PairwiseDistanceDataset):
+    def __getitem__(self, i: int) -> tuple:
+        """
+        Save index to data as well
+        """
+        f_close, f_far, curr_time, close_time, far_time = self.index_to_data[i]
+        assert curr_time <= close_time
+        assert f_close != f_far or close_time < far_time
+        # index_to_data = list(self.index_to_data[i])
+        index_to_data = {
+            "f_close": f_close,
+            "f_far": f_far,
+            "curr_time": curr_time,
+            "close_time": close_time,
+            "far_time": far_time,
+        }
+
+        transf_obs_images = []
+        context = []
+        if self.context_type == "randomized":
+            # sample self.context_size random times from interval [0, curr_time) with no replacement
+            context_times = np.random.choice(
+                list(range(curr_time)), self.context_size, replace=False
+            )
+            context_times.append(curr_time)
+            context = [(f_close, t) for t in context_times]
+        elif self.context_type == "randomized_temporal":
+            f_rand_close, _, rand_curr_time, _, _ = self.index_to_data[
+                np.random.randint(0, len(self))
+            ]
+            context_times = list(
+                range(
+                    rand_curr_time + -self.context_size * self.waypoint_spacing,
+                    rand_curr_time,
+                    self.waypoint_spacing,
+                )
+            )
+            context = [(f_rand_close, t) for t in context_times]
+            context.append((f_close, curr_time))
+        elif self.context_type == "temporal":
+            context_times = list(
+                range(
+                    curr_time + -self.context_size * self.waypoint_spacing,
+                    curr_time + 1,
+                    self.waypoint_spacing,
+                )
+            )
+            context = [(f_close, t) for t in context_times]
+        else:
+            raise ValueError(f"Invalid type {self.context_type}")
+        # index_to_data.append(context_times)
+        index_to_data["context_times"] = torch.IntTensor(context_times)
+        for f, t in context:
+            obs_image_path = get_image_path(self.data_folder, f, t)
+            obs_image, transf_obs_image = img_path_to_data(
+                obs_image_path,
+                self.transform,
+                self.aspect_ratio,
+            )
+            transf_obs_images.append(transf_obs_image)
+        transf_obs_image = torch.cat(transf_obs_images, dim=0)
+
+        close_image_path = get_image_path(self.data_folder, f_close, close_time)
+        close_image, transf_close_image = img_path_to_data(
+            close_image_path,
+            self.transform,
+            self.aspect_ratio,
+        )
+
+        far_image_path = get_image_path(self.data_folder, f_far, far_time)
+        far_image, transf_far_image = img_path_to_data(
+            far_image_path,
+            self.transform,
+            self.aspect_ratio,
+        )
+
+        close_dist_label = torch.FloatTensor(
+            [(close_time - curr_time) / self.waypoint_spacing]
+        )
+        if f_close == f_far:
+            far_dist_label = torch.FloatTensor([far_time - curr_time])
+        else:
+            far_dist_label = torch.FloatTensor([self.max_dist_cat])
+
+        return (
+            obs_image,
+            close_image,
+            far_image,
+            transf_obs_image,
+            transf_close_image,
+            transf_far_image,
+            close_dist_label,
+            far_dist_label,
+            index_to_data,
+        )
+
+
+class PairwiseDistanceFailureDataset(PairwiseDistanceDataset):
+    def __init__(
+        self,
+        data_folder: str,
+        data_split_folder: str,
+        pairwise_failure_index_to_data_dir: str,
+        dataset_name: str,
+        transform: transforms,
+        aspect_ratio: float,
+        waypoint_spacing: int,
+        min_dist_cat: int,
+        max_dist_cat: int,
+        close_far_threshold: int,
+        negative_mining: bool,
+        context_size: int,
+        context_type: str = "temporal",
+        end_slack: int = 0,
+    ):
+        super().__init__(data_folder, data_split_folder, dataset_name, transform, aspect_ratio, waypoint_spacing,
+                         min_dist_cat, max_dist_cat, close_far_threshold, negative_mining, context_size, context_type,
+                         end_slack)
+
+        self.pairwise_failure_index_to_data_path = os.path.join(
+            pairwise_failure_index_to_data_dir,
+            "pairwise_dist_prediction_failure_index_to_data.pkl")
+        with open(os.path.join(self.pairwise_failure_index_to_data_path), "rb") as f1:
+            self.pairwise_failure_index_to_data = pickle.load(f1)
+
+    def __len__(self) -> int:
+        return len(self.pairwise_failure_index_to_data["f_close"])
+
+    def __getitem__(self, i: int) -> tuple:
+        """
+        Save index to data as well
+        """
+        f_close = self.pairwise_failure_index_to_data["f_close"][i]
+        f_far = self.pairwise_failure_index_to_data["f_far"][i]
+        curr_time = self.pairwise_failure_index_to_data["curr_time"][i]
+        close_time = self.pairwise_failure_index_to_data["close_time"][i]
+        far_time = self.pairwise_failure_index_to_data["far_time"][i]
+        context_times = self.pairwise_failure_index_to_data["context_times"][i]
+        assert curr_time <= close_time
+        assert f_close != f_far or close_time < far_time
+
+        transf_obs_images = []
+        context = [(f_close, t) for t in context_times]
+
+        for f, t in context:
+            obs_image_path = get_image_path(self.data_folder, f, t)
+            obs_image, transf_obs_image = img_path_to_data(
+                obs_image_path,
+                self.transform,
+                self.aspect_ratio,
+            )
+            transf_obs_images.append(transf_obs_image)
+        transf_obs_image = torch.cat(transf_obs_images, dim=0)
+
+        transf_close_images = []
+        close_context_times = list(
+            range(
+                close_time + -self.context_size * self.waypoint_spacing,
+                close_time + 1,
+                self.waypoint_spacing,
+            )
+        )
+        close_context = [(f_close, t) for t in close_context_times]
+        for f, t in close_context:
+            close_image_path = get_image_path(self.data_folder, f, t)
+            close_image, transf_close_image = img_path_to_data(
+                close_image_path,
+                self.transform,
+                self.aspect_ratio,
+            )
+            transf_close_images.append(transf_close_image)
+        transf_close_image = torch.cat(transf_close_images, dim=0)
+        # transf_obs_image = torch.cat(transf_obs_images, dim=0)
+        # close_image_path = get_image_path(self.data_folder, f_close, close_time)
+        # close_image, transf_close_image = img_path_to_data(
+        #     close_image_path,
+        #     self.transform,
+        #     self.aspect_ratio,
+        # )
+
+        far_image_path = get_image_path(self.data_folder, f_far, far_time)
+        far_image, transf_far_image = img_path_to_data(
+            far_image_path,
+            self.transform,
+            self.aspect_ratio,
+        )
+
+        close_dist_label = torch.FloatTensor(
+            [(close_time - curr_time) / self.waypoint_spacing]
+        )
+        if f_close == f_far:
+            far_dist_label = torch.FloatTensor([far_time - curr_time])
+        else:
+            far_dist_label = torch.FloatTensor([self.max_dist_cat])
+
+        return (
+            obs_image,
+            close_image,
+            far_image,
+            transf_obs_image,
+            transf_close_image,
+            transf_far_image,
+            close_dist_label,
+            far_dist_label,
+        )

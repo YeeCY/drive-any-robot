@@ -14,7 +14,11 @@ from gnm_train.models.gnm import GNM
 from gnm_train.models.siamese import SiameseModel
 from gnm_train.models.stacked import StackedModel
 from gnm_train.data.gnm_dataset import GNM_Dataset
-from gnm_train.data.pairwise_distance_dataset import PairwiseDistanceDataset
+# from gnm_train.data.pairwise_distance_dataset import PairwiseDistanceDataset
+from gnm_train.data.pairwise_distance_dataset import (
+    PairwiseDistanceEvalDataset,
+    PairwiseDistanceFailureDataset
+)
 from gnm_train.training.train_utils import load_model
 from gnm_train.evaluation.eval_utils import eval_loop
 
@@ -63,8 +67,8 @@ def main(config):
     aspect_ratio = config["image_size"][0] / config["image_size"][1]
 
     # Load the data
-    train_dist_dataset = []
-    train_action_dataset = []
+    # train_dist_dataset = []
+    # train_action_dataset = []
     test_dataloaders = {}
 
     if "context_type" not in config:
@@ -81,12 +85,33 @@ def main(config):
         if "waypoint_spacing" not in data_config:
             data_config["waypoint_spacing"] = 1
 
-        for data_split_type in ["train", "test"]:
-            if data_split_type in data_config:
-                for output_type in ["action", "distance", "pairwise"]:
+        data_split_type = "test"
+        if data_split_type in data_config:
+            for output_type in ["action", "distance", "pairwise"]:
 
-                    if output_type == "pairwise":
-                        dataset = PairwiseDistanceDataset(
+                if output_type == "pairwise":
+                    if data_config.get("pairwise_failure_index_to_data", None) is not None:
+                        pairwise_failure_index_to_data = os.path.join(
+                            "logs", data_config["pairwise_failure_index_to_data"])
+                        assert os.path.exists(pairwise_failure_index_to_data)
+                        dataset = PairwiseDistanceFailureDataset(
+                            data_folder=data_config["data_folder"],
+                            data_split_folder=data_config[data_split_type],
+                            pairwise_failure_index_to_data_dir=pairwise_failure_index_to_data,
+                            dataset_name=dataset_name,
+                            transform=transform,
+                            aspect_ratio=aspect_ratio,
+                            waypoint_spacing=data_config["waypoint_spacing"],
+                            min_dist_cat=config["distance"]["min_dist_cat"],
+                            max_dist_cat=config["distance"]["max_dist_cat"],
+                            close_far_threshold=config["close_far_threshold"],
+                            negative_mining=data_config["negative_mining"],
+                            context_size=config["context_size"],
+                            context_type=config["context_type"],
+                            end_slack=data_config["end_slack"],
+                        )
+                    else:
+                        dataset = PairwiseDistanceEvalDataset(
                             data_folder=data_config["data_folder"],
                             data_split_folder=data_config[data_split_type],
                             dataset_name=dataset_name,
@@ -101,62 +126,53 @@ def main(config):
                             context_type=config["context_type"],
                             end_slack=data_config["end_slack"],
                         )
+                else:
+                    if config["eval"] == "rl":
+                        dataset = RLDataset(
+                            data_folder=data_config["data_folder"],
+                            data_split_folder=data_config[data_split_type],
+                            dataset_name=dataset_name,
+                            is_action=(output_type == "action"),
+                            transform=transform,
+                            aspect_ratio=aspect_ratio,
+                            waypoint_spacing=data_config["waypoint_spacing"],
+                            min_dist_cat=config[output_type]["min_dist_cat"],
+                            max_dist_cat=config[output_type]["max_dist_cat"],
+                            discount=data_config["discount"],
+                            len_traj_pred=config["len_traj_pred"],
+                            learn_angle=config["learn_angle"],
+                            oracle_angles=config["oracle_angles"],
+                            num_oracle_trajs=config["num_oracle_trajs"],
+                            context_size=config["context_size"],
+                            context_type=config["context_type"],
+                            end_slack=data_config["end_slack"],
+                            goals_per_obs=data_config["goals_per_obs"],
+                            normalize=config["normalize"],
+                        )
                     else:
-                        if config["train"] == "rl":
-                            dataset = RLDataset(
-                                data_folder=data_config["data_folder"],
-                                data_split_folder=data_config[data_split_type],
-                                dataset_name=dataset_name,
-                                is_action=(output_type == "action"),
-                                transform=transform,
-                                aspect_ratio=aspect_ratio,
-                                waypoint_spacing=data_config["waypoint_spacing"],
-                                min_dist_cat=config[output_type]["min_dist_cat"],
-                                max_dist_cat=config[output_type]["max_dist_cat"],
-                                discount=data_config["discount"],
-                                len_traj_pred=config["len_traj_pred"],
-                                learn_angle=config["learn_angle"],
-                                oracle_angles=config["oracle_angles"],
-                                num_oracle_trajs=config["num_oracle_trajs"],
-                                context_size=config["context_size"],
-                                context_type=config["context_type"],
-                                end_slack=data_config["end_slack"],
-                                goals_per_obs=data_config["goals_per_obs"],
-                                normalize=config["normalize"],
-                            )
-                        else:
-                            dataset = GNM_Dataset(
-                                data_folder=data_config["data_folder"],
-                                data_split_folder=data_config[data_split_type],
-                                dataset_name=dataset_name,
-                                is_action=(output_type == "action"),
-                                transform=transform,
-                                aspect_ratio=aspect_ratio,
-                                waypoint_spacing=data_config["waypoint_spacing"],
-                                min_dist_cat=config[output_type]["min_dist_cat"],
-                                max_dist_cat=config[output_type]["max_dist_cat"],
-                                negative_mining=data_config["negative_mining"],
-                                len_traj_pred=config["len_traj_pred"],
-                                learn_angle=config["learn_angle"],
-                                context_size=config["context_size"],
-                                context_type=config["context_type"],
-                                end_slack=data_config["end_slack"],
-                                goals_per_obs=data_config["goals_per_obs"],
-                                normalize=config["normalize"],
-                            )
-                    if data_split_type == "train":
-                        if output_type == "distance":
-                            train_dist_dataset.append(dataset)
-                            print(
-                                f"Loaded {len(dataset)} {dataset_name} training points"
-                            )
-                        elif output_type == "action":
-                            train_action_dataset.append(dataset)
-                    else:
-                        dataset_type = f"{dataset_name}_{data_split_type}"
-                        if dataset_type not in test_dataloaders:
-                            test_dataloaders[dataset_type] = {}
-                        test_dataloaders[dataset_type][output_type] = dataset
+                        dataset = GNM_Dataset(
+                            data_folder=data_config["data_folder"],
+                            data_split_folder=data_config[data_split_type],
+                            dataset_name=dataset_name,
+                            is_action=(output_type == "action"),
+                            transform=transform,
+                            aspect_ratio=aspect_ratio,
+                            waypoint_spacing=data_config["waypoint_spacing"],
+                            min_dist_cat=config[output_type]["min_dist_cat"],
+                            max_dist_cat=config[output_type]["max_dist_cat"],
+                            negative_mining=data_config["negative_mining"],
+                            len_traj_pred=config["len_traj_pred"],
+                            learn_angle=config["learn_angle"],
+                            context_size=config["context_size"],
+                            context_type=config["context_type"],
+                            end_slack=data_config["end_slack"],
+                            goals_per_obs=data_config["goals_per_obs"],
+                            normalize=config["normalize"],
+                        )
+                dataset_type = f"{dataset_name}_{data_split_type}"
+                if dataset_type not in test_dataloaders:
+                    test_dataloaders[dataset_type] = {}
+                test_dataloaders[dataset_type][output_type] = dataset
 
     # # combine all the datasets from different robots
     # train_dist_dataset = ConcatDataset(train_dist_dataset)
@@ -233,7 +249,7 @@ def main(config):
     if len(config["gpu_ids"]) > 1:
         model = DataParallel(model, device_ids=config["gpu_ids"])
     model = model.to(device)
-    lr = float(config["lr"])
+    # lr = float(config["lr"])
 
     # config["optimizer"] = config["optimizer"].lower()
     # if config["optimizer"] == "adam":
@@ -280,7 +296,7 @@ def main(config):
         current_epoch = latest_checkpoint["epoch"] + 1
 
     torch.autograd.set_detect_anomaly(True)
-    if config["train"] == "supervised":
+    if config["eval"] == "supervised":
         try:
             assert type(model) != StableContrastiveRL
         except AssertionError:
@@ -304,8 +320,9 @@ def main(config):
             # learn_angle=config["learn_angle"],
             # alpha=config["alpha"],
             use_wandb=config["use_wandb"],
+            save_failure_index_to_data=config["save_failure_index_to_data"],
         )
-    elif config["train"] == "rl":
+    elif config["eval"] == "rl":
         try:
             assert type(model) == StableContrastiveRL
         except AssertionError:
@@ -328,18 +345,19 @@ def main(config):
             current_epoch=current_epoch,
             learn_angle=config["learn_angle"],
             # target_update_freq=config["target_update_freq"],
-            discount=config["discount"],
-            use_td=config["use_td"],
-            bc_coef=config["bc_coef"],
-            mle_gcbc_loss=config["mle_gcbc_loss"],
+            # discount=config["discount"],
+            # use_td=config["use_td"],
+            # bc_coef=config["bc_coef"],
+            # mle_gcbc_loss=config["mle_gcbc_loss"],
             # stop_grad_actor_img_encoder=config["stop_grad_actor_img_encoder"],
-            use_actor_waypoint_q_loss=config["use_actor_waypoint_q_loss"],
-            use_actor_dist_q_loss=config["use_actor_dist_q_loss"],
+            # use_actor_waypoint_q_loss=config["use_actor_waypoint_q_loss"],
+            # use_actor_dist_q_loss=config["use_actor_dist_q_loss"],
             use_wandb=config["use_wandb"],
+            pairwise_pred_use_critic=config["pairwise_pred_use_critic"],
         )
     else:
-        raise ValueError(f"Training type {config['train']} not supported")
-    print("FINISHED TRAINING")
+        raise ValueError(f"Evaluation type {config['train']} not supported")
+    print("FINISHED EVALUATION")
 
 
 if __name__ == "__main__":

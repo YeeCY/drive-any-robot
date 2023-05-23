@@ -1,5 +1,5 @@
 project_name: stable_contrastive_rl
-run_name: stable_contrastive_rl_eval
+run_name: stable_contrastive_rl_gnm_failure_eval
 
 # training setup
 use_wandb: False # set to false if you don't want to log to wandb
@@ -8,10 +8,10 @@ batch_size: 32  # default = 16, full size = 207
 eval_batch_size: 32  # default = 400
 epochs: 1  # evaluation epochs
 gpu_ids: [1] # list of gpu ids to use
-num_workers: 32
+num_workers: 16  # 16
 lr: 5e-4
 optimizer: adam
-seed: 0
+seed: 1
 
 # model params
 model_type: stable_contrastive_rl
@@ -61,7 +61,7 @@ action:
   max_dist_cat: 12
 oracle_angles: 45  # degree
 num_oracle_trajs: 10
-close_far_threshold: 6  # distance threshold used to seperate the close and the far subgoals that are sampled per datapoint
+close_far_threshold: 6  # distance threshold used to separate the close and the far subgoals that are sampled per datapoint
 pairwise_pred_use_critic: True
 
 # action output params
@@ -78,15 +78,15 @@ datasets:
     end_slack: 3 # because many trajectories end in collisions
     goals_per_obs: 1 # how many goals are sampled per observation
     discount: 0.99  # discount factor used to sample geometric future goals, can be a negative value for random future goals
-
+    pairwise_failure_index_to_data: gnm/gnm_eval_2023_05_22_21_51_44  # pairwise_acc: 0.9496038732394366, pairwise_auc: 0.9895466549295775
 
 #load_run: gnm_release/train/logs/<project_name>/<log_run_name>/latest.pth
 #load_run: drive-any-robot/train/logs/gnm/gnm_debug_2023_03_10_20_05_22/latest.pth
 #load_run: stable_contrastive_rl/stable_contrastive_rl_debug_2023_04_30_17_28_17  # random checkpoint for testing
 # MC
-load_run: stable_contrastive_rl/stable_contrastive_rl_recon_small_debug_2023_05_19_03_01_09
+#load_run: stable_contrastive_rl/stable_contrastive_rl_recon_small_debug_2023_05_19_03_01_09
 # TD
-#load_run: stable_contrastive_rl/stable_contrastive_rl_recon_small_debug_2023_05_19_03_01_38
+load_run: stable_contrastive_rl/stable_contrastive_rl_recon_small_debug_2023_05_19_03_01_38
 
 # logging stuff
 print_log_freq: 100 # in iterations

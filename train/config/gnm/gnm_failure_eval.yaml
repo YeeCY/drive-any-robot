@@ -35,7 +35,7 @@ distance:
 action:
   min_dist_cat: 2
   max_dist_cat: 10
-close_far_threshold: 10 # distance threshold used to seperate the close and the far  subgoals that are sampled per datapoint
+close_far_threshold: 10 # distance threshold used to separate the close and the far  subgoals that are sampled per datapoint
 pairwise_pred_use_critic: False
 
 # action output params
@@ -52,7 +52,8 @@ datasets:
     end_slack: 3 # because many trajectories end in collisions
     goals_per_obs: 1 # how many goals are sampled per observation
     negative_mining: True # negative mining from the ViNG paper (Shah et al.)
-save_failure_index_to_data: True
+    pairwise_failure_index_to_data: gnm/gnm_eval_2023_05_22_21_51_44  # pairwise_acc: 0.9496038732394366, pairwise_auc: 0.9895466549295775
+save_failure_index_to_data: False
 
 # pre-trained model
 load_run: gnm/gnm_test_2023_04_29_22_39_38  # random checkpoint for testing

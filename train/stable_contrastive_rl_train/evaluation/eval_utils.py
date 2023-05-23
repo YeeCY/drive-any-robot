@@ -50,6 +50,7 @@ def eval_rl_loop(
     use_actor_dist_q_loss: bool = False,
     learn_angle: bool = True,
     use_wandb: bool = True,
+    pairwise_pred_use_critic: bool = False,
 ):
     """
     Train and evaluate the model for several epochs.
@@ -162,6 +163,7 @@ def eval_rl_loop(
                     image_log_freq,
                     num_images_log,
                     use_wandb=use_wandb,
+                    use_critic=pairwise_pred_use_critic,
                 )
 
                 if use_wandb:
@@ -185,6 +187,7 @@ def pairwise_acc(
     num_images_log: int = 8,
     use_wandb: bool = True,
     display: bool = False,
+    use_critic: bool = False,
 ):
     """
     Evaluate the model on the pairwise distance accuracy metric. Given 1 observation and 2 subgoals, the model should determine which goal is closer.
@@ -209,25 +212,72 @@ def pairwise_acc(
 
     with torch.no_grad():
         for i, vals in enumerate(eval_loader):
-            (
-                obs_image,
-                close_image,
-                far_image,
-                transf_obs_image,
-                transf_close_image,
-                transf_far_image,
-                close_dist_label,
-                far_dist_label,
-            ) = vals
+            try:
+                (
+                    obs_image,
+                    close_image,
+                    far_image,
+                    transf_obs_image,
+                    transf_close_image,
+                    transf_far_image,
+                    close_dist_label,
+                    far_dist_label,
+                    index_to_data,
+                ) = vals
+            except:
+                (
+                    obs_image,
+                    close_image,
+                    far_image,
+                    transf_obs_image,
+                    transf_close_image,
+                    transf_far_image,
+                    close_dist_label,
+                    far_dist_label,
+                ) = vals
             batch_size = transf_obs_image.shape[0]
             transf_obs_image = transf_obs_image.to(device)
             transf_close_image = transf_close_image.to(device)
             transf_far_image = transf_far_image.to(device)
 
             dummy_action = torch.zeros([batch_size, model.action_size], device=transf_obs_image.device)
+            if use_critic:
+                # dist_close_repr, _, dist_far_repr = model(transf_close_image, transf_close_image,
+                #                                           dummy_action[:, :model.action_size - 1], dummy_action[:, [-1]],
+                #                                           transf_far_image, transf_far_image)[1:4]
+
+                dist_close_obs_repr, _, dist_close_g_repr = model(transf_obs_image, transf_obs_image,
+                                                          dummy_action[:, :model.action_size - 1], dummy_action[:, [-1]],
+                                                          transf_close_image[:, -3:], transf_close_image[:, -3:])[1:4]
+                dist_close_logit = torch.einsum('ikl,jkl->ijl', dist_close_obs_repr, dist_close_g_repr)
+                dist_close_logit = torch.diag(torch.mean(dist_close_logit, dim=-1))
+                dist_close_pred = torch.sigmoid(dist_close_logit)
+
+                dist_far_obs_repr, _, dist_far_g_repr = model(transf_obs_image, transf_obs_image,
+                                                              dummy_action[:, :model.action_size - 1], dummy_action[:, [-1]],
+                                                              transf_far_image, transf_far_image)[1:4]
+                dist_far_logit = torch.einsum('ikl,jkl->ijl', dist_far_obs_repr, dist_far_g_repr)
+                dist_far_logit = torch.diag(torch.mean(dist_far_logit, dim=-1))
+                dist_far_pred = torch.sigmoid(dist_far_logit)
+
+                dist_close_pred = to_numpy(dist_close_pred)
+                dist_far_pred = to_numpy(dist_far_pred)
+
+                correct = np.where(dist_close_pred > dist_far_pred, 1, 0)
+                correct_list.append(correct.copy())
+                # correct[batch_size // 2:] = np.logical_not(correct[batch_size // 2:]).astype(np.int)
+
+                auc = roc_auc_score(
+                    np.concatenate([np.ones_like(correct[:batch_size // 2]),
+                                    np.zeros_like(correct[batch_size // 2:])]),
+                    np.concatenate([(dist_close_pred - dist_far_pred)[:batch_size // 2],
+                                    (dist_far_pred - dist_close_pred)[batch_size // 2:]])
+                )
+                auc_list.append(auc)
+
             close_dist_pred = model(transf_obs_image, transf_obs_image,
                                     dummy_action[:, :model.action_size - 1], dummy_action[:, [-1]],
-                                    transf_close_image, transf_close_image)[-3]
+                                    transf_close_image[:, -3:], transf_close_image[:, -3:])[-3]
 
             far_dist_pred = model(transf_obs_image, transf_obs_image,
                                   dummy_action[:, :model.action_size - 1], dummy_action[:, [-1]],
@@ -239,19 +289,20 @@ def pairwise_acc(
             close_pred_flat = to_numpy(close_pred_flat)
             far_pred_flat = to_numpy(far_pred_flat)
 
-            correct = np.where(far_pred_flat > close_pred_flat, 1, 0)
-            correct_list.append(correct.copy())
-            correct[batch_size // 2:] = np.logical_not(correct[batch_size // 2:]).astype(np.int)
+            if not use_critic:
+                correct = np.where(far_pred_flat > close_pred_flat, 1, 0)
+                correct_list.append(correct.copy())
+                correct[batch_size // 2:] = np.logical_not(correct[batch_size // 2:]).astype(np.int)
 
-            # compute AUC here: does this make sense ewith binary classifier predicting 0/1 only?
-            # use the difference between regression numbers as score here.
-            auc = roc_auc_score(
-                np.concatenate([np.ones_like(correct[:batch_size // 2]),
-                                np.zeros_like(correct[batch_size // 2:])]),
-                np.concatenate([(far_pred_flat - close_pred_flat)[:batch_size // 2],
-                                (close_pred_flat - far_pred_flat)[batch_size // 2:]])
-            )
-            auc_list.append(auc)
+                # compute AUC here: does this make sense ewith binary classifier predicting 0/1 only?
+                # use the difference between regression numbers as score here.
+                auc = roc_auc_score(
+                    np.concatenate([np.ones_like(correct[:batch_size // 2]),
+                                    np.zeros_like(correct[batch_size // 2:])]),
+                    np.concatenate([(far_pred_flat - close_pred_flat)[:batch_size // 2],
+                                    (close_pred_flat - far_pred_flat)[batch_size // 2:]])
+                )
+                auc_list.append(auc)
 
             if i % print_log_freq == 0:
                 print(f"({i}/{num_batches}) batch of points processed")
