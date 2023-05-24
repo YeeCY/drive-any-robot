@@ -1,14 +1,14 @@
 project_name: stable_contrastive_rl
-run_name: stable_contrastive_rl_sanity_check_debug
+run_name: stable_contrastive_rl_recon_tiny_full_traj
 
 # training setup
-use_wandb: False # set to false if you don't want to log to wandb
+use_wandb: True # set to false if you don't want to log to wandb
 train: rl
-batch_size: 16  # default = 16, full size = 207
-eval_batch_size: 16  # default = 400
-epochs: 120
-gpu_ids: [0, 1] # list of gpu ids to use
-num_workers: 32
+batch_size: 80  # 200 for mc, 160 for td
+eval_batch_size: 80  # 200 for mc, 160 for td
+epochs: 30
+gpu_ids: [0, 1, 2, 3] # list of gpu ids to use
+num_workers: 16
 lr: 5e-4
 optimizer: adam
 seed: 0
@@ -38,16 +38,16 @@ context_size: 5
 discount: 0.99
 
 # whether to use C-Learning (TD) or Contrastive NCE (MC)
-use_td: False
+use_td: True
 
 # GCBC
-bc_coef: 0.25  # td = 0.01 - 0.05
+bc_coef: 0.05  # td = 0.01 - 0.05
 mle_gcbc_loss: True
 
 # whether to stop gradients from actor loss to policy image encoder
 stop_grad_actor_img_encoder: True
 use_actor_waypoint_q_loss: True
-use_actor_dist_q_loss: False
+use_actor_dist_q_loss: True
 
 # number of training iterations to update target q network
 target_update_freq: 1
@@ -73,10 +73,8 @@ image_size: [85, 64] # width, height
 datasets:
   recon:
     data_folder: datasets/recon  # path to the dataset
-#    train: gnm_train/data/data_splits/recon_small/train/ # path to the train dir with traj_names.txt, ~15776 samples
-#    test: gnm_train/data/data_splits/recon_small/test/ # path to the test dir with traj_names.txt, ~4544 samples
-    train: gnm_train/data/data_splits/recon_subset/train/ # path to the train dir with traj_names.txt
-    test: gnm_train/data/data_splits/recon_subset/test/ # path to the test dir with traj_names.txt
+    train: gnm_train/data/data_splits/recon_tiny/train/ # path to the train dir with traj_names.txt, ~15776 samples
+    test: gnm_train/data/data_splits/recon_tiny/test/ # path to the test dir with traj_names.txt, ~4544 samples
     end_slack: 3 # because many trajectories end in collisions
     goals_per_obs: 1 # how many goals are sampled per observation
 #    negative_mining: True # negative mining from the ViNG paper (Shah et al.)
