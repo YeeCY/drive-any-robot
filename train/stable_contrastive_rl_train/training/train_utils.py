@@ -383,7 +383,8 @@ def train(
         waypoint_pred_logit = torch.einsum(
             'ikl,jkl->ijl', waypoint_pred_obs_repr, waypoint_pred_g_repr)
         waypoint_pred_logit = torch.diag(torch.mean(waypoint_pred_logit, dim=-1))
-        waypoint_pred_critic = torch.sigmoid(waypoint_pred_logit)[:, None]
+        # waypoint_pred_critic = torch.sigmoid(waypoint_pred_logit)[:, None]
+        waypoint_pred_critic = torch.exp(waypoint_pred_logit)[:, None]
 
         waypoint_label_obs_repr, _, waypoint_label_g_repr = model(
             waypoint_obs_data, dist_obs_data,
@@ -392,7 +393,8 @@ def train(
         )[:3]
         waypoint_label_logits = torch.einsum('ikl,jkl->ijl', waypoint_label_obs_repr, waypoint_label_g_repr)
         waypoint_label_logit = torch.diag(torch.mean(waypoint_label_logits, dim=-1))
-        waypoint_label_critic = torch.sigmoid(waypoint_label_logit)[:, None]
+        # waypoint_label_critic = torch.sigmoid(waypoint_label_logit)[:, None]
+        waypoint_label_critic = torch.exp(waypoint_label_logit)[:, None]
 
         del waypoint_pred_logit
         del waypoint_pred_obs_repr
@@ -414,7 +416,8 @@ def train(
             waypoint_oracle_logit = torch.einsum(
                 'ikl,jkl->ijl', waypoint_oracle_obs_repr, waypoint_oracle_g_repr)
             waypoint_oracle_logit = torch.diag(torch.mean(waypoint_oracle_logit, dim=-1))
-            waypoint_oracle_critic.append(torch.sigmoid(waypoint_oracle_logit)[:, None])
+            # waypoint_oracle_critic.append(torch.sigmoid(waypoint_oracle_logit)[:, None])
+            waypoint_oracle_critic.append(torch.exp(waypoint_oracle_logit)[:, None])
 
             del waypoint_oracle_logit
             del waypoint_oracle_obs_repr

@@ -30,6 +30,9 @@ def main(args: argparse.Namespace):
     # Randomly shuffle the names of the folders
     random.shuffle(folder_names)
 
+    # folder_names = folder_names[:500]  # recon_small
+    # folder_names = folder_names[:100]  # recon_tiny
+
     # Split the names of the folders into train and test sets
     split_index = int(args.split * len(folder_names))
     train_folder_names = folder_names[:split_index]
