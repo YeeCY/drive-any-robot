@@ -54,8 +54,11 @@ target_update_freq: 1
 
 # distance bounds for distance and action and distance predictions
 distance:
-  min_dist_cat: 0
-  max_dist_cat: 20
+#  min_dist_cat: 0
+#  max_dist_cat: 20
+  # try to use full trajectory
+  min_dist_cat: 1
+  max_dist_cat: 1000  # use a very large number to indicate full trajectory
 action:
   min_dist_cat: 2
   max_dist_cat: 12
