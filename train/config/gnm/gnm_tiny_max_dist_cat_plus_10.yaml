@@ -45,7 +45,7 @@ learn_angle: True
 image_size: [85, 64] # width, height
 datasets:
   recon:
-    data_folder: ../datasets/recon
+    data_folder: datasets/recon
     train: gnm_train/data/data_splits/recon_tiny/train/
     test: gnm_train/data/data_splits/recon_tiny/test/
     end_slack: 3 # because many trajectories end in collisions
