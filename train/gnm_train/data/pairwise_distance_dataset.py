@@ -336,12 +336,30 @@ class PairwiseDistanceEvalDataset(PairwiseDistanceDataset):
             transf_obs_images.append(transf_obs_image)
         transf_obs_image = torch.cat(transf_obs_images, dim=0)
 
-        close_image_path = get_image_path(self.data_folder, f_close, close_time)
-        close_image, transf_close_image = img_path_to_data(
-            close_image_path,
-            self.transform,
-            self.aspect_ratio,
+        # close_image_path = get_image_path(self.data_folder, f_close, close_time)
+        # close_image, transf_close_image = img_path_to_data(
+        #     close_image_path,
+        #     self.transform,
+        #     self.aspect_ratio,
+        # )
+        transf_close_images = []
+        close_context_times = list(
+            range(
+                close_time + -self.context_size * self.waypoint_spacing,
+                close_time + 1,
+                self.waypoint_spacing,
+            )
         )
+        close_context = [(f_close, t) for t in close_context_times]
+        for f, t in close_context:
+            close_image_path = get_image_path(self.data_folder, f, t)
+            close_image, transf_close_image = img_path_to_data(
+                close_image_path,
+                self.transform,
+                self.aspect_ratio,
+            )
+            transf_close_images.append(transf_close_image)
+        transf_close_image = torch.cat(transf_close_images, dim=0)
 
         far_image_path = get_image_path(self.data_folder, f_far, far_time)
         far_image, transf_far_image = img_path_to_data(

@@ -1,12 +1,12 @@
 project_name: stable_contrastive_rl
-run_name: stable_contrastive_rl_recon_small
+run_name: stable_contrastive_rl_recon_small_full_traj
 
 # training setup
 use_wandb: True # set to false if you don't want to log to wandb
 train: rl
 batch_size: 80  # 200 for mc, 160 for td
 eval_batch_size: 80  # 200 for mc, 160 for td
-epochs: 25
+epochs: 20
 gpu_ids: [0, 1, 2, 3] # list of gpu ids to use
 num_workers: 16
 lr: 5e-4
@@ -53,12 +53,13 @@ use_actor_dist_q_loss: True
 target_update_freq: 1
 
 # distance bounds for distance and action and distance predictions
+# The algorithm will use full trajectory when we increase max_dist_cat to a very large number.
 distance:
   min_dist_cat: 0
-  max_dist_cat: 20
+  max_dist_cat: 1000
 action:
   min_dist_cat: 2
-  max_dist_cat: 10
+  max_dist_cat: 1000
 oracle_angles: 45  # degree
 num_oracle_trajs: 9
 close_far_threshold: 6  # distance threshold used to seperate the close and the far subgoals that are sampled per datapoint
