@@ -31,11 +31,11 @@ alpha: 0.5
 # distance bounds for distance and action and distance predictions 
 distance:
   min_dist_cat: 0
-  max_dist_cat: 20
+  max_dist_cat: 30
 action:
   min_dist_cat: 2
-  max_dist_cat: 10
-close_far_threshold: 10 # distance threshold used to seperate the close and the far  subgoals that are sampled per datapoint
+  max_dist_cat: 20
+close_far_threshold: 15 # distance threshold used to seperate the close and the far  subgoals that are sampled per datapoint
 
 # action output params
 len_traj_pred: 5
