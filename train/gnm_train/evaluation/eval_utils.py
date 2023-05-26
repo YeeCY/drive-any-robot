@@ -232,7 +232,7 @@ def pairwise_acc(
                 ) = vals
             batch_size = transf_obs_image.shape[0]
             transf_obs_image = transf_obs_image.to(device)
-            transf_close_image = transf_close_image.to(device)
+            transf_close_image = transf_close_image[:, -3:].to(device)
             transf_far_image = transf_far_image.to(device)
 
             close_pred, _ = model(transf_obs_image, transf_close_image)

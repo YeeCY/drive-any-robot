@@ -1,13 +1,13 @@
 project_name: gnm
-run_name: gnm_eval
+run_name: gnm_test
 
 # training setup
-use_wandb: False # set to false if you don't want to log to wandb
-eval: supervised
-batch_size: 32
-eval_batch_size: 32
-epochs: 1
-gpu_ids: [1] # list of gpu ids to use
+use_wandb: True # set to false if you don't want to log to wandb
+train: supervised
+batch_size: 400
+eval_batch_size: 400
+epochs: 10
+gpu_ids: [0, 1, 2, 3] # list of gpu ids to use
 num_workers: 16
 lr: 5e-4
 optimizer: adam
@@ -31,12 +31,11 @@ alpha: 0.5
 # distance bounds for distance and action and distance predictions 
 distance:
   min_dist_cat: 0
-  max_dist_cat: 20
+  max_dist_cat: 30
 action:
   min_dist_cat: 2
-  max_dist_cat: 10
-close_far_threshold: 10 # distance threshold used to seperate the close and the far  subgoals that are sampled per datapoint
-pairwise_pred_use_critic: False
+  max_dist_cat: 20
+close_far_threshold: 15 # distance threshold used to seperate the close and the far  subgoals that are sampled per datapoint
 
 # action output params
 len_traj_pred: 5
@@ -47,20 +46,11 @@ image_size: [85, 64] # width, height
 datasets:
   recon:
     data_folder: datasets/recon # path to the dataset
-#    train: gnm_train/data/data_splits/recon/train/ # path to the train dir with traj_names.txt
-    test: gnm_train/data/data_splits/recon_small/test/ # path to the test dir with traj_names.txt, ~4544 samples
+    train: gnm_train/data/data_splits/recon/train/ # path to the train dir with traj_names.txt
+    test: gnm_train/data/data_splits/recon/test/ # path to the test dir with traj_names.txt
     end_slack: 3 # because many trajectories end in collisions
     goals_per_obs: 1 # how many goals are sampled per observation
     negative_mining: True # negative mining from the ViNG paper (Shah et al.)
-save_failure_index_to_data: True
-
-# pre-trained model
-#load_run: gnm/gnm_test_2023_04_29_22_39_38  # random checkpoint for testing
-
-# GNM distance prediction drop-off
-#load_run: gnm/gnm_small_2023_05_25_14_17_06  # dist_max_cat = 20
-#load_run: gnm/gnm_small_2023_05_25_14_17_12  # dist_max_cat = 25
-load_run: gnm/gnm_small_2023_05_25_14_17_26  # dist_max_cat = 30
 
 # logging stuff
 print_log_freq: 500 # in iterations
