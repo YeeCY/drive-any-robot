@@ -6,7 +6,7 @@ use_wandb: True # set to false if you don't want to log to wandb
 train: rl
 batch_size: 80  # 200 for mc, 160 for td
 eval_batch_size: 80  # 200 for mc, 160 for td
-epochs: 20
+epochs: 25
 gpu_ids: [0, 1, 2, 3] # list of gpu ids to use
 num_workers: 16
 lr: 5e-4
@@ -41,7 +41,8 @@ discount: 0.99
 use_td: True
 
 # GCBC
-bc_coef: 0.01  # td = 0.01 - 0.05
+#bc_coef: 0.01  # td = 0.01 - 0.05
+bc_coef: 0.5  # td = 0.01 - 0.05
 mle_gcbc_loss: True
 
 # whether to stop gradients from actor loss to policy image encoder
