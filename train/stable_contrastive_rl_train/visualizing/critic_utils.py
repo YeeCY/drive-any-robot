@@ -206,8 +206,8 @@ def plot_oracle_critic_pred(
     # vmin, vmax = floor(oracle_critics.min(), 6), ceil(oracle_critics.max(), 6)
     # norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
     # cmap = mpl.cm.ScalarMappable(norm=norm, )
-    # sm = plt.cm.ScalarMappable(cmap=plt.cm.jet, norm=plt.Normalize(vmin=0, vmax=1))
-    sm = plt.cm.ScalarMappable(cmap=plt.cm.jet, norm=plt.Normalize(vmin=critic_min, vmax=critic_max))
+    # sm = plt.cm.ScalarMappable(cmap=plt.cm.jet, norm=plt.Normalize(vmin=critic_min, vmax=critic_max))
+    sm = plt.cm.ScalarMappable(cmap=plt.cm.jet, norm=plt.Normalize(vmin=0, vmax=1))
     plot_trajs_and_points(
         ax[0],
         np.array(oracle_trajs)[..., :2],  # don't plot yaws
