@@ -196,24 +196,24 @@ def plot_oracle_critic_pred(
     # )
 
     critic_min, critic_max = oracle_waypoints_critic.min(), oracle_waypoints_critic.max()
-    # normalized_oracle_waypoints_critic = (
-    #     oracle_waypoints_critic - critic_min) / (critic_max - critic_min)
-    # sort_idxs = np.argsort(normalized_oracle_waypoints_critic, axis=0)[:, 0]
-    # normalized_oracle_waypoints_critic = normalized_oracle_waypoints_critic[sort_idxs][:, 0]
-    # normalized_pred_waypoints_critic = (
-    #     pred_waypoints_critic - critic_min) / (critic_max - critic_min)
-    # normalized_label_waypoints_critic = (
-    #     label_waypoints_critic - critic_min) / (critic_max - critic_min)
+    normalized_oracle_waypoints_critic = (
+        oracle_waypoints_critic - critic_min) / (critic_max - critic_min)
+    normalized_pred_waypoints_critic = (
+        pred_waypoints_critic - critic_min) / (critic_max - critic_min)
+    normalized_label_waypoints_critic = (
+        label_waypoints_critic - critic_min) / (critic_max - critic_min)
 
     # vmin, vmax = floor(oracle_critics.min(), 6), ceil(oracle_critics.max(), 6)
     # norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
     # cmap = mpl.cm.ScalarMappable(norm=norm, )
+    # sm = plt.cm.ScalarMappable(cmap=plt.cm.jet, norm=plt.Normalize(vmin=0, vmax=1))
     sm = plt.cm.ScalarMappable(cmap=plt.cm.jet, norm=plt.Normalize(vmin=critic_min, vmax=critic_max))
     plot_trajs_and_points(
         ax[0],
         np.array(oracle_trajs)[..., :2],  # don't plot yaws
         [start_pos, goal_pos],
-        traj_colors=sm.to_rgba(oracle_waypoints_critic)[:, :3],
+        # traj_colors=sm.to_rgba(oracle_waypoints_critic)[:, :3],
+        traj_colors=sm.to_rgba(normalized_oracle_waypoints_critic)[:, :3],
         traj_labels=["oracle"] * len(oracle_waypoints_critic),
         point_colors=[GREEN, RED],
     )
@@ -221,14 +221,18 @@ def plot_oracle_critic_pred(
         ax[0],
         trajs,
         [start_pos, goal_pos],
-        traj_colors=[sm.to_rgba(pred_waypoints_critic)[:, :3],
-                     sm.to_rgba(label_waypoints_critic)[:, :3]],
+        # traj_colors=[sm.to_rgba(pred_waypoints_critic)[:, :3],
+        #              sm.to_rgba(label_waypoints_critic)[:, :3]],
+        traj_colors=[sm.to_rgba(normalized_pred_waypoints_critic)[:, :3],
+                     sm.to_rgba(normalized_label_waypoints_critic)[:, :3]],
         point_colors=[GREEN, RED],
         bearing_headlength=[2, 5],
         bearing_headaxislength=[1.5, 4.5],
         bearing_headwidth=[6, 3],
     )
-    plt.colorbar(sm, ticks=np.linspace(critic_min, critic_max, 11), ax=ax[0],
+    # plt.colorbar(sm, ticks=np.linspace(critic_min, critic_max, 11), ax=ax[0],
+    #              fraction=0.046, pad=0.04)
+    plt.colorbar(sm, ticks=np.linspace(0, 1, 11), ax=ax[0],
                  fraction=0.046, pad=0.04)
 
     plot_trajs_and_points_on_image(
@@ -237,7 +241,8 @@ def plot_oracle_critic_pred(
         dataset_name,
         np.array(oracle_trajs),
         [start_pos, goal_pos],
-        traj_colors=sm.to_rgba(oracle_waypoints_critic)[:, :3],
+        # traj_colors=sm.to_rgba(oracle_waypoints_critic)[:, :3],
+        traj_colors=sm.to_rgba(normalized_oracle_waypoints_critic)[:, :3],
         point_colors=[GREEN, RED],
     )
     plot_trajs_and_points_on_image(
@@ -246,11 +251,15 @@ def plot_oracle_critic_pred(
         dataset_name,
         trajs,
         [start_pos, goal_pos],
-        traj_colors=[sm.to_rgba(pred_waypoints_critic)[:, :3],
-                     sm.to_rgba(label_waypoints_critic)[:, :3]],
+        # traj_colors=[sm.to_rgba(pred_waypoints_critic)[:, :3],
+        #              sm.to_rgba(label_waypoints_critic)[:, :3]],
+        traj_colors=[sm.to_rgba(normalized_pred_waypoints_critic)[:, :3],
+                     sm.to_rgba(normalized_label_waypoints_critic)[:, :3]],
         point_colors=[GREEN, RED],
     )
-    plt.colorbar(sm, ticks=np.linspace(critic_min, critic_max, 11), ax=ax[1],
+    # plt.colorbar(sm, ticks=np.linspace(critic_min, critic_max, 11), ax=ax[1],
+    #              fraction=0.046, pad=0.04)
+    plt.colorbar(sm, ticks=np.linspace(0, 1, 11), ax=ax[1],
                  fraction=0.046, pad=0.04)
 
     ax[2].imshow(goal_img)
