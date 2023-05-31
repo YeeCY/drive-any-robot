@@ -433,6 +433,15 @@ class PairwiseDistanceFailureDataset(PairwiseDistanceDataset):
         assert curr_time <= close_time
         assert f_close != f_far or close_time < far_time
 
+        index_to_data = {
+            "f_close": f_close,
+            "f_far": f_far,
+            "curr_time": curr_time,
+            "close_time": close_time,
+            "far_time": far_time,
+            "context_times": context_times,
+        }
+
         transf_obs_images = []
         context = [(f_close, t) for t in context_times]
 
@@ -496,4 +505,5 @@ class PairwiseDistanceFailureDataset(PairwiseDistanceDataset):
             transf_far_image,
             close_dist_label,
             far_dist_label,
+            index_to_data,
         )

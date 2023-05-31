@@ -90,6 +90,6 @@ load_run: stable_contrastive_rl/stable_contrastive_rl_recon_small_debug_2023_05_
 
 # logging stuff
 print_log_freq: 100 # in iterations
-image_log_freq: 500 # in iterations
-num_images_log: 16 # number of images to log in a logging iteration
-pairwise_test_freq: 10 # in epochs
+image_log_freq: 1 # in iterations
+num_images_log: 32 # number of images to log in a logging iteration
+pairwise_test_freq: 1 # in epochs

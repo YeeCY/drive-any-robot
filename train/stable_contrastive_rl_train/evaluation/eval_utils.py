@@ -4,14 +4,15 @@ import numpy as np
 from sklearn.metrics import roc_curve, auc, roc_auc_score
 from typing import Dict
 
-from gnm_train.visualizing.distance_utils import visualize_dist_pred, visualize_dist_pairwise_pred
-from stable_contrastive_rl_train.visualizing.critic_utils import visualize_critic_pred
-from stable_contrastive_rl_train.training.train_utils import (
-    get_critic_loss,
-    get_actor_loss,
-)
+# from gnm_train.visualizing.distance_utils import visualize_dist_pred, visualize_dist_pairwise_pred
+# from stable_contrastive_rl_train.visualizing.critic_utils import visualize_critic_pred
+# from stable_contrastive_rl_train.training.train_utils import (
+#     get_critic_loss,
+#     get_actor_loss,
+# )
 from gnm_train.visualizing.visualize_utils import to_numpy
-from gnm_train.training.logger import Logger
+from gnm_train.evaluation.visualization_utils import visualize_dist_pairwise_pred
+# from gnm_train.training.logger import Logger
 
 import torch
 import torch.nn as nn
@@ -245,40 +246,40 @@ def pairwise_acc(
             dummy_action = torch.zeros([batch_size, model.action_size], device=transf_obs_image.device)
             if use_critic:
                 # (b)
-                dist_close_obs_repr, _, dist_close_g_repr = model(transf_obs_image, transf_obs_image,
+                close_dist_obs_repr, _, close_dist_g_repr = model(transf_obs_image, transf_obs_image,
                                                                   dummy_action[:, :model.action_size - 1], close_dist_label,
                                                                   transf_close_image[:, -3:], transf_close_image[:, -3:])[1:4]
-                dist_close_logit = torch.einsum('ikl,jkl->ijl', dist_close_obs_repr, dist_close_g_repr)
-                dist_close_logit = torch.diag(torch.mean(dist_close_logit, dim=-1))
-                dist_close_pred = torch.sigmoid(dist_close_logit)
+                close_dist_logit = torch.einsum('ikl,jkl->ijl', close_dist_obs_repr, close_dist_g_repr)
+                close_dist_logit = torch.diag(torch.mean(close_dist_logit, dim=-1))
+                close_dist_pred = torch.sigmoid(close_dist_logit)
 
-                dist_far_obs_repr, _, dist_far_g_repr = model(transf_obs_image, transf_obs_image,
+                far_dist_obs_repr, _, far_dist_g_repr = model(transf_obs_image, transf_obs_image,
                                                               dummy_action[:, :model.action_size - 1], far_dist_label,
                                                               transf_far_image, transf_far_image)[1:4]
-                dist_far_logit = torch.einsum('ikl,jkl->ijl', dist_far_obs_repr, dist_far_g_repr)
-                dist_far_logit = torch.diag(torch.mean(dist_far_logit, dim=-1))
-                dist_far_pred = torch.sigmoid(dist_far_logit)
+                far_dist_logit = torch.einsum('ikl,jkl->ijl', far_dist_obs_repr, far_dist_g_repr)
+                far_dist_logit = torch.diag(torch.mean(far_dist_logit, dim=-1))
+                far_dist_pred = torch.sigmoid(far_dist_logit)
 
-                dist_close_pred = to_numpy(dist_close_pred)
-                dist_far_pred = to_numpy(dist_far_pred)
+                close_dist_flat = to_numpy(close_dist_pred)
+                far_dist_flat = to_numpy(far_dist_pred)
 
-                correct = np.where(dist_close_pred >= dist_far_pred, 1, 0)
+                correct = np.where(close_dist_flat >= far_dist_flat, 1, 0)
                 correct_list.append(correct.copy())
                 # correct[batch_size // 2:] = np.logical_not(correct[batch_size // 2:]).astype(np.int)
 
                 auc = roc_auc_score(
                     np.concatenate([np.ones_like(correct[:batch_size // 2]),
                                     np.zeros_like(correct[batch_size // 2:])]),
-                    np.concatenate([(dist_close_pred - dist_far_pred)[:batch_size // 2],
-                                    (dist_far_pred - dist_close_pred)[batch_size // 2:]])
+                    np.concatenate([(close_dist_flat - far_dist_flat)[:batch_size // 2],
+                                    (far_dist_flat - close_dist_flat)[batch_size // 2:]])
                 )
                 auc_list.append(auc)
 
                 # (c)
-                # dist_close_repr, _, dist_far_repr = model(transf_close_image, transf_close_image,
+                # close_dist_repr, _, far_dist_repr = model(transf_close_image, transf_close_image,
                 #                                           dummy_action[:, :model.action_size - 1], far_dist_label - close_dist_label,
                 #                                           transf_far_image, transf_far_image)[1:4]
-                # dist_logit = torch.einsum('ikl,jkl->ijl', dist_close_repr, dist_far_repr)
+                # dist_logit = torch.einsum('ikl,jkl->ijl', close_dist_repr, far_dist_repr)
                 # dist_logit = torch.diag(torch.mean(dist_logit, dim=-1))
                 # dist_pred = torch.sigmoid(dist_logit)
                 #
@@ -294,22 +295,21 @@ def pairwise_acc(
                 #                     (1 - dist_pred)[batch_size // 2:]])
                 # )
                 # auc_list.append(auc)
+            else:
+                close_dist_pred = model(transf_obs_image, transf_obs_image,
+                                        dummy_action[:, :model.action_size - 1], dummy_action[:, [-1]],
+                                        transf_close_image[:, -3:], transf_close_image[:, -3:])[-3]
+    
+                far_dist_pred = model(transf_obs_image, transf_obs_image,
+                                      dummy_action[:, :model.action_size - 1], dummy_action[:, [-1]],
+                                      transf_far_image, transf_far_image)[-3]
+    
+                close_pred_flat = close_dist_pred.reshape(close_dist_pred.shape[0])
+                far_pred_flat = far_dist_pred.reshape(far_dist_pred.shape[0])
+    
+                close_pred_flat = to_numpy(close_pred_flat)
+                far_pred_flat = to_numpy(far_pred_flat)
 
-            close_dist_pred = model(transf_obs_image, transf_obs_image,
-                                    dummy_action[:, :model.action_size - 1], dummy_action[:, [-1]],
-                                    transf_close_image[:, -3:], transf_close_image[:, -3:])[-3]
-
-            far_dist_pred = model(transf_obs_image, transf_obs_image,
-                                  dummy_action[:, :model.action_size - 1], dummy_action[:, [-1]],
-                                  transf_far_image, transf_far_image)[-3]
-
-            close_pred_flat = close_dist_pred.reshape(close_dist_pred.shape[0])
-            far_pred_flat = far_dist_pred.reshape(far_dist_pred.shape[0])
-
-            close_pred_flat = to_numpy(close_pred_flat)
-            far_pred_flat = to_numpy(far_pred_flat)
-
-            if not use_critic:
                 correct = np.where(far_pred_flat > close_pred_flat, 1, 0)
                 correct_list.append(correct.copy())
                 correct[batch_size // 2:] = np.logical_not(correct[batch_size // 2:]).astype(np.int)
@@ -339,6 +339,7 @@ def pairwise_acc(
                     eval_type,
                     save_folder,
                     epoch,
+                    index_to_data,
                     num_images_log,
                     use_wandb,
                     display,

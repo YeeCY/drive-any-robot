@@ -6,9 +6,10 @@ from sklearn.metrics import roc_auc_score
 from typing import List, Optional, Dict
 
 from gnm_train.visualizing.action_utils import visualize_traj_pred
-from gnm_train.visualizing.distance_utils import visualize_dist_pred, visualize_dist_pairwise_pred
+# from gnm_train.visualizing.distance_utils import visualize_dist_pred, visualize_dist_pairwise_pred
 from gnm_train.visualizing.visualize_utils import to_numpy
 from gnm_train.training.logger import Logger
+from gnm_train.evaluation.visualization_utils import visualize_dist_pairwise_pred
 
 import torch
 import torch.nn as nn
@@ -207,29 +208,17 @@ def pairwise_acc(
 
     with torch.no_grad():
         for i, vals in enumerate(eval_loader):
-            if save_failure_index_to_data:
-                (
-                    obs_image,
-                    close_image,
-                    far_image,
-                    transf_obs_image,
-                    transf_close_image,
-                    transf_far_image,
-                    close_dist_label,
-                    far_dist_label,
-                    index_to_data,
-                ) = vals
-            else:
-                (
-                    obs_image,
-                    close_image,
-                    far_image,
-                    transf_obs_image,
-                    transf_close_image,
-                    transf_far_image,
-                    close_dist_label,
-                    far_dist_label,
-                ) = vals
+            (
+                obs_image,
+                close_image,
+                far_image,
+                transf_obs_image,
+                transf_close_image,
+                transf_far_image,
+                close_dist_label,
+                far_dist_label,
+                index_to_data,
+            ) = vals
             batch_size = transf_obs_image.shape[0]
             transf_obs_image = transf_obs_image.to(device)
             transf_close_image = transf_close_image[:, -3:].to(device)
@@ -289,6 +278,7 @@ def pairwise_acc(
                     eval_type,
                     save_folder,
                     epoch,
+                    index_to_data,
                     num_images_log,
                     use_wandb,
                     display,
