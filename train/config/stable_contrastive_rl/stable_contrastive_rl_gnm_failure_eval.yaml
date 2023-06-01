@@ -62,7 +62,7 @@ action:
 oracle_angles: 45  # degree
 num_oracle_trajs: 10
 close_far_threshold: 6  # distance threshold used to separate the close and the far subgoals that are sampled per datapoint
-pairwise_pred_use_critic: True
+pairwise_pred_use_critic: False
 
 # action output params
 len_traj_pred: 5

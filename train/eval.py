@@ -203,7 +203,6 @@ def main(config):
                 batch_size=config["eval_batch_size"],
                 shuffle=True,
                 num_workers=config["num_workers"],
-                drop_last=True,
             )
 
     # Create the model

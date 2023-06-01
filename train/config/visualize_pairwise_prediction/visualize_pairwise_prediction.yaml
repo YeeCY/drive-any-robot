@@ -95,10 +95,19 @@
 #pairwise_test_freq: 10 # in epochs
 
 
-# result directory
+# data folder
+data_folder: datasets/recon  # path to the dataset
+
+# image size
+image_size: [85, 64] # width, height
+
+# result folder
 result_dirs:
-  gnm: logs/gnm/gnm_eval_2023_05_31_18_36_51/visualize/recon_test/epoch10/pairwise_dist_classification
-  stable_contrastive_rl_mc_regression: logs/stable_contrastive_rl/stable_contrastive_rl_gnm_failure_eval_2023_05_31_18_36_57/visualize/recon_test/epoch5/pairwise_dist_classification
-#  stable_contrastive_rl_td_regression:
-#  mc_critic:
-#  td_critic:
+  gnm: logs/gnm/gnm_eval_2023_05_31_21_42_47/visualize/recon_test/epoch10/pairwise_dist_classification
+  stable_contrastive_rl_mc_regression: logs/stable_contrastive_rl/stable_contrastive_rl_gnm_failure_eval_2023_05_31_22_15_34/visualize/recon_test/epoch8/pairwise_dist_classification
+  stable_contrastive_rl_td_regression: logs/stable_contrastive_rl/stable_contrastive_rl_gnm_failure_eval_2023_05_31_22_33_02/visualize/recon_test/epoch5/pairwise_dist_classification
+  stable_contrastive_rl_mc_critic: TODO
+  stable_contrastive_rl_td_critic: logs/stable_contrastive_rl/stable_contrastive_rl_gnm_failure_eval_2023_05_31_22_05_26/visualize/recon_test/epoch5/pairwise_dist_classification
+
+# save folder
+save_dir: logs/visualize_pairwise_prediction
