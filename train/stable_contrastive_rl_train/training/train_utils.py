@@ -206,6 +206,7 @@ def train(
     stop_grad_actor_img_encoder: bool = True,
     use_actor_waypoint_q_loss: bool = False,
     use_actor_dist_q_loss: bool = False,
+    waypoint_gcbc_loss_scale: float = 1.0,
     learn_angle: bool = True,
     print_log_freq: int = 100,
     image_log_freq: int = 1000,

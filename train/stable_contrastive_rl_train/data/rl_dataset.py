@@ -452,6 +452,10 @@ class RLDataset(Dataset):
                     self.data_config["metric_waypoint_spacing"] * self.waypoint_spacing
                 )  # only divide the dx and dy
             data.append(oracle_waypoints)
+
+            data.append(torch.Tensor(pos_list[0].astype(float)))
+            data.append(torch.Tensor(np.array(yaw).astype(float)))
+            # data.append(torch.Tensor(pos_list.astype(float)))
         else:
             # temporal distance
             if f_curr == f_goal:

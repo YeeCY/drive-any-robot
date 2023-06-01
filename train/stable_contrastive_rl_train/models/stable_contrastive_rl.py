@@ -92,6 +92,7 @@ class StableContrastiveRL(BaseRLModel):
         #     nn.Linear(32, self.len_trajectory_pred * self.num_action_params),
         # )
 
+        # TODO (chongyiz): trying to remove some of the image encoders and increase batch size
         # self.qf = qf
         self.img_encoder = ContrastiveImgEncoder(
             self.context_size,
@@ -113,7 +114,6 @@ class StableContrastiveRL(BaseRLModel):
             self.img_encoder, self.action_size, self.twin_q)
         self.target_q_network = ContrastiveQNetwork(
             self.target_img_encoder, self.action_size, self.twin_q)
-
         self.policy_network = ContrastivePolicy(
             self.policy_image_encoder, self.action_size, fixed_std=self.fixed_std)
 
