@@ -342,6 +342,7 @@ def main(config):
             stop_grad_actor_img_encoder=config["stop_grad_actor_img_encoder"],
             use_actor_waypoint_q_loss=config["use_actor_waypoint_q_loss"],
             use_actor_dist_q_loss=config["use_actor_dist_q_loss"],
+            waypoint_gcbc_loss_scale=config["waypoint_gcbc_loss_scale"],
             use_wandb=config["use_wandb"],
         )
     else:

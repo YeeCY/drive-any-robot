@@ -49,6 +49,7 @@ def train_eval_rl_loop(
     stop_grad_actor_img_encoder: bool = True,
     use_actor_waypoint_q_loss: bool = False,
     use_actor_dist_q_loss: bool = False,
+    waypoint_gcbc_loss_scale: float = 1.0,
     learn_angle: bool = True,
     use_wandb: bool = True,
 ):
@@ -98,6 +99,7 @@ def train_eval_rl_loop(
             stop_grad_actor_img_encoder,
             use_actor_waypoint_q_loss,
             use_actor_dist_q_loss,
+            waypoint_gcbc_loss_scale,
             learn_angle,
             print_log_freq,
             image_log_freq,
@@ -128,6 +130,7 @@ def train_eval_rl_loop(
                 mle_gcbc_loss,
                 use_actor_waypoint_q_loss,
                 use_actor_dist_q_loss,
+                waypoint_gcbc_loss_scale,
                 learn_angle,
                 print_log_freq,
                 image_log_freq,
@@ -369,7 +372,8 @@ def train(
             bc_coef=bc_coef, mle_gcbc_loss=mle_gcbc_loss,
             stop_grad_actor_img_encoder=stop_grad_actor_img_encoder,
             use_actor_waypoint_q_loss=use_actor_waypoint_q_loss,
-            use_actor_dist_q_loss=use_actor_dist_q_loss)
+            use_actor_dist_q_loss=use_actor_dist_q_loss,
+            waypoint_gcbc_loss_scale=waypoint_gcbc_loss_scale)
 
         waypoint_pred, dist_pred = model(waypoint_obs_data, dist_obs_data,
                                          waypoint_label.flatten(1), dist_label,
@@ -678,6 +682,7 @@ def evaluate(
     mle_gcbc_loss: bool = False,
     use_actor_waypoint_q_loss: bool = False,
     use_actor_dist_q_loss: bool = False,
+    waypoint_gcbc_loss_scale: float = 1.0,
     learn_angle: bool = True,
     print_log_freq: int = 100,
     image_log_freq: int = 1000,
@@ -834,7 +839,8 @@ def evaluate(
                 model, obs_data, action_data, goal_data,
                 bc_coef=bc_coef, mle_gcbc_loss=mle_gcbc_loss,
                 use_actor_waypoint_q_loss=use_actor_waypoint_q_loss,
-                use_actor_dist_q_loss=use_actor_dist_q_loss)
+                use_actor_dist_q_loss=use_actor_dist_q_loss,
+                waypoint_gcbc_loss_scale=waypoint_gcbc_loss_scale)
             # gcbc_loss = 0.5 * (1e-3 * dist_gcbc_loss) + 0.5 * waypoint_gcbc_loss
 
             waypoint_pred, dist_pred = model(waypoint_obs_data, dist_obs_data,
@@ -1345,7 +1351,8 @@ def get_critic_loss(model, obs, next_obs, action, goal, discount, use_td=False):
 
 def get_actor_loss(model, obs, orig_action, goal, bc_coef=0.05,
                    mle_gcbc_loss=False, stop_grad_actor_img_encoder=True,
-                   use_actor_waypoint_q_loss=True, use_actor_dist_q_loss=True):
+                   use_actor_waypoint_q_loss=True, use_actor_dist_q_loss=True,
+                   waypoint_gcbc_loss_scale=1.0):
     """
     We might need to add alpha and GCBC term.
     """
@@ -1409,8 +1416,7 @@ def get_actor_loss(model, obs, orig_action, goal, bc_coef=0.05,
     #             + 1e-2 * F.mse_loss(mean[:, -1], orig_action[:, -1])
     waypoint_gcbc_mle_loss = -waypoint_dist.log_prob(waypoint)
     dist_gcbc_mle_loss = -distance_dist.log_prob(dist)
-    # gcbc_mle_loss = 0.5 * dist_gcbc_mle_loss + 0.5 * (0.25 * waypoint_gcbc_mle_loss)  # balance loss scales
-    gcbc_mle_loss = 0.5 * dist_gcbc_mle_loss + 0.5 * waypoint_gcbc_mle_loss  # balance loss scales
+    gcbc_mle_loss = 0.5 * dist_gcbc_mle_loss + 0.5 * (waypoint_gcbc_loss_scale * waypoint_gcbc_mle_loss)  # balance loss scales
 
     waypoint_gcbc_mse_loss = F.mse_loss(waypoint_mean, waypoint)
     dist_gcbc_mse_loss = F.mse_loss(distance_mean, dist)

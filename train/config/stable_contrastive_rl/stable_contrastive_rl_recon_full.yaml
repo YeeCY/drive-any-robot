@@ -43,6 +43,7 @@ use_td: True
 # GCBC
 bc_coef: 0.5  # td = 0.01 - 0.05
 mle_gcbc_loss: True
+waypoint_gcbc_loss_scale: 0.25
 
 # whether to stop gradients from actor loss to policy image encoder
 stop_grad_actor_img_encoder: True
