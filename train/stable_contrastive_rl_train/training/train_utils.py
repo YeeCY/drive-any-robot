@@ -164,28 +164,29 @@ def train_eval_rl_loop(
         torch.save(checkpoint, latest_path)
         torch.save(checkpoint, numbered_path)  # keep track of model at every epoch
 
-        if (epoch - current_epoch) % pairwise_test_freq == 0:
-            print(f"Start Pairwise Testing Epoch {epoch}/{current_epoch + epochs - 1}")
-            for dataset_type in test_dataloaders:
-                if "pairwise" in test_dataloaders[dataset_type]:
-                    pairwise_dist_loader = test_dataloaders[dataset_type]["pairwise"]
-                    pairwise_accuracy = pairwise_acc(
-                        model,
-                        pairwise_dist_loader,
-                        device,
-                        project_folder,
-                        epoch,
-                        dataset_type,
-                        print_log_freq,
-                        image_log_freq,
-                        num_images_log,
-                        use_wandb=use_wandb,
-                    )
-
-                    if use_wandb:
-                        wandb.log({f"{dataset_type}_pairwise_acc": pairwise_accuracy})
-
-                    print(f"{dataset_type}_pairwise_acc: {pairwise_accuracy}")
+        # TODO: fix distance prediction and predict pairwise accuracy.
+        # if (epoch - current_epoch) % pairwise_test_freq == 0:
+        #     print(f"Start Pairwise Testing Epoch {epoch}/{current_epoch + epochs - 1}")
+        #     for dataset_type in test_dataloaders:
+        #         if "pairwise" in test_dataloaders[dataset_type]:
+        #             pairwise_dist_loader = test_dataloaders[dataset_type]["pairwise"]
+        #             pairwise_accuracy = pairwise_acc(
+        #                 model,
+        #                 pairwise_dist_loader,
+        #                 device,
+        #                 project_folder,
+        #                 epoch,
+        #                 dataset_type,
+        #                 print_log_freq,
+        #                 image_log_freq,
+        #                 num_images_log,
+        #                 use_wandb=use_wandb,
+        #             )
+        #
+        #             if use_wandb:
+        #                 wandb.log({f"{dataset_type}_pairwise_acc": pairwise_accuracy})
+        #
+        #             print(f"{dataset_type}_pairwise_acc: {pairwise_accuracy}")
     print()
 
 
@@ -240,23 +241,13 @@ def train(
     waypoint_logits_pos_logger = Logger("critic/waypoint_logits_pos", "train", window_size=print_log_freq)
     waypoint_logits_neg_logger = Logger("critic/waypoint_logits_neg", "train", window_size=print_log_freq)
     waypoint_logits_logger = Logger("critic/waypoint_logits", "train", window_size=print_log_freq)
-    dist_binary_acc_logger = Logger("critic/dist_binary_accuracy", "train", window_size=print_log_freq)
-    dist_categorical_acc_logger = Logger("critic/dist_categorical_accuracy", "train", window_size=print_log_freq)
-    dist_logits_pos_logger = Logger("critic/dist_logits_pos", "train", window_size=print_log_freq)
-    dist_logits_neg_logger = Logger("critic/dist_logits_neg", "train", window_size=print_log_freq)
-    dist_logits_logger = Logger("critic/dist_logits", "train", window_size=print_log_freq)
 
     # actor loggers
     actor_loss_logger = Logger("actor_loss", "train", window_size=print_log_freq)
-    actor_waypoint_q_loss = Logger("actor/actor_waypoint_q_loss", "train", window_size=print_log_freq)
-    actor_dist_q_loss = Logger("actor/actor_dist_q_loss", "train", window_size=print_log_freq)
-    actor_q_loss_logger = Logger("actor/actor_q_loss", "train", window_size=print_log_freq)
-    gcbc_mle_loss_logger = Logger("actor/gcbc_mle_loss", "train", window_size=print_log_freq)
-    gcbc_mse_loss_logger = Logger("actor/gcbc_mse_loss", "train", window_size=print_log_freq)
+    waypoint_actor_q_loss_logger = Logger("actor/waypoint_actor_q_loss", "train", window_size=print_log_freq)
+    waypoint_gcbc_loss_logger = Logger("actor/waypoint_gcbc_loss_logger", "train", window_size=print_log_freq)
     waypoint_gcbc_mle_loss_logger = Logger("actor/waypoint_gcbc_mle_loss", "train", window_size=print_log_freq)
     waypoint_gcbc_mse_loss_logger = Logger("actor/waypoint_gcbc_mse_loss", "train", window_size=print_log_freq)
-    dist_gcbc_mle_loss_logger = Logger("actor/dist_gcbc_mle_loss", "train", window_size=print_log_freq)
-    dist_gcbc_mse_loss_logger = Logger("actor/dist_gcbc_mse_loss", "train", window_size=print_log_freq)
 
     # waypoint loggers
     action_waypts_cos_sim_logger = Logger(
@@ -273,21 +264,11 @@ def train(
         waypoint_logits_pos_logger,
         waypoint_logits_neg_logger,
         waypoint_logits_logger,
-        dist_binary_acc_logger,
-        dist_categorical_acc_logger,
-        dist_logits_pos_logger,
-        dist_logits_neg_logger,
-        dist_logits_logger,
         actor_loss_logger,
-        actor_q_loss_logger,
-        actor_waypoint_q_loss,
-        actor_dist_q_loss,
-        gcbc_mle_loss_logger,
-        gcbc_mse_loss_logger,
+        waypoint_actor_q_loss_logger,
+        waypoint_gcbc_loss_logger,
         waypoint_gcbc_mle_loss_logger,
         waypoint_gcbc_mse_loss_logger,
-        dist_gcbc_mle_loss_logger,
-        dist_gcbc_mse_loss_logger,
         action_waypts_cos_sim_logger,
         multi_action_waypts_cos_sim_logger,
     ]
@@ -352,7 +333,7 @@ def train(
         waypoint_next_obs_data = waypoint_trans_next_obs_image.to(device)
         waypoint_goal_data = waypoint_trans_goal_image.to(device)
         waypoint_label = waypoint_label.to(device)
-        # waypoint_oracle = waypoint_oracle.to(device)
+        waypoint_oracle = waypoint_oracle.to(device)
         # waypoint_curr_pos = waypoint_curr_pos.to(device)
         # waypoint_yaw = waypoint_yaw.to(device)
 
@@ -376,30 +357,22 @@ def train(
             use_actor_dist_q_loss=use_actor_dist_q_loss,
             waypoint_gcbc_loss_scale=waypoint_gcbc_loss_scale)
 
-        waypoint_pred, dist_pred = model(waypoint_obs_data, dist_obs_data,
-                                         waypoint_label.flatten(1), dist_label,
-                                         waypoint_goal_data, dist_goal_data)[-4:-2]
+        waypoint_pred = model(
+            waypoint_obs_data, waypoint_label.flatten(1), waypoint_goal_data)[-2]
         waypoint_pred = waypoint_pred.reshape(waypoint_label.shape)
-        waypoint_pred_obs_repr, _, waypoint_pred_g_repr = model(
-            waypoint_obs_data, dist_obs_data,
-            waypoint_pred.flatten(1), dist_label,
-            waypoint_goal_data, dist_goal_data
-        )[:3]
+        waypoint_pred_obs_repr, waypoint_pred_g_repr = model(
+            waypoint_obs_data, waypoint_pred.flatten(1), waypoint_goal_data)[:2]
         waypoint_pred_logit = torch.einsum(
             'ikl,jkl->ijl', waypoint_pred_obs_repr, waypoint_pred_g_repr)
         waypoint_pred_logit = torch.diag(torch.mean(waypoint_pred_logit, dim=-1))
         waypoint_pred_critic = torch.sigmoid(waypoint_pred_logit)[:, None]
-        # waypoint_pred_critic = torch.exp(waypoint_pred_logit)[:, None]
 
-        waypoint_label_obs_repr, _, waypoint_label_g_repr = model(
-            waypoint_obs_data, dist_obs_data,
-            waypoint_label.flatten(1), dist_label,
-            waypoint_goal_data, dist_goal_data
-        )[:3]
-        waypoint_label_logits = torch.einsum('ikl,jkl->ijl', waypoint_label_obs_repr, waypoint_label_g_repr)
+        waypoint_label_obs_repr, waypoint_label_g_repr = model(
+            waypoint_obs_data, waypoint_label.flatten(1), waypoint_goal_data)[:2]
+        waypoint_label_logits = torch.einsum(
+            'ikl,jkl->ijl', waypoint_label_obs_repr, waypoint_label_g_repr)
         waypoint_label_logit = torch.diag(torch.mean(waypoint_label_logits, dim=-1))
         waypoint_label_critic = torch.sigmoid(waypoint_label_logit)[:, None]
-        # waypoint_label_critic = torch.exp(waypoint_label_logit)[:, None]
 
         del waypoint_pred_logit
         del waypoint_pred_obs_repr
@@ -414,15 +387,12 @@ def train(
         #   Otherwise, the critic predictions are not correct.
         waypoint_oracle_critic = []
         for idx in range(waypoint_oracle.shape[1]):
-            waypoint_oracle_obs_repr, _, waypoint_oracle_g_repr = model(
-                waypoint_obs_data, dist_obs_data,
-                waypoint_oracle[:, idx].flatten(1), dist_label,
-                waypoint_goal_data, dist_goal_data)[:3]
+            waypoint_oracle_obs_repr, waypoint_oracle_g_repr = model(
+                waypoint_obs_data, waypoint_oracle[:, idx].flatten(1), waypoint_goal_data)[:2]
             waypoint_oracle_logit = torch.einsum(
                 'ikl,jkl->ijl', waypoint_oracle_obs_repr, waypoint_oracle_g_repr)
             waypoint_oracle_logit = torch.diag(torch.mean(waypoint_oracle_logit, dim=-1))
             waypoint_oracle_critic.append(torch.sigmoid(waypoint_oracle_logit)[:, None])
-            # waypoint_oracle_critic.append(torch.exp(waypoint_oracle_logit)[:, None])
 
             del waypoint_oracle_logit
             del waypoint_oracle_obs_repr
@@ -475,22 +445,12 @@ def train(
         waypoint_logits_pos_logger.log_data(critic_info["waypoint_logits_pos"].item())
         waypoint_logits_neg_logger.log_data(critic_info["waypoint_logits_neg"].item())
         waypoint_logits_logger.log_data(critic_info["waypoint_logits"].item())
-        dist_binary_acc_logger.log_data(critic_info["dist_binary_accuracy"].item())
-        dist_categorical_acc_logger.log_data(critic_info["dist_categorical_accuracy"].item())
-        dist_logits_pos_logger.log_data(critic_info["dist_logits_pos"].item())
-        dist_logits_neg_logger.log_data(critic_info["dist_logits_neg"].item())
-        dist_logits_logger.log_data(critic_info["dist_logits"].item())
 
         actor_loss_logger.log_data(actor_loss.item())
-        actor_waypoint_q_loss.log_data(actor_info["actor_waypoint_q_loss"].item())
-        actor_dist_q_loss.log_data(actor_info["actor_dist_q_loss"].item())
-        actor_q_loss_logger.log_data(actor_info["actor_q_loss"].item())
-        gcbc_mle_loss_logger.log_data(actor_info["gcbc_mle_loss"].item())
-        gcbc_mse_loss_logger.log_data(actor_info["gcbc_mse_loss"].item())
+        waypoint_actor_q_loss_logger.log_data(actor_info["waypoint_actor_q_loss"].item())
+        waypoint_gcbc_loss_logger.log_data(actor_info["waypoint_gcbc_loss"].item())
         waypoint_gcbc_mle_loss_logger.log_data(actor_info["waypoint_gcbc_mle_loss"].item())
         waypoint_gcbc_mse_loss_logger.log_data(actor_info["waypoint_gcbc_mse_loss"].item())
-        dist_gcbc_mle_loss_logger.log_data(actor_info["dist_gcbc_mle_loss"].item())
-        dist_gcbc_mse_loss_logger.log_data(actor_info["dist_gcbc_mse_loss"].item())
 
         action_waypts_cos_sim_logger.log_data(action_waypts_cos_sim.item())
         multi_action_waypts_cos_sim_logger.log_data(multi_action_waypts_cos_sim.item())
@@ -537,17 +497,17 @@ def train(
             print()
 
         if i % image_log_freq == 0:
-            visualize_dist_pred(
-                to_numpy(dist_obs_image),
-                to_numpy(dist_goal_image),
-                to_numpy(dist_pred),
-                to_numpy(dist_label),
-                "train",
-                project_folder,
-                epoch,
-                num_images_log,
-                use_wandb=use_wandb,
-            )
+            # visualize_dist_pred(
+            #     to_numpy(dist_obs_image),
+            #     to_numpy(dist_goal_image),
+            #     to_numpy(dist_pred),
+            #     to_numpy(dist_label),
+            #     "train",
+            #     project_folder,
+            #     epoch,
+            #     num_images_log,
+            #     use_wandb=use_wandb,
+            # )
             # visualize_traj_pred(
             #     to_numpy(obs_image),
             #     to_numpy(goal_image),
@@ -650,7 +610,6 @@ def train(
 
         del dist_obs_image
         del dist_goal_image
-        del dist_pred
         del dist_label
 
         del waypoint_obs_image
@@ -718,23 +677,13 @@ def evaluate(
     waypoint_logits_pos_logger = Logger("critic/waypoint_logits_pos", eval_type, window_size=print_log_freq)
     waypoint_logits_neg_logger = Logger("critic/waypoint_logits_neg", eval_type, window_size=print_log_freq)
     waypoint_logits_logger = Logger("critic/waypoint_logits", eval_type, window_size=print_log_freq)
-    dist_binary_acc_logger = Logger("critic/dist_binary_accuracy", eval_type, window_size=print_log_freq)
-    dist_categorical_acc_logger = Logger("critic/dist_categorical_accuracy", eval_type, window_size=print_log_freq)
-    dist_logits_pos_logger = Logger("critic/dist_logits_pos", eval_type, window_size=print_log_freq)
-    dist_logits_neg_logger = Logger("critic/dist_logits_neg", eval_type, window_size=print_log_freq)
-    dist_logits_logger = Logger("critic/dist_logits", eval_type, window_size=print_log_freq)
 
     # actor loggers
     actor_loss_logger = Logger("actor_loss", eval_type, window_size=print_log_freq)
-    actor_waypoint_q_loss = Logger("actor/actor_waypoint_q_loss", eval_type, window_size=print_log_freq)
-    actor_dist_q_loss = Logger("actor/actor_dist_q_loss", eval_type, window_size=print_log_freq)
-    actor_q_loss_logger = Logger("actor/actor_q_loss", eval_type, window_size=print_log_freq)
-    gcbc_mle_loss_logger = Logger("actor/gcbc_mle_loss", eval_type, window_size=print_log_freq)
-    gcbc_mse_loss_logger = Logger("actor/gcbc_mse_loss", eval_type, window_size=print_log_freq)
+    waypoint_actor_q_loss_logger = Logger("actor/waypoint_actor_q_loss", eval_type, window_size=print_log_freq)
+    waypoint_gcbc_loss_logger = Logger("actor/waypoint_gcbc_loss_logger", eval_type, window_size=print_log_freq)
     waypoint_gcbc_mle_loss_logger = Logger("actor/waypoint_gcbc_mle_loss", eval_type, window_size=print_log_freq)
     waypoint_gcbc_mse_loss_logger = Logger("actor/waypoint_gcbc_mse_loss", eval_type, window_size=print_log_freq)
-    dist_gcbc_mle_loss_logger = Logger("actor/dist_gcbc_mle_loss", eval_type, window_size=print_log_freq)
-    dist_gcbc_mse_loss_logger = Logger("actor/dist_gcbc_mle_loss", eval_type, window_size=print_log_freq)
 
     # waypoint loggers
     action_waypts_cos_sim_logger = Logger(
@@ -751,21 +700,10 @@ def evaluate(
         waypoint_logits_pos_logger,
         waypoint_logits_neg_logger,
         waypoint_logits_logger,
-        dist_binary_acc_logger,
-        dist_categorical_acc_logger,
-        dist_logits_pos_logger,
-        dist_logits_neg_logger,
-        dist_logits_logger,
-        actor_loss_logger,
-        actor_q_loss_logger,
-        actor_waypoint_q_loss,
-        actor_dist_q_loss,
-        gcbc_mle_loss_logger,
-        gcbc_mse_loss_logger,
+        waypoint_actor_q_loss_logger,
+        waypoint_gcbc_loss_logger,
         waypoint_gcbc_mle_loss_logger,
         waypoint_gcbc_mse_loss_logger,
-        dist_gcbc_mle_loss_logger,
-        dist_gcbc_mse_loss_logger,
         action_waypts_cos_sim_logger,
         multi_action_waypts_cos_sim_logger,
     ]
@@ -818,7 +756,7 @@ def evaluate(
             waypoint_next_obs_data = waypoint_trans_next_obs_image.to(device)
             waypoint_goal_data = waypoint_trans_goal_image.to(device)
             waypoint_label = waypoint_label.to(device)
-            # waypoint_oracle = waypoint_oracle.to(device)
+            waypoint_oracle = waypoint_oracle.to(device)
             # waypoint_curr_pos = waypoint_curr_pos.to(device)
             # waypoint_yaw = waypoint_yaw.to(device)
 
@@ -842,28 +780,21 @@ def evaluate(
                 use_actor_waypoint_q_loss=use_actor_waypoint_q_loss,
                 use_actor_dist_q_loss=use_actor_dist_q_loss,
                 waypoint_gcbc_loss_scale=waypoint_gcbc_loss_scale)
-            # gcbc_loss = 0.5 * (1e-3 * dist_gcbc_loss) + 0.5 * waypoint_gcbc_loss
 
-            waypoint_pred, dist_pred = model(waypoint_obs_data, dist_obs_data,
-                                             waypoint_label.flatten(1), dist_label,
-                                             waypoint_goal_data, dist_goal_data)[-4:-2]
+            waypoint_pred = model(
+                waypoint_obs_data, waypoint_label.flatten(1), waypoint_goal_data)[-2]
             waypoint_pred = waypoint_pred.reshape(waypoint_label.shape)
-            waypoint_pred_obs_repr, _, waypoint_pred_g_repr = model(
-                waypoint_obs_data, dist_obs_data,
-                waypoint_pred.flatten(1), dist_label,
-                waypoint_goal_data, dist_goal_data
-            )[:3]
+            waypoint_pred_obs_repr, waypoint_pred_g_repr = model(
+                waypoint_obs_data, waypoint_pred.flatten(1), waypoint_goal_data)[:2]
             waypoint_pred_logit = torch.einsum(
                 'ikl,jkl->ijl', waypoint_pred_obs_repr, waypoint_pred_g_repr)
             waypoint_pred_logit = torch.diag(torch.mean(waypoint_pred_logit, dim=-1))
             waypoint_pred_critic = torch.sigmoid(waypoint_pred_logit)[:, None]
 
-            waypoint_label_obs_repr, _, waypoint_label_g_repr = model(
-                waypoint_obs_data, dist_obs_data,
-                waypoint_label.flatten(1), dist_label,
-                waypoint_goal_data, dist_goal_data
-            )[:3]
-            waypoint_label_logits = torch.einsum('ikl,jkl->ijl', waypoint_label_obs_repr, waypoint_label_g_repr)
+            waypoint_label_obs_repr, waypoint_label_g_repr = model(
+                waypoint_obs_data, waypoint_label.flatten(1), waypoint_goal_data)[:2]
+            waypoint_label_logits = torch.einsum(
+                'ikl,jkl->ijl', waypoint_label_obs_repr, waypoint_label_g_repr)
             waypoint_label_logit = torch.diag(torch.mean(waypoint_label_logits, dim=-1))
             waypoint_label_critic = torch.sigmoid(waypoint_label_logit)[:, None]
 
@@ -880,10 +811,8 @@ def evaluate(
             #   Otherwise, the critic predictions are not correct.
             waypoint_oracle_critic = []
             for idx in range(waypoint_oracle.shape[1]):
-                waypoint_oracle_obs_repr, _, waypoint_oracle_g_repr = model(
-                    waypoint_obs_data, dist_obs_data,
-                    waypoint_oracle[:, idx].flatten(1), dist_label,
-                    waypoint_goal_data, dist_goal_data)[:3]
+                waypoint_oracle_obs_repr, waypoint_oracle_g_repr = model(
+                    waypoint_obs_data, waypoint_oracle[:, idx].flatten(1), waypoint_goal_data)[:2]
                 waypoint_oracle_logit = torch.einsum(
                     'ikl,jkl->ijl', waypoint_oracle_obs_repr, waypoint_oracle_g_repr)
                 waypoint_oracle_logit = torch.diag(torch.mean(waypoint_oracle_logit, dim=-1))
@@ -917,33 +846,18 @@ def evaluate(
                     multi_action_orien_cos_sim.item()
                 )
 
-            # total_loss = alpha * (1e-3 * dist_loss) + (1 - alpha) * action_loss
-
-            # dist_loss_logger.log_data(dist_loss.item())
-            # action_loss_logger.log_data(action_loss.item())
-
             critic_loss_logger.log_data(critic_loss.item())
             waypoint_binary_acc_logger.log_data(critic_info["waypoint_binary_accuracy"].item())
             waypoint_categorical_acc_logger.log_data(critic_info["waypoint_categorical_accuracy"].item())
             waypoint_logits_pos_logger.log_data(critic_info["waypoint_logits_pos"].item())
             waypoint_logits_neg_logger.log_data(critic_info["waypoint_logits_neg"].item())
             waypoint_logits_logger.log_data(critic_info["waypoint_logits"].item())
-            dist_binary_acc_logger.log_data(critic_info["dist_binary_accuracy"].item())
-            dist_categorical_acc_logger.log_data(critic_info["dist_categorical_accuracy"].item())
-            dist_logits_pos_logger.log_data(critic_info["dist_logits_pos"].item())
-            dist_logits_neg_logger.log_data(critic_info["dist_logits_neg"].item())
-            dist_logits_logger.log_data(critic_info["dist_logits"].item())
 
             actor_loss_logger.log_data(actor_loss.item())
-            actor_waypoint_q_loss.log_data(actor_info["actor_waypoint_q_loss"].item())
-            actor_dist_q_loss.log_data(actor_info["actor_dist_q_loss"].item())
-            actor_q_loss_logger.log_data(actor_info["actor_q_loss"].item())
-            gcbc_mle_loss_logger.log_data(actor_info["gcbc_mle_loss"].item())
-            gcbc_mse_loss_logger.log_data(actor_info["gcbc_mse_loss"].item())
+            waypoint_actor_q_loss_logger.log_data(actor_info["waypoint_actor_q_loss"].item())
+            waypoint_gcbc_loss_logger.log_data(actor_info["waypoint_gcbc_loss"].item())
             waypoint_gcbc_mle_loss_logger.log_data(actor_info["waypoint_gcbc_mle_loss"].item())
             waypoint_gcbc_mse_loss_logger.log_data(actor_info["waypoint_gcbc_mse_loss"].item())
-            dist_gcbc_mle_loss_logger.log_data(actor_info["dist_gcbc_mle_loss"].item())
-            dist_gcbc_mse_loss_logger.log_data(actor_info["dist_gcbc_mse_loss"].item())
 
             action_waypts_cos_sim_logger.log_data(action_waypts_cos_sim.item())
             multi_action_waypts_cos_sim_logger.log_data(multi_action_waypts_cos_sim.item())
@@ -984,17 +898,17 @@ def evaluate(
                 print()
 
             if i % image_log_freq == 0:
-                visualize_dist_pred(
-                    to_numpy(dist_obs_image),
-                    to_numpy(dist_goal_image),
-                    to_numpy(dist_pred),
-                    to_numpy(dist_label),
-                    eval_type,
-                    project_folder,
-                    epoch,
-                    num_images_log,
-                    use_wandb=use_wandb,
-                )
+                # visualize_dist_pred(
+                #     to_numpy(dist_obs_image),
+                #     to_numpy(dist_goal_image),
+                #     to_numpy(dist_pred),
+                #     to_numpy(dist_label),
+                #     eval_type,
+                #     project_folder,
+                #     epoch,
+                #     num_images_log,
+                #     use_wandb=use_wandb,
+                # )
                 # visualize_traj_pred(
                 #     to_numpy(obs_image),
                 #     to_numpy(goal_image),
@@ -1075,7 +989,7 @@ def evaluate(
                     to_numpy(waypoint_pred_critic),
                     to_numpy(waypoint_label),
                     to_numpy(waypoint_label_critic),
-                    "train",
+                    eval_type,
                     normalized,
                     project_folder,
                     epoch,
@@ -1099,7 +1013,6 @@ def evaluate(
 
     del dist_obs_image
     del dist_goal_image
-    del dist_pred
     del dist_label
 
     del waypoint_obs_image
@@ -1223,118 +1136,74 @@ def get_critic_loss(model, obs, next_obs, action, goal, discount, use_td=False):
     if use_td:
         # extract next goal from fusion of observations and contexts.
         waypoint_new_goal = waypoint_next_obs[:, -3:]
-        dist_new_goal = dist_next_obs[:, -3:]
     else:
         waypoint_new_goal = waypoint_goal
-        dist_new_goal = dist_goal
 
     # obs_waypoint_repr, obs_dist_repr, g_repr = model(obs, action, new_goal)[0:3]
-    waypoint_obs_repr, dist_obs_repr, waypoint_g_repr, dist_g_repr = model(
-        waypoint_obs, dist_obs,
-        waypoint, dist,
-        waypoint_new_goal, dist_new_goal
-    )[:4]
-    waypoint_logits = torch.einsum('ikl,jkl->ijl', waypoint_obs_repr, waypoint_g_repr)
-    dist_logits = torch.einsum('ikl,jkl->ijl', dist_obs_repr, dist_g_repr)
+    obs_repr, g_repr = model(waypoint_obs, waypoint, waypoint_new_goal)[:2]
+    logits = torch.einsum('ikl,jkl->ijl', obs_repr, g_repr)
 
     # Make sure to use the twin Q trick.
-    assert len(waypoint_logits.shape) == 3
-    assert len(dist_logits.shape) == 3
+    assert len(logits.shape) == 3
 
     if use_td:
         goal_indices = torch.roll(
             torch.arange(batch_size, dtype=torch.int64), -1)
 
         waypoint_rand_goal = waypoint_new_goal[goal_indices]
-        dist_rand_goal = dist_new_goal[goal_indices]
 
         # action was not used here
-        next_waypoint_mean, next_dist_mean, next_waypoint_std, next_dist_std = model(
-            waypoint_next_obs, dist_next_obs,
-            waypoint, dist,
-            waypoint_rand_goal, dist_rand_goal
-        )[-4:]
+        next_waypoint_mean, next_waypoint_std = model(
+            waypoint_next_obs, waypoint, waypoint_rand_goal)[-2:]
 
         next_waypoint_dist = Independent(
             Normal(next_waypoint_mean, next_waypoint_std, validate_args=False),
             reinterpreted_batch_ndims=1
         )
-        next_distance_dist = Independent(
-            Normal(next_dist_mean, next_dist_std, validate_args=False),
-            reinterpreted_batch_ndims=1
-        )
         next_waypoint = next_waypoint_dist.rsample()
-        next_dist =next_distance_dist.rsample()
 
-        # next_obs_waypoint_repr, next_obs_dist_repr, random_g_repr = model(
-        #     next_obs, next_action, random_goal)[3:6]
-        next_waypoint_obs_repr, next_dist_obs_repr, next_waypoint_rand_g_repr, next_dist_rand_g_repr = model(
-            waypoint_next_obs, dist_next_obs,
-            next_waypoint, next_dist,
-            waypoint_rand_goal, dist_rand_goal
-        )[:4]
-        next_waypoint_q = torch.einsum('ikl,jkl->ijl',
-                                       next_waypoint_obs_repr, next_waypoint_rand_g_repr)
-        next_dist_q = torch.einsum('ikl,jkl->ijl',
-                                   next_dist_obs_repr, next_dist_rand_g_repr)
+        # use target critic
+        next_obs_repr, next_rand_g_repr = model(
+            waypoint_next_obs, next_waypoint, waypoint_rand_goal)[2:4]
+        next_q = torch.einsum('ikl,jkl->ijl',
+                                       next_obs_repr, next_rand_g_repr)
 
-        next_waypoint_q = torch.sigmoid(next_waypoint_q)
-        next_dist_q = torch.sigmoid(next_dist_q)
-        next_waypoint_v = torch.min(next_waypoint_q, dim=-1)[0].detach()
-        next_dist_v = torch.min(next_dist_q, dim=-1)[0].detach()
-        next_waypoint_v = torch.diag(next_waypoint_v)
-        next_dist_v = torch.diag(next_dist_v)
-        waypoint_w = next_waypoint_v / (1 - next_waypoint_v)
-        dist_w = next_dist_v / (1 - next_dist_v)
-
+        next_q = torch.sigmoid(next_q)
+        next_v = torch.min(next_q, dim=-1)[0].detach()
+        next_v = torch.diag(next_v)
+        w = next_v / (1 - next_v)
         w_clipping = 20.0
-        waypoint_w = torch.clamp(waypoint_w, min=0.0, max=w_clipping)
-        dist_w = torch.clamp(dist_w, min=0.0, max=w_clipping)
+        w = torch.clamp(w, min=0.0, max=w_clipping)
 
-        pos_waypoint_logits = torch.diagonal(waypoint_logits).permute(1, 0)
-        pos_dist_logits = torch.diagonal(dist_logits).permute(1, 0)
-        waypoint_loss_pos = bce_with_logits_loss(
-            pos_waypoint_logits, torch.ones_like(pos_waypoint_logits))
-        dist_loss_pos = bce_with_logits_loss(
-            pos_dist_logits, torch.ones_like(pos_dist_logits))
+        # (B, B, 2) --> (B, 2), computes diagonal of each twin Q.
+        pos_logits = torch.diagonal(logits).permute(1, 0)
+        loss_pos = bce_with_logits_loss(
+            pos_logits, torch.ones_like(pos_logits))
 
-        neg_waypoint_logits = waypoint_logits[torch.arange(batch_size), goal_indices]
-        neg_dist_logits = dist_logits[torch.arange(batch_size), goal_indices]
-        waypoint_loss_neg1 = waypoint_w[:, None] * bce_with_logits_loss(
-            neg_waypoint_logits, torch.ones_like(neg_waypoint_logits))
-        dist_loss_neg1 = dist_w[:, None] * bce_with_logits_loss(
-            neg_dist_logits, torch.ones_like(neg_dist_logits))
-        waypoint_loss_neg2 = bce_with_logits_loss(
-            neg_waypoint_logits, torch.zeros_like(neg_waypoint_logits))
-        dist_loss_neg2 = bce_with_logits_loss(
-            neg_dist_logits, torch.zeros_like(neg_dist_logits))
+        neg_logits = logits[torch.arange(batch_size), goal_indices]
+        loss_neg1 = w[:, None] * bce_with_logits_loss(
+            neg_logits, torch.ones_like(neg_logits))
+        loss_neg2 = bce_with_logits_loss(
+            neg_logits, torch.zeros_like(neg_logits))
 
-        waypoint_critic_loss = (1 - discount) * waypoint_loss_pos + \
-                               discount * waypoint_loss_neg1 + waypoint_loss_neg2
-        dist_critic_loss = (1 - discount) * dist_loss_pos + \
-                           discount * dist_loss_neg1 + dist_loss_neg2
-        waypoint_critic_loss = torch.mean(waypoint_critic_loss)
-        dist_critic_loss = torch.mean(dist_critic_loss)
+        qf_loss = (1 - discount) * loss_pos + discount * loss_neg1 + loss_neg2
     else:
-        waypoint_critic_loss = bce_with_logits_loss(
-            waypoint_logits, I.unsqueeze(-1).repeat(1, 1, 2)).mean(-1)
-        dist_critic_loss = bce_with_logits_loss(
-            dist_logits, I.unsqueeze(-1).repeat(1, 1, 2)).mean(-1)
+        # decrease the weight of negative term to 1 / (B - 1)
+        qf_loss_weights = torch.ones(
+            (batch_size, batch_size), device=waypoint_obs.device) / (batch_size - 1)
+        qf_loss_weights[torch.arange(batch_size), torch.arange(batch_size)] = 1
+        # logits.shape = (B, B, 2) with 1 term for positive pair
+        # and (B - 1) terms for negative pairs in each row
+        qf_loss = bce_with_logits_loss(
+            logits, I.unsqueeze(-1).repeat(1, 1, 2)).mean(-1)
+        qf_loss *= qf_loss_weights
 
-        waypoint_critic_loss = torch.mean(waypoint_critic_loss)
-        dist_critic_loss = torch.mean(dist_critic_loss)
+    critic_loss = torch.mean(qf_loss)
 
-    critic_loss = waypoint_critic_loss + dist_critic_loss
-
-    waypoint_logits = torch.mean(waypoint_logits, dim=-1)
+    waypoint_logits = torch.mean(logits, dim=-1)
     waypoint_correct = (torch.argmax(waypoint_logits, dim=-1) == torch.argmax(I, dim=-1))
     waypoint_logits_pos = torch.sum(waypoint_correct * I) / torch.sum(I)
     waypoint_logits_neg = torch.sum(waypoint_correct * (1 - I)) / torch.sum(1 - I)
-
-    dist_logits = torch.mean(dist_logits, dim=-1)
-    dist_correct = (torch.argmax(dist_logits, dim=-1) == torch.argmax(I, dim=-1))
-    dist_logits_pos = torch.sum(dist_logits * I) / torch.sum(I)
-    dist_logits_neg = torch.sum(dist_logits * (1 - I)) / torch.sum(1 - I)
 
     return critic_loss, {
         "waypoint_binary_accuracy": torch.mean(((waypoint_logits > 0) == I).float()),
@@ -1342,11 +1211,6 @@ def get_critic_loss(model, obs, next_obs, action, goal, discount, use_td=False):
         "waypoint_logits_pos": waypoint_logits_pos,
         "waypoint_logits_neg": waypoint_logits_neg,
         "waypoint_logits": waypoint_logits.mean(),
-        "dist_binary_accuracy": torch.mean(((dist_logits > 0) == I).float()),
-        "dist_categorical_accuracy": torch.mean(dist_correct.float()),
-        "dist_logits_pos": dist_logits_pos,
-        "dist_logits_neg": dist_logits_neg,
-        "dist_logits": dist_logits.mean(),
     }
 
 
@@ -1363,97 +1227,51 @@ def get_actor_loss(model, obs, orig_action, goal, bc_coef=0.05,
     waypoint, dist = orig_action
     waypoint_goal, dist_goal = goal
 
-    # orig_waypoint = orig_action[:, :model.action_size - 1]
-    # orig_distance = orig_action[:, -1]
-
-    # mean, std = model(
-    #     obs, orig_action, goal, stop_grad_actor_img_encoder=stop_grad_actor_img_encoder)[-2:]
-    waypoint_mean, distance_mean, waypoint_std, distance_std = model(
-        waypoint_obs, dist_obs,
-        waypoint, dist,
-        waypoint_goal, dist_goal,
-        stop_grad_actor_img_encoder=stop_grad_actor_img_encoder
-    )[-4:]
-    # waypoint_mean, distance_mean = mean[:, :model.action_size - 1], mean[:, -1]
-    # waypoint_std, distance_std = std[:, :model.action_size - 1], std[:, -1]
+    waypoint_mean, waypoint_std = model(
+        waypoint_obs, waypoint, waypoint_goal)[-2:]
 
     waypoint_dist = Independent(Normal(waypoint_mean, waypoint_std,
                                        validate_args=False), reinterpreted_batch_ndims=1)
-    distance_dist = Independent(Normal(distance_mean, distance_std, validate_args=False),
-                                reinterpreted_batch_ndims=1)
-    # dist = Independent(Normal(mean, std, validate_args=False),
-    #                    reinterpreted_batch_ndims=1)
 
-    # sampled_action = dist.rsample()
     sampled_waypoint = waypoint_dist.rsample()
-    sampled_dist = distance_dist.rsample()
 
-    waypoint_obs_repr, dist_obs_repr, waypoint_g_repr, dist_g_repr = model(
-        waypoint_obs, dist_obs,
-        sampled_waypoint, sampled_dist,
-        waypoint_goal, dist_goal)[:4]
-    waypoint_q = torch.einsum('ikl,jkl->ijl', waypoint_obs_repr, waypoint_g_repr)
-    dist_q = torch.einsum('ikl,jkl->ijl', dist_obs_repr, dist_g_repr)
+    obs_repr, g_repr = model(
+        waypoint_obs, sampled_waypoint, waypoint_goal)[:2]
+    waypoint_q = torch.einsum('ikl,jkl->ijl', obs_repr, g_repr)
 
     if len(waypoint_q.shape) == 3:  # twin q trick
         assert waypoint_q.shape[2] == 2
-        assert dist_q.shape[2] == 2
         waypoint_q = torch.min(waypoint_q, dim=-1)[0]
-        dist_q = torch.min(dist_q, dim=-1)[0]
 
-    actor_q_loss, actor_waypoint_q_loss, actor_dist_q_loss = \
-        torch.zeros_like(distance_mean)[:, 0], \
-        torch.zeros_like(distance_mean)[:, 0], \
-        torch.zeros_like(distance_mean)[:, 0]
+    actor_q_loss, actor_waypoint_q_loss = \
+        torch.zeros_like(waypoint_mean)[:, 0], \
+        torch.zeros_like(waypoint_mean)[:, 0]
     if use_actor_waypoint_q_loss:
         actor_waypoint_q_loss = -torch.diag(waypoint_q)
         actor_q_loss += actor_waypoint_q_loss
-    if use_actor_dist_q_loss:
-        actor_dist_q_loss = -torch.diag(dist_q)
-        actor_q_loss += actor_dist_q_loss
 
-    # gcbc_loss = -dist.log_prob(orig_action)
-    # gcbc_loss = F.mse_loss(mean[:, :model.action_size - 1], orig_action[:, :model.action_size - 1]) \
-    #             + 1e-2 * F.mse_loss(mean[:, -1], orig_action[:, -1])
     waypoint_gcbc_mle_loss = -waypoint_dist.log_prob(waypoint)
-    dist_gcbc_mle_loss = -distance_dist.log_prob(dist)
-    gcbc_mle_loss = 0.5 * dist_gcbc_mle_loss + 0.5 * (waypoint_gcbc_loss_scale * waypoint_gcbc_mle_loss)  # balance loss scales
-
     waypoint_gcbc_mse_loss = F.mse_loss(waypoint_mean, waypoint)
-    dist_gcbc_mse_loss = F.mse_loss(distance_mean, dist)
-    gcbc_mse_loss = 0.5 * (1e-2 * dist_gcbc_mse_loss) + 0.5 * waypoint_gcbc_mse_loss
 
     if mle_gcbc_loss:
-        gcbc_loss = gcbc_mle_loss
+        gcbc_loss = waypoint_gcbc_mle_loss
     else:
-        gcbc_loss = gcbc_mse_loss
+        gcbc_loss = waypoint_gcbc_mse_loss
 
     actor_loss = bc_coef * gcbc_loss + (1 - bc_coef) * actor_q_loss
 
     actor_loss = torch.mean(actor_loss)
     actor_waypoint_q_loss = torch.mean(actor_waypoint_q_loss)
-    actor_dist_q_loss = torch.mean(actor_dist_q_loss)
-    actor_q_loss = torch.mean(actor_q_loss)
-    gcbc_loss = torch.mean(gcbc_loss)
 
+    gcbc_loss = torch.mean(gcbc_loss)
     waypoint_gcbc_mle_loss = torch.mean(waypoint_gcbc_mle_loss)
-    dist_gcbc_mle_loss = torch.mean(dist_gcbc_mle_loss)
-    gcbc_mle_loss = torch.mean(gcbc_mle_loss)
     waypoint_gcbc_mse_loss = torch.mean(waypoint_gcbc_mse_loss)
-    dist_gcbc_mse_loss = torch.mean(dist_gcbc_mse_loss)
-    gcbc_mse_loss = torch.mean(gcbc_mse_loss)
 
     return actor_loss, {
-        "actor_waypoint_q_loss": actor_waypoint_q_loss,
-        "actor_dist_q_loss": actor_dist_q_loss,
-        "actor_q_loss": actor_q_loss,
-        "gcbc_loss": gcbc_loss,
-        "gcbc_mle_loss": gcbc_mle_loss,
-        "gcbc_mse_loss": gcbc_mse_loss,
+        "waypoint_actor_q_loss": actor_waypoint_q_loss,
+        "waypoint_gcbc_loss": gcbc_loss,
         "waypoint_gcbc_mle_loss": waypoint_gcbc_mle_loss,
         "waypoint_gcbc_mse_loss": waypoint_gcbc_mse_loss,
-        "dist_gcbc_mle_loss": dist_gcbc_mle_loss,
-        "dist_gcbc_mse_loss": dist_gcbc_mse_loss,
     }
 
 

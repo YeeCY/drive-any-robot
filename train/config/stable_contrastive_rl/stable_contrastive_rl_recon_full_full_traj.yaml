@@ -2,29 +2,22 @@ project_name: stable_contrastive_rl
 run_name: stable_contrastive_rl_recon_full
 
 # training setup
-use_wandb: True # set to false if you don't want to log to wandb
+use_wandb: False # set to false if you don't want to log to wandb
 train: rl
-batch_size: 80  # 200 for mc, 160 for td
-eval_batch_size: 80  # 200 for mc, 160 for td
-epochs: 5
-gpu_ids: [0, 1, 2, 3] # list of gpu ids to use
-num_workers: 16
+batch_size: 2048  # 200 for mc, 160 for td
+eval_batch_size: 2048  # 200 for mc, 160 for td
+epochs: 10
+gpu_ids: [0] # list of gpu ids to use
+num_workers: 32
 lr: 5e-4
 optimizer: adam
 seed: 0
 
 # model params
 model_type: stable_contrastive_rl
-obs_encoding_size: 1024
-goal_encoding_size: 1024
-twin_q: True
-min_log_std: -13
-max_log_std: -2
-fixed_std: [0.1, 0.1, 0.1, 0.1, 0.1,
-            0.1, 0.1, 0.1, 0.1, 0.1,
-            0.1, 0.1, 0.1, 0.1, 0.1,
-            0.1, 0.1, 0.1, 0.1, 0.1,
-            0.5]
+#obs_encoding_size: 1024
+#goal_encoding_size: 1024
+#twin_q: True
 soft_target_tau: 0.005
 
 # normalization for the action space
@@ -32,7 +25,37 @@ normalize: True
 
 # context
 context_type: temporal
-context_size: 5
+context_size: 0
+
+# image encoder
+img_encoder_kwargs:
+  kernel_sizes: [8, 4, 3]
+  n_channels: [32, 64, 64]
+  strides: [4, 2, 1]
+  paddings: [2, 1, 1]
+  hidden_activation: ReLU
+  hidden_init: xavier_uniform
+  norm_type: layer
+
+# contrastive critic
+contrastive_critic_kwargs:
+  hidden_sizes: [1024, 1024, 1024, 1024]
+  twin_q: True
+  representation_dim: 16
+  init_w: 1E-12
+  hidden_activation: ReLU
+  hidden_init: xavier_uniform
+  layer_norm: True
+
+# policy
+policy_kwargs:
+  hidden_sizes: [1024, 1024, 1024, 1024]
+  hidden_activation: ReLU
+  hidden_init: xavier_uniform
+  layer_norm: True
+  min_log_std: -13
+  max_log_std: -2
+  std: 0.1
 
 # discount factor
 discount: 0.99

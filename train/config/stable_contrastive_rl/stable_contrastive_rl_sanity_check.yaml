@@ -1,13 +1,13 @@
-project_name: stable_contrastive_rl
+project_name: stable_contrastive_rl_debug
 run_name: stable_contrastive_rl_sanity_check_debug
 
 # training setup
 use_wandb: False # set to false if you don't want to log to wandb
 train: rl
-batch_size: 16  # default = 16, full size = 207
-eval_batch_size: 16  # default = 400
+batch_size: 2048  # default = 16, full size = 207
+eval_batch_size: 2048  # default = 400
 epochs: 120
-gpu_ids: [0, 1] # list of gpu ids to use
+gpu_ids: [0] # list of gpu ids to use
 num_workers: 32
 lr: 5e-4
 optimizer: adam
@@ -15,16 +15,9 @@ seed: 0
 
 # model params
 model_type: stable_contrastive_rl
-obs_encoding_size: 1024
-goal_encoding_size: 1024
-twin_q: True
-min_log_std: -13
-max_log_std: -2
-fixed_std: [0.1, 0.1, 0.1, 0.1, 0.1,
-            0.1, 0.1, 0.1, 0.1, 0.1,
-            0.1, 0.1, 0.1, 0.1, 0.1,
-            0.1, 0.1, 0.1, 0.1, 0.1,
-            0.5]
+#obs_encoding_size: 1024
+#goal_encoding_size: 1024
+#twin_q: True
 soft_target_tau: 0.005
 
 # normalization for the action space
@@ -32,7 +25,37 @@ normalize: True
 
 # context
 context_type: temporal
-context_size: 5
+context_size: 0
+
+# image encoder
+img_encoder_kwargs:
+  kernel_sizes: [8, 4, 3]
+  n_channels: [32, 64, 64]
+  strides: [4, 2, 1]
+  paddings: [2, 1, 1]
+  hidden_activation: ReLU
+  hidden_init: xavier_uniform
+  norm_type: layer
+
+# contrastive critic
+contrastive_critic_kwargs:
+  hidden_sizes: [1024, 1024, 1024, 1024]
+  twin_q: True
+  representation_dim: 16
+  init_w: 1E-12
+  hidden_activation: ReLU
+  hidden_init: xavier_uniform
+  layer_norm: True
+
+# policy
+policy_kwargs:
+  hidden_sizes: [1024, 1024, 1024, 1024]
+  hidden_activation: ReLU
+  hidden_init: xavier_uniform
+  layer_norm: True
+  min_log_std: -13
+  max_log_std: -2
+  std: 0.1
 
 # discount factor
 discount: 0.99
@@ -74,8 +97,6 @@ image_size: [85, 64] # width, height
 datasets:
   recon:
     data_folder: datasets/recon  # path to the dataset
-#    train: gnm_train/data/data_splits/recon_small/train/ # path to the train dir with traj_names.txt, ~15776 samples
-#    test: gnm_train/data/data_splits/recon_small/test/ # path to the test dir with traj_names.txt, ~4544 samples
     train: gnm_train/data/data_splits/recon_subset/train/ # path to the train dir with traj_names.txt
     test: gnm_train/data/data_splits/recon_subset/test/ # path to the test dir with traj_names.txt
     end_slack: 3 # because many trajectories end in collisions

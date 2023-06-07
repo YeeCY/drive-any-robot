@@ -68,6 +68,9 @@ def main(config):
     ]
     transform = transforms.Compose(transform)
     aspect_ratio = config["image_size"][0] / config["image_size"][1]
+    if config["img_encoder_kwargs"]:
+        config["img_encoder_kwargs"]["input_width"] = config["image_size"][1]
+        config["img_encoder_kwargs"]["input_height"] = config["image_size"][0]
 
     # Load the data
     train_dist_dataset = []
@@ -226,13 +229,10 @@ def main(config):
             config["context_size"],
             config["len_traj_pred"],
             config["learn_angle"],
-            config["obs_encoding_size"],
-            config["goal_encoding_size"],
-            config["twin_q"],
-            config["min_log_std"],
-            config["max_log_std"],
-            config["fixed_std"],
             config["soft_target_tau"],
+            config["img_encoder_kwargs"],
+            config["contrastive_critic_kwargs"],
+            config["policy_kwargs"]
         )
     else:
         raise ValueError(f"Model {config['model']} not supported")
