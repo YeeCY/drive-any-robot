@@ -104,7 +104,7 @@ datasets:
     discount: 0.99  # discount factor used to sample geometric future goals, can be a negative value for random future goals
 
 # logging stuff
-print_log_freq: 100 # in iterations
-image_log_freq: 500 # in iterations
+print_log_freq: 5 # in iterations
+image_log_freq: 25 # in iterations
 num_images_log: 16 # number of images to log in a logging iteration
 pairwise_test_freq: 1 # in epochs

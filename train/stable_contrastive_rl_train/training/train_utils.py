@@ -997,11 +997,21 @@ def evaluate(
                     use_wandb=use_wandb,
                 )
 
-                # del metric_waypoint_spacing
-                # del global_waypoint_pred
-                # del waypoint_oracle
-                # del waypoint_oracle_critic
-                # torch.cuda.empty_cache()
+            del dist_obs_image
+            del dist_goal_image
+            del dist_label
+
+            del waypoint_obs_image
+            del waypoint_goal_image
+            del waypoint_dataset_index
+            del waypoint_goal_pos
+            del waypoint_oracle
+            del waypoint_oracle_critic
+            del waypoint_pred
+            del waypoint_pred_critic
+            del waypoint_label
+            del waypoint_label_critic
+            torch.cuda.empty_cache()
     data_log = {}
     for var in variables:
         log_display = f"(epoch {epoch}) "
@@ -1010,22 +1020,6 @@ def evaluate(
     print()
     if use_wandb:
         wandb.log(data_log)
-
-    del dist_obs_image
-    del dist_goal_image
-    del dist_label
-
-    del waypoint_obs_image
-    del waypoint_goal_image
-    del waypoint_dataset_index
-    del waypoint_goal_pos
-    del waypoint_oracle
-    del waypoint_oracle_critic
-    del waypoint_pred
-    del waypoint_pred_critic
-    del waypoint_label
-    del waypoint_label_critic
-    torch.cuda.empty_cache()
 
     return critic_loss_logger.average(), actor_loss_logger.average()
 
