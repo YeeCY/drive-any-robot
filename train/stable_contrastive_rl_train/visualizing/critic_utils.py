@@ -23,6 +23,8 @@ from gnm_train.visualizing.action_utils import (
     plot_trajs_and_points_on_image,
 )
 
+EPS = 1e-6
+
 # load data_config.yaml
 with open(os.path.join(os.path.dirname(__file__), "../data/data_config.yaml"), "r") as f:
     data_config = yaml.safe_load(f)
@@ -197,11 +199,11 @@ def plot_oracle_critic_pred(
 
     critic_min, critic_max = oracle_waypoints_critic.min(), oracle_waypoints_critic.max()
     normalized_oracle_waypoints_critic = (
-        oracle_waypoints_critic - critic_min) / (critic_max - critic_min)
+        oracle_waypoints_critic - critic_min) / (critic_max - critic_min + EPS)
     normalized_pred_waypoints_critic = (
-        pred_waypoints_critic - critic_min) / (critic_max - critic_min)
+        pred_waypoints_critic - critic_min) / (critic_max - critic_min + EPS)
     normalized_label_waypoints_critic = (
-        label_waypoints_critic - critic_min) / (critic_max - critic_min)
+        label_waypoints_critic - critic_min) / (critic_max - critic_min + EPS)
 
     # vmin, vmax = floor(oracle_critics.min(), 6), ceil(oracle_critics.max(), 6)
     # norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)

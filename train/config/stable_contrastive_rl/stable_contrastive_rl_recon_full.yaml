@@ -4,11 +4,11 @@ run_name: stable_contrastive_rl_recon_full
 # training setup
 use_wandb: True # set to false if you don't want to log to wandb
 train: rl
-batch_size: 2048  # 200 for mc, 160 for td
-eval_batch_size: 2048  # 200 for mc, 160 for td
+batch_size: 1024  # 200 for mc, 160 for td
+eval_batch_size: 1024  # 200 for mc, 160 for td
 epochs: 10
 gpu_ids: [0] # list of gpu ids to use
-num_workers: 32
+num_workers: 16
 lr: 5e-4
 optimizer: adam
 seed: 0
@@ -61,7 +61,7 @@ policy_kwargs:
 discount: 0.99
 
 # whether to use C-Learning (TD) or Contrastive NCE (MC)
-use_td: True
+use_td: False
 
 # GCBC
 bc_coef: 0.05  # td = 0.01 - 0.05
