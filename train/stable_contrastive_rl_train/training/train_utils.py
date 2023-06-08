@@ -284,8 +284,6 @@ def train(
             [action_orien_cos_sim_logger, multi_action_orien_cos_sim_logger]
         )
 
-    import time
-    start_time = time.time()
     num_batches = min(len(train_dist_loader), len(train_waypoint_loader))
     for i, val in enumerate(zip(train_dist_loader, train_waypoint_loader)):
         dist_vals, waypoint_vals = val
@@ -313,9 +311,6 @@ def train(
             waypoint_yaw,
             waypoint_dataset_index,
         ) = waypoint_vals
-
-        end_time = time.time()
-        print("Time to get a batch of data: {} secs".format(end_time - start_time))
 
         # (
         #     obs_image,
@@ -629,8 +624,6 @@ def train(
         del waypoint_label
         del waypoint_label_critic
         torch.cuda.empty_cache()
-
-        start_time = time.time()
 
     return
 
