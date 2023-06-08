@@ -1197,8 +1197,8 @@ def get_critic_loss(model, obs, next_obs, action, goal, discount, use_td=False):
 
     waypoint_logits = torch.mean(logits, dim=-1)
     waypoint_correct = (torch.argmax(waypoint_logits, dim=-1) == torch.argmax(I, dim=-1))
-    waypoint_logits_pos = torch.sum(waypoint_correct * I) / torch.sum(I)
-    waypoint_logits_neg = torch.sum(waypoint_correct * (1 - I)) / torch.sum(1 - I)
+    waypoint_logits_pos = torch.sum(waypoint_logits * I) / torch.sum(I)
+    waypoint_logits_neg = torch.sum(waypoint_logits * (1 - I)) / torch.sum(1 - I)
 
     return critic_loss, {
         "waypoint_binary_accuracy": torch.mean(((waypoint_logits > 0) == I).float()),
