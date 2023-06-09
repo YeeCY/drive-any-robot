@@ -33,6 +33,7 @@ import torchvision.transforms.functional as TF
 # from stable_contrastive_rl_train.models.stable_contrastive_rl import StableContrastiveRL
 # from stable_contrastive_rl_train.evaluation.eval_utils import eval_rl_loop
 from gnm_train.data.data_utils import (
+    VISUALIZATION_IMAGE_SIZE,
     get_image_path
 )
 from gnm_train.visualizing.visualize_utils import (

@@ -132,31 +132,30 @@ def eval_loop(
         # torch.save(checkpoint, latest_path)
         # torch.save(checkpoint, numbered_path)  # keep track of model at every epoch
 
-        # FIXME (chongyiz): stack(): argument 'tensors' (position 1) must be tuple of Tensors, not Tensor
-        # print(f"Start Pairwise Testing Epoch {epoch}/{current_epoch + epochs - 1}")
-        # for dataset_type in test_dataloaders:
-        #     if "pairwise" in test_dataloaders[dataset_type]:
-        #         pairwise_dist_loader = test_dataloaders[dataset_type]["pairwise"]
-        #         pairwise_accuracy, pairwise_auc, failure_index_to_data = pairwise_acc(
-        #             model,
-        #             pairwise_dist_loader,
-        #             device,
-        #             project_folder,
-        #             epoch,
-        #             dataset_type,
-        #             print_log_freq,
-        #             image_log_freq,
-        #             num_images_log,
-        #             use_wandb=use_wandb,
-        #             save_failure_index_to_data=save_failure_index_to_data,
-        #         )
-        #
-        #         if use_wandb:
-        #             wandb.log({f"{dataset_type}_pairwise_acc": pairwise_accuracy})
-        #             wandb.log({f"{dataset_type}_pairwise_auc": pairwise_auc})
-        #
-        #         print(f"{dataset_type}_pairwise_acc: {pairwise_accuracy}")
-        #         print(f"{dataset_type}_pairwise_auc: {pairwise_auc}")
+        print(f"Start Pairwise Testing Epoch {epoch}/{current_epoch + epochs - 1}")
+        for dataset_type in test_dataloaders:
+            if "pairwise" in test_dataloaders[dataset_type]:
+                pairwise_dist_loader = test_dataloaders[dataset_type]["pairwise"]
+                pairwise_accuracy, pairwise_auc, failure_index_to_data = pairwise_acc(
+                    model,
+                    pairwise_dist_loader,
+                    device,
+                    project_folder,
+                    epoch,
+                    dataset_type,
+                    print_log_freq,
+                    image_log_freq,
+                    num_images_log,
+                    use_wandb=use_wandb,
+                    save_failure_index_to_data=save_failure_index_to_data,
+                )
+
+                if use_wandb:
+                    wandb.log({f"{dataset_type}_pairwise_acc": pairwise_accuracy})
+                    wandb.log({f"{dataset_type}_pairwise_auc": pairwise_auc})
+
+                print(f"{dataset_type}_pairwise_acc: {pairwise_accuracy}")
+                print(f"{dataset_type}_pairwise_auc: {pairwise_auc}")
 
     # if save_failure_index_to_data:
     #     # save failure_idxs_to_data

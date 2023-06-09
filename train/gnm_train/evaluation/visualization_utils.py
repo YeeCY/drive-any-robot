@@ -266,7 +266,7 @@ def visualize_dist_pairwise_pred(
             int(index_to_data["curr_time"][i]),
             int(index_to_data["close_time"][i]),
             int(index_to_data["far_time"][i]),
-            list(torch.stack(index_to_data["context_times"]).numpy()[:, i]),
+            list(index_to_data["context_times"].numpy()[i]),
         )
         result = {
             "f_close": index_to_data["f_close"][i],
@@ -274,7 +274,7 @@ def visualize_dist_pairwise_pred(
             "curr_time": int(index_to_data["curr_time"][i]),
             "close_time": int(index_to_data["close_time"][i]),
             "far_time": int(index_to_data["far_time"][i]),
-            "context_times": list(torch.stack(index_to_data["context_times"]).numpy()[:, i]),
+            "context_times": list(index_to_data["context_times"].numpy()[i]),
             "far_dist_pred": far_dist_pred,
             "far_dist_label": far_dist_label,
             "close_dist_pred": close_dist_pred,
