@@ -6,13 +6,14 @@ from typing import Dict
 
 # from gnm_train.visualizing.distance_utils import visualize_dist_pred, visualize_dist_pairwise_pred
 # from stable_contrastive_rl_train.visualizing.critic_utils import visualize_critic_pred
-# from stable_contrastive_rl_train.training.train_utils import (
-#     get_critic_loss,
-#     get_actor_loss,
-# )
+from stable_contrastive_rl_train.evaluation.visualization_utils import visualize_critic_pred
+from stable_contrastive_rl_train.training.train_utils import (
+    get_critic_loss,
+    get_actor_loss,
+)
 from gnm_train.visualizing.visualize_utils import to_numpy
 from gnm_train.evaluation.visualization_utils import visualize_dist_pairwise_pred
-# from gnm_train.training.logger import Logger
+from gnm_train.training.logger import Logger
 
 import torch
 import torch.nn as nn
@@ -49,6 +50,7 @@ def eval_rl_loop(
     # stop_grad_actor_img_encoder: bool = True,
     use_actor_waypoint_q_loss: bool = False,
     use_actor_dist_q_loss: bool = False,
+    waypoint_gcbc_loss_scale: float = 1.0,
     learn_angle: bool = True,
     use_wandb: bool = True,
     pairwise_pred_use_critic: bool = False,
@@ -107,73 +109,402 @@ def eval_rl_loop(
 
         # eval_total_losses = []
         # eval_critic_losses, eval_actor_losses = [], []
-        # for dataset_type in test_dataloaders:
-            # print(
-            #     f"Start {dataset_type} Stable Contrastive RL Testing Epoch {epoch}/{current_epoch + epochs - 1}"
-            # )
-            # dist_loader = test_dataloaders[dataset_type]["distance"]
-            # action_loader = test_dataloaders[dataset_type]["action"]
-            # test_critic_loss, test_actor_loss = evaluate(
-            #     dataset_type,
-            #     model,
-            #     dist_loader,
-            #     action_loader,
-            #     device,
-            #     project_folder,
-            #     normalized,
-            #     epoch,
-            #     discount,
-            #     use_td,
-            #     bc_coef,
-            #     mle_gcbc_loss,
-            #     use_actor_waypoint_q_loss,
-            #     use_actor_dist_q_loss,
-            #     learn_angle,
-            #     print_log_freq,
-            #     image_log_freq,
-            #     num_images_log,
-            #     use_wandb,
-            # )
-            #
-            # # total_eval_loss = get_total_loss(test_dist_loss, test_action_loss, alpha)
-            # # eval_total_losses.append(total_eval_loss)
-            # eval_critic_losses.append(test_critic_loss)
-            # eval_actor_losses.append(test_actor_loss)
-            # # wandb.log({f"{dataset_type}_total_loss": total_eval_loss})
-            # # print(f"{dataset_type}_total_loss: {total_eval_loss}")
-            #
-            # if use_wandb:
-            #     wandb.log({f"{dataset_type}_critic_loss": test_critic_loss})
-            #     wandb.log({f"{dataset_type}_actor_loss": test_actor_loss})
-            #
-            # print(f"{dataset_type}_critic_loss: {test_critic_loss}")
-            # print(f"{dataset_type}_actor_loss: {test_actor_loss}")
-
-        print(f"Start Pairwise Testing Epoch {epoch}/{current_epoch + epochs - 1}")
+        eval_critic_losses, eval_actor_losses = [], []
         for dataset_type in test_dataloaders:
-            if "pairwise" in test_dataloaders[dataset_type]:
-                pairwise_dist_loader = test_dataloaders[dataset_type]["pairwise"]
-                pairwise_accuracy, pairwise_auc = pairwise_acc(
-                    model,
-                    pairwise_dist_loader,
-                    device,
-                    project_folder,
-                    epoch,
-                    dataset_type,
-                    print_log_freq,
-                    image_log_freq,
-                    num_images_log,
-                    use_wandb=use_wandb,
-                    use_critic=pairwise_pred_use_critic,
+            print(
+                f"Start {dataset_type} Stable Contrastive RL Testing Epoch {epoch}/{current_epoch + epochs - 1}"
+            )
+            dist_loader = test_dataloaders[dataset_type]["distance"]
+            action_loader = test_dataloaders[dataset_type]["action"]
+            test_critic_loss, test_actor_loss = evaluate(
+                dataset_type,
+                model,
+                dist_loader,
+                action_loader,
+                device,
+                project_folder,
+                normalized,
+                epoch,
+                discount,
+                use_td,
+                bc_coef,
+                mle_gcbc_loss,
+                use_actor_waypoint_q_loss,
+                use_actor_dist_q_loss,
+                waypoint_gcbc_loss_scale,
+                learn_angle,
+                print_log_freq,
+                image_log_freq,
+                num_images_log,
+                use_wandb,
+            )
+
+            # total_eval_loss = get_total_loss(test_dist_loss, test_action_loss, alpha)
+            # eval_total_losses.append(total_eval_loss)
+            eval_critic_losses.append(test_critic_loss)
+            eval_actor_losses.append(test_actor_loss)
+            # wandb.log({f"{dataset_type}_total_loss": total_eval_loss})
+            # print(f"{dataset_type}_total_loss: {total_eval_loss}")
+
+            if use_wandb:
+                wandb.log({f"{dataset_type}_critic_loss": test_critic_loss})
+                wandb.log({f"{dataset_type}_actor_loss": test_actor_loss})
+
+            print(f"{dataset_type}_critic_loss: {test_critic_loss}")
+            print(f"{dataset_type}_actor_loss: {test_actor_loss}")
+
+        # FIXME (chongyi)
+        # print(f"Start Pairwise Testing Epoch {epoch}/{current_epoch + epochs - 1}")
+        # for dataset_type in test_dataloaders:
+        #     if "pairwise" in test_dataloaders[dataset_type]:
+        #         pairwise_dist_loader = test_dataloaders[dataset_type]["pairwise"]
+        #         pairwise_accuracy, pairwise_auc = pairwise_acc(
+        #             model,
+        #             pairwise_dist_loader,
+        #             device,
+        #             project_folder,
+        #             epoch,
+        #             dataset_type,
+        #             print_log_freq,
+        #             image_log_freq,
+        #             num_images_log,
+        #             use_wandb=use_wandb,
+        #             use_critic=pairwise_pred_use_critic,
+        #         )
+        #
+        #         if use_wandb:
+        #             wandb.log({f"{dataset_type}_pairwise_acc": pairwise_accuracy})
+        #             wandb.log({f"{dataset_type}_pairwise_auc": pairwise_auc})
+        #
+        #         print(f"{dataset_type}_pairwise_acc: {pairwise_accuracy}")
+        #         print(f"{dataset_type}_pairwise_auc: {pairwise_auc}")
+    print()
+
+
+def evaluate(
+    eval_type: str,
+    model: nn.Module,
+    eval_dist_loader: DataLoader,
+    eval_action_loader: DataLoader,
+    device: torch.device,
+    project_folder: str,
+    normalized: bool,
+    epoch: int = 0,
+    discount: float = 0.99,
+    use_td: bool = True,
+    bc_coef: float = 0.05,
+    mle_gcbc_loss: bool = False,
+    use_actor_waypoint_q_loss: bool = False,
+    use_actor_dist_q_loss: bool = False,
+    waypoint_gcbc_loss_scale: float = 1.0,
+    learn_angle: bool = True,
+    print_log_freq: int = 100,
+    image_log_freq: int = 1000,
+    num_images_log: int = 8,
+    use_wandb: bool = True,
+):
+    """
+    Evaluate the model on the given evaluation dataset.
+
+    Args:
+        eval_type (string): f"{data_type}_{eval_type}" (e.g. "recon_train", "gs_test", etc.)
+        model (nn.Module): model to evaluate
+        # eval_rl_loader (DataLoader): dataloader for evaluating RL algorithm
+        device (torch.device): device to use for evaluation
+        project_folder (string): path to project folder
+        epoch (int): current epoch
+        target_update_freq (int):
+        discount (float):
+        learn_angle (bool): whether to learn the angle of the action
+        print_log_freq (int): frequency of printing loss
+        image_log_freq (int): frequency of logging images
+        num_images_log (int): number of images to log
+        use_wandb (bool): whether to use wandb for logging
+    """
+    model.eval()
+
+    # critic loggers
+    critic_loss_logger = Logger("critic_loss", eval_type, window_size=print_log_freq)
+    waypoint_binary_acc_logger = Logger("critic/waypoint_binary_accuracy", eval_type, window_size=print_log_freq)
+    waypoint_categorical_acc_logger = Logger("critic/waypoint_categorical_accuracy", eval_type,
+                                             window_size=print_log_freq)
+    waypoint_logits_pos_logger = Logger("critic/waypoint_logits_pos", eval_type, window_size=print_log_freq)
+    waypoint_logits_neg_logger = Logger("critic/waypoint_logits_neg", eval_type, window_size=print_log_freq)
+    waypoint_logits_logger = Logger("critic/waypoint_logits", eval_type, window_size=print_log_freq)
+
+    # actor loggers
+    actor_loss_logger = Logger("actor_loss", eval_type, window_size=print_log_freq)
+    waypoint_actor_q_loss_logger = Logger("actor/waypoint_actor_q_loss", eval_type, window_size=print_log_freq)
+    waypoint_gcbc_loss_logger = Logger("actor/waypoint_gcbc_loss_logger", eval_type, window_size=print_log_freq)
+    waypoint_gcbc_mle_loss_logger = Logger("actor/waypoint_gcbc_mle_loss", eval_type, window_size=print_log_freq)
+    waypoint_gcbc_mse_loss_logger = Logger("actor/waypoint_gcbc_mse_loss", eval_type, window_size=print_log_freq)
+
+    # waypoint loggers
+    action_waypts_cos_sim_logger = Logger(
+        "actor/action_waypts_cos_sim", eval_type, window_size=print_log_freq
+    )
+    multi_action_waypts_cos_sim_logger = Logger(
+        "actor/multi_action_waypts_cos_sim", eval_type, window_size=print_log_freq
+    )
+
+    variables = [
+        critic_loss_logger,
+        waypoint_binary_acc_logger,
+        waypoint_categorical_acc_logger,
+        waypoint_logits_pos_logger,
+        waypoint_logits_neg_logger,
+        waypoint_logits_logger,
+        waypoint_actor_q_loss_logger,
+        waypoint_gcbc_loss_logger,
+        waypoint_gcbc_mle_loss_logger,
+        waypoint_gcbc_mse_loss_logger,
+        action_waypts_cos_sim_logger,
+        multi_action_waypts_cos_sim_logger,
+    ]
+    if learn_angle:
+        action_orien_cos_sim_logger = Logger(
+            "actor/action_orien_cos_sim", eval_type, window_size=print_log_freq
+        )
+        multi_action_orien_cos_sim_logger = Logger(
+            "actor/multi_action_orien_cos_sim", eval_type, window_size=print_log_freq
+        )
+        variables.extend(
+            [action_orien_cos_sim_logger, multi_action_orien_cos_sim_logger]
+        )
+
+    num_batches = min(len(eval_dist_loader), len(eval_action_loader))
+
+    with torch.no_grad():
+        for i, val in enumerate(zip(eval_dist_loader, eval_action_loader)):
+            dist_vals, waypoint_vals = val
+            (
+                dist_obs_image,
+                dist_next_obs_image,
+                dist_goal_image,
+                dist_trans_obs_image,
+                dist_trans_next_obs_image,
+                dist_trans_goal_image,
+                dist_label,
+                dist_dataset_index,
+                dist_index_to_data,
+            ) = dist_vals
+            (
+                waypoint_obs_image,
+                waypoint_next_obs_image,
+                waypoint_goal_image,
+                waypoint_trans_obs_image,
+                waypoint_trans_next_obs_image,
+                waypoint_trans_goal_image,
+                waypoint_goal_pos,
+                waypoint_label,
+                waypoint_oracle,
+                waypoint_curr_pos,
+                waypoint_yaw,
+                waypoint_dataset_index,
+                waypoint_index_to_data,
+            ) = waypoint_vals
+            dist_obs_data = dist_trans_obs_image.to(device)
+            dist_next_obs_data = dist_trans_next_obs_image.to(device)
+            dist_goal_data = dist_trans_goal_image.to(device)
+            dist_label = dist_label.to(device)
+
+            waypoint_obs_data = waypoint_trans_obs_image.to(device)
+            waypoint_next_obs_data = waypoint_trans_next_obs_image.to(device)
+            waypoint_goal_data = waypoint_trans_goal_image.to(device)
+            waypoint_label = waypoint_label.to(device)
+            waypoint_oracle = waypoint_oracle.to(device)
+            # waypoint_curr_pos = waypoint_curr_pos.to(device)
+            # waypoint_yaw = waypoint_yaw.to(device)
+
+            obs_data = (waypoint_obs_data, dist_obs_data)
+            next_obs_data = (waypoint_next_obs_data, dist_next_obs_data)
+            action_data = (waypoint_label.flatten(1), dist_label)
+            goal_data = (waypoint_goal_data, dist_goal_data)
+
+            # waypoint_oracle_obs_data = waypoint_obs_data[:, None].repeat_interleave(
+            #     waypoint_oracle.shape[1], dim=1)
+            # waypoint_oracle_goal_data = waypoint_goal_data[:, None].repeat_interleave(
+            #     waypoint_oracle.shape[1], dim=1)
+
+            critic_loss, critic_info = get_critic_loss(
+                model, obs_data, next_obs_data, action_data, goal_data,
+                discount, use_td=use_td)
+
+            actor_loss, actor_info = get_actor_loss(
+                model, obs_data, action_data, goal_data,
+                bc_coef=bc_coef, mle_gcbc_loss=mle_gcbc_loss,
+                use_actor_waypoint_q_loss=use_actor_waypoint_q_loss,
+                use_actor_dist_q_loss=use_actor_dist_q_loss,
+                waypoint_gcbc_loss_scale=waypoint_gcbc_loss_scale)
+
+            waypoint_pred = model(
+                waypoint_obs_data, waypoint_label.flatten(1), waypoint_goal_data)[-2]
+            waypoint_pred = waypoint_pred.reshape(waypoint_label.shape)
+            waypoint_pred_obs_repr, waypoint_pred_g_repr = model(
+                waypoint_obs_data, waypoint_pred.flatten(1), waypoint_goal_data)[:2]
+            waypoint_pred_logit = torch.einsum(
+                'ikl,jkl->ijl', waypoint_pred_obs_repr, waypoint_pred_g_repr)
+            waypoint_pred_logit = torch.diag(torch.mean(waypoint_pred_logit, dim=-1))
+            waypoint_pred_critic = torch.sigmoid(waypoint_pred_logit)[:, None]
+
+            waypoint_label_obs_repr, waypoint_label_g_repr = model(
+                waypoint_obs_data, waypoint_label.flatten(1), waypoint_goal_data)[:2]
+            waypoint_label_logits = torch.einsum(
+                'ikl,jkl->ijl', waypoint_label_obs_repr, waypoint_label_g_repr)
+            waypoint_label_logit = torch.diag(torch.mean(waypoint_label_logits, dim=-1))
+            waypoint_label_critic = torch.sigmoid(waypoint_label_logit)[:, None]
+
+            del waypoint_pred_logit
+            del waypoint_pred_obs_repr
+            del waypoint_pred_g_repr
+            del waypoint_label_logit
+            del waypoint_label_obs_repr
+            del waypoint_label_g_repr
+            torch.cuda.empty_cache()
+
+            # (chongyiz): Since we are using DataParallel, we have to use the same batch size
+            #   as training to make sure outputs from the networks are consistent (using for loop).
+            #   Otherwise, the critic predictions are not correct.
+            waypoint_oracle_critic = []
+            for idx in range(waypoint_oracle.shape[1]):
+                waypoint_oracle_obs_repr, waypoint_oracle_g_repr = model(
+                    waypoint_obs_data, waypoint_oracle[:, idx].flatten(1), waypoint_goal_data)[:2]
+                waypoint_oracle_logit = torch.einsum(
+                    'ikl,jkl->ijl', waypoint_oracle_obs_repr, waypoint_oracle_g_repr)
+                waypoint_oracle_logit = torch.diag(torch.mean(waypoint_oracle_logit, dim=-1))
+                waypoint_oracle_critic.append(torch.sigmoid(waypoint_oracle_logit)[:, None])
+
+                del waypoint_oracle_logit
+                del waypoint_oracle_obs_repr
+                del waypoint_oracle_g_repr
+                torch.cuda.empty_cache()
+            waypoint_oracle_critic = torch.stack(waypoint_oracle_critic, dim=1)
+
+            action_waypts_cos_sim = F.cosine_similarity(
+                waypoint_pred[:2], waypoint_label[:2], dim=-1
+            ).mean()
+            multi_action_waypts_cos_sim = F.cosine_similarity(
+                torch.flatten(waypoint_pred[:2], start_dim=1),
+                torch.flatten(waypoint_pred[:2], start_dim=1),
+                dim=-1,
+            ).mean()
+            if learn_angle:
+                action_orien_cos_sim = F.cosine_similarity(
+                    waypoint_pred[2:], waypoint_label[2:], dim=-1
+                ).mean()
+                multi_action_orien_cos_sim = F.cosine_similarity(
+                    torch.flatten(waypoint_pred[2:], start_dim=1),
+                    torch.flatten(waypoint_label[2:], start_dim=1),
+                    dim=-1,
+                ).mean()
+                action_orien_cos_sim_logger.log_data(action_orien_cos_sim.item())
+                multi_action_orien_cos_sim_logger.log_data(
+                    multi_action_orien_cos_sim.item()
                 )
 
-                if use_wandb:
-                    wandb.log({f"{dataset_type}_pairwise_acc": pairwise_accuracy})
-                    wandb.log({f"{dataset_type}_pairwise_auc": pairwise_auc})
+            critic_loss_logger.log_data(critic_loss.item())
+            waypoint_binary_acc_logger.log_data(critic_info["waypoint_binary_accuracy"].item())
+            waypoint_categorical_acc_logger.log_data(critic_info["waypoint_categorical_accuracy"].item())
+            waypoint_logits_pos_logger.log_data(critic_info["waypoint_logits_pos"].item())
+            waypoint_logits_neg_logger.log_data(critic_info["waypoint_logits_neg"].item())
+            waypoint_logits_logger.log_data(critic_info["waypoint_logits"].item())
 
-                print(f"{dataset_type}_pairwise_acc: {pairwise_accuracy}")
-                print(f"{dataset_type}_pairwise_auc: {pairwise_auc}")
+            actor_loss_logger.log_data(actor_loss.item())
+            waypoint_actor_q_loss_logger.log_data(actor_info["waypoint_actor_q_loss"].item())
+            waypoint_gcbc_loss_logger.log_data(actor_info["waypoint_gcbc_loss"].item())
+            waypoint_gcbc_mle_loss_logger.log_data(actor_info["waypoint_gcbc_mle_loss"].item())
+            waypoint_gcbc_mse_loss_logger.log_data(actor_info["waypoint_gcbc_mse_loss"].item())
+
+            action_waypts_cos_sim_logger.log_data(action_waypts_cos_sim.item())
+            multi_action_waypts_cos_sim_logger.log_data(multi_action_waypts_cos_sim.item())
+
+            # release GPU memory
+            del dist_obs_data
+            del dist_next_obs_data
+            del dist_goal_data
+
+            del waypoint_obs_data
+            del waypoint_next_obs_data
+            del waypoint_goal_data
+
+            del critic_loss
+            del critic_info
+            del actor_loss
+            del actor_info
+
+            del action_waypts_cos_sim
+            del multi_action_waypts_cos_sim
+            if learn_angle:
+                del action_orien_cos_sim
+                del multi_action_orien_cos_sim
+
+            torch.cuda.empty_cache()
+
+            if i % print_log_freq == 0:
+                log_display = f"(epoch {epoch}) (batch {i}/{num_batches - 1}) "
+                for var in variables:
+                    print(log_display + var.display())
+                print()
+
+            if i % image_log_freq == 0:
+                # visualize_dist_pred(
+                #     to_numpy(dist_obs_image),
+                #     to_numpy(dist_goal_image),
+                #     to_numpy(dist_pred),
+                #     to_numpy(dist_label),
+                #     eval_type,
+                #     project_folder,
+                #     epoch,
+                #     num_images_log,
+                #     use_wandb=use_wandb,
+                # )
+
+                visualize_critic_pred(
+                    to_numpy(waypoint_obs_image),
+                    to_numpy(waypoint_goal_image),
+                    to_numpy(waypoint_dataset_index),
+                    to_numpy(waypoint_goal_pos),
+                    to_numpy(waypoint_oracle),
+                    to_numpy(waypoint_oracle_critic),
+                    to_numpy(waypoint_pred),
+                    to_numpy(waypoint_pred_critic),
+                    to_numpy(waypoint_label),
+                    to_numpy(waypoint_label_critic),
+                    eval_type,
+                    normalized,
+                    project_folder,
+                    epoch,
+                    waypoint_index_to_data,
+                    num_images_log,
+                    use_wandb=use_wandb,
+                )
+
+            del dist_obs_image
+            del dist_goal_image
+            del dist_label
+
+            del waypoint_obs_image
+            del waypoint_goal_image
+            del waypoint_dataset_index
+            del waypoint_goal_pos
+            del waypoint_oracle
+            del waypoint_oracle_critic
+            del waypoint_pred
+            del waypoint_pred_critic
+            del waypoint_label
+            del waypoint_label_critic
+            torch.cuda.empty_cache()
+    data_log = {}
+    for var in variables:
+        log_display = f"(epoch {epoch}) "
+        data_log[var.full_name()] = var.average()
+        print(log_display + var.display())
     print()
+    if use_wandb:
+        wandb.log(data_log)
+
+    return critic_loss_logger.average(), actor_loss_logger.average()
+
 
 
 def pairwise_acc(

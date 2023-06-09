@@ -2,10 +2,195 @@ import os
 import wandb
 import pickle as pkl
 import numpy as np
+import yaml
 import torch
 from typing import List, Optional, Tuple
-from gnm_train.visualizing.visualize_utils import numpy_to_img
 import matplotlib.pyplot as plt
+
+from gnm_train.visualizing.visualize_utils import (
+    numpy_to_img,
+    VIZ_IMAGE_SIZE,
+    RED,
+    GREEN,
+    BLUE,
+    CYAN,
+    YELLOW,
+    MAGENTA,
+)
+from gnm_train.visualizing.action_utils import (
+    plot_trajs_and_points,
+    plot_trajs_and_points_on_image
+)
+
+# load data_config.yaml
+with open(os.path.join(os.path.dirname(__file__), "../data/data_config.yaml"), "r") as f:
+    data_config = yaml.safe_load(f)
+
+
+def visualize_traj_pred(
+    batch_obs_images: np.ndarray,
+    batch_goal_images: np.ndarray,
+    dataset_indices: np.ndarray,
+    batch_goals: np.ndarray,
+    batch_pred_waypoints: np.ndarray,
+    batch_label_waypoints: np.ndarray,
+    eval_type: str,
+    normalized: bool,
+    save_folder: str,
+    epoch: int,
+    index_to_data: dict,
+    num_images_preds: int = 8,
+    use_wandb: bool = True,
+    display: bool = False,
+):
+    visualize_path = None
+    if save_folder is not None:
+        visualize_path = os.path.join(
+            save_folder, "visualize", eval_type, f"epoch{epoch}", "action_prediction"
+        )
+
+    if not os.path.exists(visualize_path):
+        os.makedirs(visualize_path)
+
+    assert (
+        len(batch_obs_images)
+        == len(batch_goal_images)
+        == len(batch_goals)
+        == len(batch_pred_waypoints)
+        == len(batch_label_waypoints)
+    )
+
+    dataset_names = list(data_config.keys())
+    dataset_names.sort()
+
+    batch_size = batch_obs_images.shape[0]
+    wandb_list = []
+    if save_folder is not None:
+        result_save_path = os.path.join(visualize_path, f"results.pkl")
+    for i in range(min(batch_size, num_images_preds)):
+        obs_img = numpy_to_img(batch_obs_images[i])
+        goal_img = numpy_to_img(batch_goal_images[i])
+        dataset_name = dataset_names[int(dataset_indices[i])]
+        goal_pos = batch_goals[i]
+        pred_waypoints = batch_pred_waypoints[i]
+        label_waypoints = batch_label_waypoints[i]
+
+        if normalized:
+            pred_waypoints *= data_config[dataset_name]["metric_waypoint_spacing"]
+            label_waypoints *= data_config[dataset_name]["metric_waypoint_spacing"]
+            goal_pos *= data_config[dataset_name]["metric_waypoint_spacing"]
+
+        result_label = "f_curr={}_f_goal={}_curr_time={}_goal_time={}".format(
+            index_to_data["f_curr"][i],
+            index_to_data["f_goal"][i],
+            int(index_to_data["curr_time"][i]),
+            int(index_to_data["goal_time"][i]),
+        )
+        result = {
+            "f_curr": index_to_data["f_curr"][i],
+            "f_goal": index_to_data["f_goal"][i],
+            "curr_time": int(index_to_data["curr_time"][i]),
+            "goal_time": int(index_to_data["goal_time"][i]),
+            "goal_pos": goal_pos,
+            "pred_waypoints": pred_waypoints,
+            "label_waypoints": label_waypoints,
+        }
+
+        save_path = None
+        if visualize_path is not None:
+            save_path = os.path.join(visualize_path, f"{str(i).zfill(4)}.png")
+
+        compare_waypoints_pred_to_label(
+            obs_img,
+            goal_img,
+            dataset_name,
+            goal_pos,
+            pred_waypoints,
+            label_waypoints,
+            save_path,
+            display,
+        )
+
+        if os.path.exists(result_save_path):
+            with open(result_save_path, "rb") as f:
+                results = pkl.load(f)
+            results[result_label] = result
+            with open(result_save_path, "wb") as f:
+                pkl.dump(results, f)
+        else:
+            results = {result_label: result}
+            with open(result_save_path, "wb+") as f:
+                pkl.dump(results, f)
+
+        if use_wandb:
+            wandb_list.append(wandb.Image(save_path))
+    if use_wandb:
+        wandb.log({f"{eval_type}_action_prediction": wandb_list})
+
+
+def compare_waypoints_pred_to_label(
+    obs_img,
+    goal_img,
+    dataset_name: str,
+    goal_pos: np.ndarray,
+    pred_waypoints: np.ndarray,
+    label_waypoints: np.ndarray,
+    save_path: Optional[str] = None,
+    display: Optional[bool] = False,
+):
+    """
+    Compare predicted path with the gt path of waypoints using egocentric visualization.
+
+    Args:
+        obs_img: image of the observation
+        goal_img: image of the goal
+        dataset_name: name of the dataset found in data_config.yaml (e.g. "recon")
+        goal_pos: goal position in the image
+        pred_waypoints: predicted waypoints in the image
+        label_waypoints: label waypoints in the image
+        save_path: path to save the figure
+        display: whether to display the figure
+    """
+
+    fig, ax = plt.subplots(1, 3)
+    start_pos = np.array([0, 0])
+    if len(pred_waypoints.shape) > 2:
+        trajs = [*pred_waypoints, label_waypoints]
+    else:
+        trajs = [pred_waypoints, label_waypoints]
+    plot_trajs_and_points(
+        ax[0],
+        trajs,
+        [start_pos, goal_pos],
+        traj_colors=[CYAN, MAGENTA],
+        point_colors=[GREEN, RED],
+    )
+    plot_trajs_and_points_on_image(
+        ax[1],
+        obs_img,
+        dataset_name,
+        trajs,
+        [start_pos, goal_pos],
+        traj_colors=[CYAN, MAGENTA],
+        point_colors=[GREEN, RED],
+    )
+    ax[2].imshow(goal_img)
+    ax[2].xaxis.set_visible(False)
+    ax[2].yaxis.set_visible(False)
+
+    fig.set_size_inches(18.5, 10.5)
+    ax[0].set_title(f"Action Prediction")
+    ax[1].set_title(f"Observation")
+    ax[2].set_title(f"Goal")
+
+    if save_path is not None:
+        fig.savefig(
+            save_path,
+            bbox_inches="tight",
+        )
+
+    if not display:
+        plt.close(fig)
 
 
 def visualize_dist_pairwise_pred(

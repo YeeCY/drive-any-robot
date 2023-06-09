@@ -342,3 +342,146 @@ class GNM_Dataset(Dataset):
             data.append(dist_label)
         data.append(torch.LongTensor([self.dataset_index]))
         return tuple(data)
+
+
+class GNM_EvalDataset(GNM_Dataset):
+    def __getitem__(self, i: int) -> Tuple[torch.Tensor]:
+        f_curr, f_goal, curr_time, goal_time = self.index_to_data[i]
+        with open(os.path.join(self.data_folder, f_curr, "traj_data.pkl"), "rb") as f:
+            curr_traj_data = pickle.load(f)
+        curr_traj_len = len(curr_traj_data["position"])
+        assert curr_time < curr_traj_len, f"{curr_time} and {curr_traj_len}"
+
+        index_to_data = {
+            "f_curr": f_curr,
+            "curr_time": curr_time,
+            "f_goal": f_goal,
+            "goal_time": goal_time,
+        }
+
+        transf_obs_images = []
+        context = []
+        if self.context_type == "randomized":
+            # sample self.context_size random times from interval [0, curr_time) with no replacement
+            context_times = np.random.choice(
+                list(range(curr_time)), self.context_size, replace=False
+            )
+            context_times.append(curr_time)
+            context = [(f_curr, t) for t in context_times]
+        elif self.context_type == "randomized_temporal":
+            f_rand_curr, _, rand_curr_time, _ = self.index_to_data[
+                np.random.randint(0, len(self))
+            ]
+            context_times = list(
+                range(
+                    rand_curr_time + -self.context_size * self.waypoint_spacing,
+                    rand_curr_time,
+                    self.waypoint_spacing,
+                )
+            )
+            context = [(f_rand_curr, t) for t in context_times]
+            context.append((f_curr, curr_time))
+
+        elif self.context_type == "temporal":
+            # sample the last self.context_size times from interval [0, curr_time)
+            context_times = list(
+                range(
+                    curr_time + -self.context_size * self.waypoint_spacing,
+                    curr_time + 1,
+                    self.waypoint_spacing,
+                )
+            )
+            context = [(f_curr, t) for t in context_times]
+        else:
+            raise ValueError(f"Invalid type {self.context_type}")
+        for f, t in context:
+            obs_image_path = get_image_path(self.data_folder, f, t)
+            obs_image, transf_obs_image = img_path_to_data(
+                obs_image_path,
+                self.transform,
+                self.aspect_ratio,
+            )
+            transf_obs_images.append(transf_obs_image)
+        transf_obs_image = torch.cat(transf_obs_images, dim=0)
+
+        with open(os.path.join(self.data_folder, f_goal, "traj_data.pkl"), "rb") as f:
+            goal_traj_data = pickle.load(f)
+        goal_traj_len = len(goal_traj_data["position"])
+        assert goal_time < goal_traj_len, f"{goal_time} an {goal_traj_len}"
+        goal_image_path = get_image_path(self.data_folder, f_goal, goal_time)
+        goal_image, transf_goal_image = img_path_to_data(
+            goal_image_path,
+            self.transform,
+            self.aspect_ratio,
+        )
+
+        data = [
+            obs_image,
+            goal_image,
+            transf_obs_image,
+            transf_goal_image,
+        ]
+        if self.is_action:
+            spacing = self.waypoint_spacing
+            traj_len = min(self.len_traj_pred, (goal_time - curr_time) // spacing)
+            pos_goal = goal_traj_data["position"][goal_time, :2]
+            pos_list = curr_traj_data["position"][
+                       curr_time: curr_time + (traj_len + 1) * spacing: spacing,
+                       :2,
+                       ]
+            if self.learn_angle:
+                pos_goal = np.concatenate(
+                    (
+                        pos_goal,
+                        np.array(goal_traj_data["yaw"][goal_time]).reshape(1),
+                    ),
+                    axis=0,
+                )
+                pos_list_angle = curr_traj_data["yaw"][
+                                 curr_time: curr_time + (traj_len + 1) * spacing: spacing
+                                 ]
+                pos_list = np.concatenate(
+                    (pos_list, pos_list_angle.reshape(len(pos_list_angle), 1)),
+                    axis=1,
+                )
+                param_dim = 3
+            else:
+                param_dim = 2
+
+            goals_appendage = pos_goal * np.ones(
+                (self.len_traj_pred - traj_len, param_dim)
+            )
+            pos_list = np.concatenate((pos_list, goals_appendage), axis=0)
+            pos_nplist = np.array(pos_list[1:])
+            yaw = curr_traj_data["yaw"][curr_time]
+            waypoints = to_local_coords(pos_nplist, pos_list[0], yaw)
+            waypoints = torch.Tensor(waypoints.astype(float))
+            goal = to_local_coords(pos_goal, pos_list[0], yaw)
+            goal = torch.Tensor(goal.astype(float))
+            if self.learn_angle:  # localize the waypoint angles
+                waypoints[1:, 2] -= waypoints[0, 2]
+                waypoints = calculate_sin_cos(waypoints)
+            if self.normalize:
+                waypoints[:, :2] /= (
+                        self.data_config["metric_waypoint_spacing"] * self.waypoint_spacing
+                )  # only divide the dx and dy
+                goal[:2] /= (
+                        self.data_config["metric_waypoint_spacing"] * self.waypoint_spacing
+                )
+            data.extend(
+                [
+                    goal,
+                    waypoints,
+                ]
+            )
+        else:
+            if f_curr == f_goal:
+                dist_label = torch.FloatTensor(
+                    [(goal_time - curr_time) / self.waypoint_spacing]
+                )
+            else:  # negative mining
+                dist_label = torch.FloatTensor([self.max_dist_cat])
+            data.append(dist_label)
+        data.append(torch.LongTensor([self.dataset_index]))
+        data.append(index_to_data)
+        return tuple(data)

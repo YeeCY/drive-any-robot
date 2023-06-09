@@ -60,10 +60,13 @@ save_failure_index_to_data: True
 # GNM distance prediction drop-off
 #load_run: gnm/gnm_small_2023_05_25_14_17_06  # dist_max_cat = 20
 #load_run: gnm/gnm_small_2023_05_25_14_17_12  # dist_max_cat = 25
-load_run: gnm/gnm_small_2023_05_25_14_17_26  # dist_max_cat = 30
+#load_run: gnm/gnm_small_2023_05_25_14_17_26  # dist_max_cat = 30
+
+# GNM model trained on the full dataset
+load_run: gnm/gnm_debug_2023_03_10_20_05_22
 
 # logging stuff
-print_log_freq: 500 # in iterations
-image_log_freq: 1000 # in iterations
-num_images_log: 8 # number of images to log in a logging iteration
+print_log_freq: 5 # in iterations
+image_log_freq: 25 # in iterations
+num_images_log: 32 # number of images to log in a logging iteration
 pairwise_test_freq: 1 # in epochs

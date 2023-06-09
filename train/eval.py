@@ -13,7 +13,10 @@ import torch.backends.cudnn as cudnn
 from gnm_train.models.gnm import GNM
 from gnm_train.models.siamese import SiameseModel
 from gnm_train.models.stacked import StackedModel
-from gnm_train.data.gnm_dataset import GNM_Dataset
+from gnm_train.data.gnm_dataset import (
+    GNM_Dataset,
+    GNM_EvalDataset,
+)
 # from gnm_train.data.pairwise_distance_dataset import PairwiseDistanceDataset
 from gnm_train.data.pairwise_distance_dataset import (
     PairwiseDistanceEvalDataset,
@@ -22,7 +25,10 @@ from gnm_train.data.pairwise_distance_dataset import (
 from gnm_train.training.train_utils import load_model
 from gnm_train.evaluation.eval_utils import eval_loop
 
-from stable_contrastive_rl_train.data.rl_dataset import RLDataset
+from stable_contrastive_rl_train.data.rl_dataset import (
+    RLDataset,
+    RLEvalDataset
+)
 from stable_contrastive_rl_train.models.base_model import DataParallel
 from stable_contrastive_rl_train.models.stable_contrastive_rl import StableContrastiveRL
 from stable_contrastive_rl_train.evaluation.eval_utils import eval_rl_loop
@@ -65,6 +71,9 @@ def main(config):
     ]
     transform = transforms.Compose(transform)
     aspect_ratio = config["image_size"][0] / config["image_size"][1]
+    if config.get("img_encoder_kwargs", None):
+        config["img_encoder_kwargs"]["input_width"] = config["image_size"][1]
+        config["img_encoder_kwargs"]["input_height"] = config["image_size"][0]
 
     # Load the data
     # train_dist_dataset = []
@@ -128,7 +137,7 @@ def main(config):
                         )
                 else:
                     if config["eval"] == "rl":
-                        dataset = RLDataset(
+                        dataset = RLEvalDataset(
                             data_folder=data_config["data_folder"],
                             data_split_folder=data_config[data_split_type],
                             dataset_name=dataset_name,
@@ -150,7 +159,7 @@ def main(config):
                             normalize=config["normalize"],
                         )
                     else:
-                        dataset = GNM_Dataset(
+                        dataset = GNM_EvalDataset(
                             data_folder=data_config["data_folder"],
                             data_split_folder=data_config[data_split_type],
                             dataset_name=dataset_name,
@@ -234,13 +243,10 @@ def main(config):
             config["context_size"],
             config["len_traj_pred"],
             config["learn_angle"],
-            config["obs_encoding_size"],
-            config["goal_encoding_size"],
-            config["twin_q"],
-            config["min_log_std"],
-            config["max_log_std"],
-            config["fixed_std"],
             config["soft_target_tau"],
+            config["img_encoder_kwargs"],
+            config["contrastive_critic_kwargs"],
+            config["policy_kwargs"]
         )
     else:
         raise ValueError(f"Model {config['model']} not supported")
@@ -310,14 +316,14 @@ def main(config):
             epochs=config["epochs"],
             device=device,
             project_folder=config["project_folder"],
-            # normalized=config["normalize"],
+            normalized=config["normalize"],
             print_log_freq=config["print_log_freq"],
             image_log_freq=config["image_log_freq"],
             num_images_log=config["num_images_log"],
             # pairwise_test_freq=config["pairwise_test_freq"],
             current_epoch=current_epoch,
-            # learn_angle=config["learn_angle"],
-            # alpha=config["alpha"],
+            learn_angle=config["learn_angle"],
+            alpha=config["alpha"],
             use_wandb=config["use_wandb"],
             save_failure_index_to_data=config["save_failure_index_to_data"],
         )
@@ -343,14 +349,13 @@ def main(config):
             pairwise_test_freq=config["pairwise_test_freq"],
             current_epoch=current_epoch,
             learn_angle=config["learn_angle"],
-            # target_update_freq=config["target_update_freq"],
-            # discount=config["discount"],
-            # use_td=config["use_td"],
-            # bc_coef=config["bc_coef"],
-            # mle_gcbc_loss=config["mle_gcbc_loss"],
-            # stop_grad_actor_img_encoder=config["stop_grad_actor_img_encoder"],
-            # use_actor_waypoint_q_loss=config["use_actor_waypoint_q_loss"],
-            # use_actor_dist_q_loss=config["use_actor_dist_q_loss"],
+            discount=config["discount"],
+            use_td=config["use_td"],
+            bc_coef=config["bc_coef"],
+            mle_gcbc_loss=config["mle_gcbc_loss"],
+            use_actor_waypoint_q_loss=config["use_actor_waypoint_q_loss"],
+            use_actor_dist_q_loss=config["use_actor_dist_q_loss"],
+            waypoint_gcbc_loss_scale=config["waypoint_gcbc_loss_scale"],
             use_wandb=config["use_wandb"],
             pairwise_pred_use_critic=config["pairwise_pred_use_critic"],
         )

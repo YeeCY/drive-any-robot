@@ -468,3 +468,228 @@ class RLDataset(Dataset):
 
         data.append(torch.LongTensor([self.dataset_index]))
         return tuple(data)
+
+
+class RLEvalDataset(RLDataset):
+    def __getitem__(self, i: int) -> Tuple[torch.Tensor]:
+        # f_curr, f_goal, curr_time, goal_time = self.index_to_data[i]
+        f_curr, _, curr_time, _ = self.index_to_data[i]
+        # We need to resample goal for each data
+        with open(os.path.join(self.data_folder, f_curr, "traj_data.pkl"), "rb") as f:
+            curr_traj_data = pickle.load(f)
+        curr_traj_len = len(curr_traj_data["position"])
+        assert curr_time < curr_traj_len, f"{curr_time} and {curr_traj_len}"
+
+        max_len = min(
+            int(self.max_dist_cat * self.waypoint_spacing),
+            curr_traj_len - curr_time - 1,
+        )
+
+        # sample a distance from the distance categories as long as it is less than the trajectory length
+        filter_func = (
+            lambda dist: int(dist * self.waypoint_spacing) <= max_len
+        )
+        len_to_goal = self.label_balancer.sample(filter_func)
+
+        # if the length to the goal is negative, then we are using negative mining (sample an goal from another trajectory)
+        if len_to_goal == -1:
+            new = np.random.randint(1, len(self.traj_names))
+            f_rand = self.traj_names[(i + new) % len(self.traj_names)]
+            with open(
+                    os.path.join(self.data_folder, f_rand, "traj_data.pkl"),
+                    "rb",
+            ) as f4:
+                rand_traj_data = pickle.load(f4)
+            rand_traj_len = len(rand_traj_data["position"])
+            goal_time = np.random.randint(rand_traj_len)
+            f_goal = f_rand
+        else:
+            goal_time = curr_time + int(
+                len_to_goal * self.waypoint_spacing
+            )
+            f_goal = f_curr
+
+        index_to_data = {
+            "f_curr": f_curr,
+            "curr_time": curr_time,
+            "f_goal": f_goal,
+            "goal_time": goal_time,
+        }
+
+        transf_obs_images = []
+        transf_next_obs_images = []
+        if self.context_type == "randomized":
+            # sample self.context_size random times from interval [0, curr_time) with no replacement
+            context_times = np.random.choice(
+                list(range(curr_time)), self.context_size, replace=False
+            )
+            context_times.append(curr_time)
+            context = [(f_curr, t) for t in context_times]
+
+            # TODO (chongyiz): add next obs context
+        elif self.context_type == "randomized_temporal":
+            f_rand_curr, _, rand_curr_time, _ = self.index_to_data[
+                np.random.randint(0, len(self))
+            ]
+            context_times = list(
+                range(
+                    rand_curr_time + -self.context_size * self.waypoint_spacing,
+                    rand_curr_time,
+                    self.waypoint_spacing,
+                )
+            )
+            context = [(f_rand_curr, t) for t in context_times]
+            context.append((f_curr, curr_time))
+
+            # TODO (chongyiz): add next obs context
+        elif self.context_type == "temporal":
+            # sample the last self.context_size times from interval [0, curr_time)
+            context_times = list(
+                range(
+                    curr_time + -self.context_size * self.waypoint_spacing,
+                    curr_time + 1,
+                    self.waypoint_spacing,
+                )
+            )
+            context = [(f_curr, t) for t in context_times]
+            next_context = [(f_curr, t + 1) for t in context_times]
+        else:
+            raise ValueError(f"Invalid type {self.context_type}")
+        for (f, t), (next_f, next_t) in zip(context, next_context):
+            obs_image_path = get_image_path(self.data_folder, f, t)
+            obs_image, transf_obs_image = img_path_to_data(
+                obs_image_path,
+                self.transform,
+                self.aspect_ratio,
+            )
+            transf_obs_images.append(transf_obs_image)
+
+            next_obs_image_path = get_image_path(self.data_folder, next_f, next_t)
+            next_obs_image, transf_next_obs_image = img_path_to_data(
+                next_obs_image_path,
+                self.transform,
+                self.aspect_ratio,
+            )
+            transf_next_obs_images.append(transf_next_obs_image)
+
+        transf_obs_image = torch.cat(transf_obs_images, dim=0)
+        transf_next_obs_image = torch.cat(transf_next_obs_images, dim=0)
+
+        with open(os.path.join(self.data_folder, f_goal, "traj_data.pkl"), "rb") as f:
+            goal_traj_data = pickle.load(f)
+        goal_traj_len = len(goal_traj_data["position"])
+        assert goal_time < goal_traj_len, f"{goal_time} an {goal_traj_len}"
+        goal_image_path = get_image_path(self.data_folder, f_goal, goal_time)
+        goal_image, transf_goal_image = img_path_to_data(
+            goal_image_path,
+            self.transform,
+            self.aspect_ratio,
+        )
+
+        data = [
+            obs_image,
+            next_obs_image,
+            goal_image,
+            transf_obs_image,
+            transf_next_obs_image,
+            transf_goal_image,
+        ]
+
+        if self.is_action:
+            spacing = self.waypoint_spacing
+            traj_len = min(self.len_traj_pred, (goal_time - curr_time) // spacing)
+            pos_goal = goal_traj_data["position"][goal_time, :2]
+            pos_list = curr_traj_data["position"][
+                       curr_time: curr_time + (traj_len + 1) * spacing: spacing,
+                       :2,
+                       ]
+            if self.learn_angle:
+                pos_goal = np.concatenate(
+                    (
+                        pos_goal,
+                        np.array(goal_traj_data["yaw"][goal_time]).reshape(1),
+                    ),
+                    axis=0,
+                )
+                pos_list_angle = curr_traj_data["yaw"][
+                                 curr_time: curr_time + (traj_len + 1) * spacing: spacing
+                                 ]
+                pos_list = np.concatenate(
+                    (pos_list, pos_list_angle.reshape(len(pos_list_angle), 1)),
+                    axis=1,
+                )
+                param_dim = 3
+            else:
+                param_dim = 2
+
+            goals_appendage = pos_goal * np.ones(
+                (self.len_traj_pred - traj_len, param_dim)
+            )
+            pos_list = np.concatenate((pos_list, goals_appendage), axis=0)  # (x, y, angle)
+            pos_nplist = np.array(pos_list[1:])
+            yaw = curr_traj_data["yaw"][curr_time]
+            waypoints = to_local_coords(pos_nplist, pos_list[0], yaw)
+            waypoints = torch.Tensor(waypoints.astype(float))
+            goal = to_local_coords(pos_goal, pos_list[0], yaw)
+            goal = torch.Tensor(goal.astype(float))
+            if self.learn_angle:  # localize the waypoint angles
+                waypoints[1:, 2] -= waypoints[0, 2]
+                waypoints = calculate_sin_cos(waypoints)
+            if self.normalize:
+                waypoints[:, :2] /= (
+                        self.data_config["metric_waypoint_spacing"] * self.waypoint_spacing
+                )  # only divide the dx and dy
+                goal[:2] /= (
+                        self.data_config["metric_waypoint_spacing"] * self.waypoint_spacing
+                )
+            data.extend(
+                [
+                    goal,
+                    waypoints,
+                ]
+            )
+
+            # pos_list = np.concatenate((pos_list, goals_appendage), axis=0)  # (x, y, angle)
+            # pos_nplist = np.array(pos_list[1:])
+            oracle_angles = np.linspace(
+                -np.deg2rad(self.oracle_angles), np.deg2rad(self.oracle_angles),
+                self.num_oracle_trajs)
+            # yaw = curr_traj_data["yaw"][curr_time]
+
+            oracle_waypoints = []
+            for oracle_angle in oracle_angles:
+                pos_np = np.array(pos_list[1:])
+                # pos_np[:, 2] -= oracle_angle
+                oracle_waypoint = to_local_coords(pos_np, pos_list[0], yaw - oracle_angle)
+
+                oracle_waypoints.append(oracle_waypoint)
+            oracle_waypoints = np.asarray(oracle_waypoints)
+            oracle_waypoints = torch.Tensor(oracle_waypoints.astype(float))
+
+            if self.learn_angle:  # localize the waypoint angles
+                oracle_waypoints[:, 1:, 2] -= oracle_waypoints[:, [0], 2]
+                oracle_waypoints = calculate_sin_cos(oracle_waypoints)
+            if self.normalize:
+                oracle_waypoints[..., :2] /= (
+                        self.data_config["metric_waypoint_spacing"] * self.waypoint_spacing
+                )  # only divide the dx and dy
+            data.append(oracle_waypoints)
+
+            data.append(torch.Tensor(pos_list[0].astype(float)))
+            data.append(torch.Tensor(np.array(yaw).astype(float)))
+            # data.append(torch.Tensor(pos_list.astype(float)))
+        else:
+            # temporal distance
+            if f_curr == f_goal:
+                dist_label = torch.FloatTensor(
+                    [(goal_time - curr_time) / self.waypoint_spacing]
+                )
+            else:  # negative mining
+                dist_label = torch.FloatTensor([self.max_dist_cat])
+            data.append(dist_label)
+
+        data.append(torch.LongTensor([self.dataset_index]))
+        data.append(index_to_data)
+
+        return tuple(data)
+

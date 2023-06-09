@@ -33,8 +33,10 @@ import torchvision.transforms.functional as TF
 # from stable_contrastive_rl_train.models.stable_contrastive_rl import StableContrastiveRL
 # from stable_contrastive_rl_train.evaluation.eval_utils import eval_rl_loop
 from gnm_train.data.data_utils import (
-    VISUALIZATION_IMAGE_SIZE,
     get_image_path
+)
+from gnm_train.visualizing.visualize_utils import (
+    VIZ_IMAGE_SIZE
 )
 
 
@@ -74,7 +76,9 @@ def get_image(path, aspect_ratio):
         img, (h, int(h * aspect_ratio))
     )  # crop to the right ratio
     viz_img = TF.resize(img, VISUALIZATION_IMAGE_SIZE)
-    viz_img = np.array(viz_img)
+
+    viz_img = Image.fromarray(np.array(viz_img))
+    viz_img = viz_img.resize(VIZ_IMAGE_SIZE)
 
     return viz_img
 

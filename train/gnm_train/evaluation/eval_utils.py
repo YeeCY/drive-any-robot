@@ -5,10 +5,12 @@ import numpy as np
 from sklearn.metrics import roc_auc_score
 from typing import List, Optional, Dict
 
-from gnm_train.visualizing.action_utils import visualize_traj_pred
+# from gnm_train.visualizing.action_utils import visualize_traj_pred
 # from gnm_train.visualizing.distance_utils import visualize_dist_pred, visualize_dist_pairwise_pred
+from gnm_train.evaluation.visualization_utils import visualize_traj_pred
 from gnm_train.visualizing.visualize_utils import to_numpy
 from gnm_train.training.logger import Logger
+from gnm_train.training.train_utils import get_total_loss
 from gnm_train.evaluation.visualization_utils import visualize_dist_pairwise_pred
 
 import torch
@@ -27,14 +29,14 @@ def eval_loop(
     epochs: int,
     device: torch.device,
     project_folder: str,
-    # normalized: bool,
+    normalized: bool,
     print_log_freq: int = 100,
     image_log_freq: int = 1000,
     num_images_log: int = 8,
     # pairwise_test_freq: int = 5,
     current_epoch: int = 0,
-    # alpha: float = 0.5,
-    # learn_angle: bool = True,
+    alpha: float = 0.5,
+    learn_angle: bool = True,
     use_wandb: bool = True,
     save_failure_index_to_data: bool = False,
 ):
@@ -84,41 +86,41 @@ def eval_loop(
         #     use_wandb,
         # )
         #
-        # eval_total_losses = []
-        # for dataset_type in test_dataloaders:
-        #     print(
-        #         f"Start {dataset_type} GNM Testing Epoch {epoch}/{current_epoch + epochs - 1}"
-        #     )
-        #     dist_loader = test_dataloaders[dataset_type]["distance"]
-        #     action_loader = test_dataloaders[dataset_type]["action"]
-        #     test_dist_loss, test_action_loss = evaluate(
-        #         dataset_type,
-        #         model,
-        #         dist_loader,
-        #         action_loader,
-        #         device,
-        #         project_folder,
-        #         normalized,
-        #         epoch,
-        #         alpha,
-        #         learn_angle,
-        #         print_log_freq,
-        #         image_log_freq,
-        #         num_images_log,
-        #         use_wandb,
-        #     )
-        #
-        #     total_eval_loss = get_total_loss(test_dist_loss, test_action_loss, alpha)
-        #     eval_total_losses.append(total_eval_loss)
-        #     print(f"{dataset_type}_total_loss: {total_eval_loss}")
-        #     print(f"{dataset_type}_dist_loss: {test_dist_loss}")
-        #     print(f"{dataset_type}_action_loss: {test_action_loss}")
-        #
-        #     if use_wandb:
-        #         wandb.log({f"{dataset_type}_total_loss": total_eval_loss})
-        #         wandb.log({f"{dataset_type}_dist_loss": test_dist_loss})
-        #         wandb.log({f"{dataset_type}_action_loss": test_action_loss})
-        #
+        eval_total_losses = []
+        for dataset_type in test_dataloaders:
+            print(
+                f"Start {dataset_type} GNM Testing Epoch {epoch}/{current_epoch + epochs - 1}"
+            )
+            dist_loader = test_dataloaders[dataset_type]["distance"]
+            action_loader = test_dataloaders[dataset_type]["action"]
+            test_dist_loss, test_action_loss = evaluate(
+                dataset_type,
+                model,
+                dist_loader,
+                action_loader,
+                device,
+                project_folder,
+                normalized,
+                epoch,
+                alpha,
+                learn_angle,
+                print_log_freq,
+                image_log_freq,
+                num_images_log,
+                use_wandb,
+            )
+
+            total_eval_loss = get_total_loss(test_dist_loss, test_action_loss, alpha)
+            eval_total_losses.append(total_eval_loss)
+            print(f"{dataset_type}_total_loss: {total_eval_loss}")
+            print(f"{dataset_type}_dist_loss: {test_dist_loss}")
+            print(f"{dataset_type}_action_loss: {test_action_loss}")
+
+            if use_wandb:
+                wandb.log({f"{dataset_type}_total_loss": total_eval_loss})
+                wandb.log({f"{dataset_type}_dist_loss": test_dist_loss})
+                wandb.log({f"{dataset_type}_action_loss": test_action_loss})
+
         # checkpoint = {
         #     "epoch": epoch,
         #     "model": model,
@@ -130,42 +132,209 @@ def eval_loop(
         # torch.save(checkpoint, latest_path)
         # torch.save(checkpoint, numbered_path)  # keep track of model at every epoch
 
-        print(f"Start Pairwise Testing Epoch {epoch}/{current_epoch + epochs - 1}")
-        for dataset_type in test_dataloaders:
-            if "pairwise" in test_dataloaders[dataset_type]:
-                pairwise_dist_loader = test_dataloaders[dataset_type]["pairwise"]
-                pairwise_accuracy, pairwise_auc, failure_index_to_data = pairwise_acc(
-                    model,
-                    pairwise_dist_loader,
-                    device,
-                    project_folder,
-                    epoch,
-                    dataset_type,
-                    print_log_freq,
-                    image_log_freq,
-                    num_images_log,
-                    use_wandb=use_wandb,
-                    save_failure_index_to_data=save_failure_index_to_data,
-                )
+        # FIXME (chongyiz): stack(): argument 'tensors' (position 1) must be tuple of Tensors, not Tensor
+        # print(f"Start Pairwise Testing Epoch {epoch}/{current_epoch + epochs - 1}")
+        # for dataset_type in test_dataloaders:
+        #     if "pairwise" in test_dataloaders[dataset_type]:
+        #         pairwise_dist_loader = test_dataloaders[dataset_type]["pairwise"]
+        #         pairwise_accuracy, pairwise_auc, failure_index_to_data = pairwise_acc(
+        #             model,
+        #             pairwise_dist_loader,
+        #             device,
+        #             project_folder,
+        #             epoch,
+        #             dataset_type,
+        #             print_log_freq,
+        #             image_log_freq,
+        #             num_images_log,
+        #             use_wandb=use_wandb,
+        #             save_failure_index_to_data=save_failure_index_to_data,
+        #         )
+        #
+        #         if use_wandb:
+        #             wandb.log({f"{dataset_type}_pairwise_acc": pairwise_accuracy})
+        #             wandb.log({f"{dataset_type}_pairwise_auc": pairwise_auc})
+        #
+        #         print(f"{dataset_type}_pairwise_acc: {pairwise_accuracy}")
+        #         print(f"{dataset_type}_pairwise_auc: {pairwise_auc}")
 
-                if use_wandb:
-                    wandb.log({f"{dataset_type}_pairwise_acc": pairwise_accuracy})
-                    wandb.log({f"{dataset_type}_pairwise_auc": pairwise_auc})
-
-                print(f"{dataset_type}_pairwise_acc: {pairwise_accuracy}")
-                print(f"{dataset_type}_pairwise_auc: {pairwise_auc}")
-
-    if save_failure_index_to_data:
-        # save failure_idxs_to_data
-        failure_index_to_data_path = os.path.join(
-            project_folder,
-            "pairwise_dist_prediction_failure_index_to_data.pkl",
-        )
-        with open(failure_index_to_data_path, "wb") as f:
-            pickle.dump(failure_index_to_data, f)
-        print(f"Distance pairwise prediction failure index saved to: {os.path.abspath(failure_index_to_data_path)}")
+    # if save_failure_index_to_data:
+    #     # save failure_idxs_to_data
+    #     failure_index_to_data_path = os.path.join(
+    #         project_folder,
+    #         "pairwise_dist_prediction_failure_index_to_data.pkl",
+    #     )
+    #     with open(failure_index_to_data_path, "wb") as f:
+    #         pickle.dump(failure_index_to_data, f)
+    #     print(f"Distance pairwise prediction failure index saved to: {os.path.abspath(failure_index_to_data_path)}")
 
     print()
+
+def evaluate(
+    eval_type: str,
+    model: nn.Module,
+    eval_dist_loader: DataLoader,
+    eval_action_loader: DataLoader,
+    device: torch.device,
+    project_folder: str,
+    normalized: bool,
+    epoch: int = 0,
+    alpha: float = 0.5,
+    learn_angle: bool = True,
+    print_log_freq: int = 100,
+    image_log_freq: int = 1000,
+    num_images_log: int = 8,
+    use_wandb: bool = True,
+):
+    """
+    Evaluate the model on the given evaluation dataset.
+
+    Args:
+        eval_type (string): f"{data_type}_{eval_type}" (e.g. "recon_train", "gs_test", etc.)
+        model (nn.Module): model to evaluate
+        eval_dist_loader (DataLoader): dataloader for distance prediction
+        eval_action_loader (DataLoader): dataloader for action prediction
+        device (torch.device): device to use for evaluation
+        project_folder (string): path to project folder
+        epoch (int): current epoch
+        alpha (float): weight for action loss
+        learn_angle (bool): whether to learn the angle of the action
+        print_log_freq (int): frequency of printing loss
+        image_log_freq (int): frequency of logging images
+        num_images_log (int): number of images to log
+        use_wandb (bool): whether to use wandb for logging
+    """
+    model.eval()
+    dist_loss_logger = Logger("dist_loss", eval_type, window_size=print_log_freq)
+    action_loss_logger = Logger("action_loss", eval_type, window_size=print_log_freq)
+    action_waypts_cos_sim_logger = Logger(
+        "action_waypts_cos_sim", eval_type, window_size=print_log_freq
+    )
+    multi_action_waypts_cos_sim_logger = Logger(
+        "multi_action_waypts_cos_sim", eval_type, window_size=print_log_freq
+    )
+    total_loss_logger = Logger(
+        "total_loss_logger", eval_type, window_size=print_log_freq
+    )
+
+    variables = [
+        dist_loss_logger,
+        action_loss_logger,
+        action_waypts_cos_sim_logger,
+        multi_action_waypts_cos_sim_logger,
+        total_loss_logger,
+    ]
+    if learn_angle:
+        action_orien_cos_sim_logger = Logger(
+            "action_orien_cos_sim", eval_type, window_size=print_log_freq
+        )
+        multi_action_orien_cos_sim_logger = Logger(
+            "multi_action_orien_cos_sim", eval_type, window_size=print_log_freq
+        )
+        variables.extend(
+            [action_orien_cos_sim_logger, multi_action_orien_cos_sim_logger]
+        )
+
+    num_batches = min(len(eval_dist_loader), len(eval_action_loader))
+
+    with torch.no_grad():
+        for i, val in enumerate(zip(eval_dist_loader, eval_action_loader)):
+            dist_vals, action_vals = val
+            (
+                dist_obs_image,
+                dist_goal_image,
+                dist_trans_obs_image,
+                dist_trans_goal_image,
+                dist_label,
+                dist_dataset_index,
+                dist_index_to_data,
+            ) = dist_vals
+            (
+                action_obs_image,
+                action_goal_image,
+                action_trans_obs_image,
+                action_trans_goal_image,
+                action_goal_pos,
+                action_label,
+                action_dataset_index,
+                action_index_to_data,
+            ) = action_vals
+            dist_obs_data = dist_trans_obs_image.to(device)
+            dist_goal_data = dist_trans_goal_image.to(device)
+            dist_label = dist_label.to(device)
+
+            dist_pred, _ = model(dist_obs_data, dist_goal_data)
+            dist_loss = F.mse_loss(dist_pred, dist_label)
+
+            action_obs_data = action_trans_obs_image.to(device)
+            action_goal_data = action_trans_goal_image.to(device)
+            action_label = action_label.to(device)
+
+            _, action_pred = model(action_obs_data, action_goal_data)
+            action_loss = F.mse_loss(action_pred, action_label)
+            action_waypts_cos_sim = F.cosine_similarity(
+                action_pred[:2], action_label[:2], dim=-1
+            ).mean()
+            multi_action_waypts_cos_sim = F.cosine_similarity(
+                torch.flatten(action_pred[:2], start_dim=1),
+                torch.flatten(action_label[:2], start_dim=1),
+                dim=-1,
+            ).mean()
+            if learn_angle:
+                action_orien_cos_sim = F.cosine_similarity(
+                    action_pred[2:], action_label[2:], dim=-1
+                ).mean()
+                multi_action_orien_cos_sim = F.cosine_similarity(
+                    torch.flatten(action_pred[2:], start_dim=1),
+                    torch.flatten(action_label[2:], start_dim=1),
+                    dim=-1,
+                ).mean()
+                action_orien_cos_sim_logger.log_data(action_orien_cos_sim.item())
+                multi_action_orien_cos_sim_logger.log_data(
+                    multi_action_orien_cos_sim.item()
+                )
+
+            total_loss = alpha * (1e-3 * dist_loss) + (1 - alpha) * action_loss
+
+            dist_loss_logger.log_data(dist_loss.item())
+            action_loss_logger.log_data(action_loss.item())
+            action_waypts_cos_sim_logger.log_data(action_waypts_cos_sim.item())
+            multi_action_waypts_cos_sim_logger.log_data(
+                multi_action_waypts_cos_sim.item()
+            )
+            total_loss_logger.log_data(total_loss.item())
+
+            if i % print_log_freq == 0:
+                log_display = f"(epoch {epoch}) (batch {i}/{num_batches - 1}) "
+                for var in variables:
+                    print(log_display + var.display())
+                print()
+
+            if i % image_log_freq == 0:
+                visualize_traj_pred(
+                    to_numpy(action_obs_image),
+                    to_numpy(action_goal_image),
+                    to_numpy(action_dataset_index),
+                    to_numpy(action_goal_pos),
+                    to_numpy(action_pred),
+                    to_numpy(action_label),
+                    eval_type,
+                    normalized,
+                    project_folder,
+                    epoch,
+                    action_index_to_data,
+                    num_images_log,
+                    use_wandb=use_wandb,
+                )
+    data_log = {}
+    for var in variables:
+        log_display = f"(epoch {epoch}) "
+        data_log[var.full_name()] = var.average()
+        print(log_display + var.display())
+    print()
+    if use_wandb:
+        wandb.log(data_log)
+    return dist_loss_logger.average(), action_loss_logger.average()
 
 
 def pairwise_acc(
