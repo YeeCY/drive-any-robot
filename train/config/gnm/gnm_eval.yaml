@@ -35,8 +35,6 @@ distance:
 action:
   min_dist_cat: 2
   max_dist_cat: 10
-close_far_threshold: 10 # distance threshold used to seperate the close and the far  subgoals that are sampled per datapoint
-pairwise_pred_use_critic: False
 
 # action output params
 len_traj_pred: 5
@@ -51,8 +49,12 @@ datasets:
     test: gnm_train/data/data_splits/recon_small/test/ # path to the test dir with traj_names.txt, ~4544 samples
     end_slack: 3 # because many trajectories end in collisions
     goals_per_obs: 1 # how many goals are sampled per observation
-    negative_mining: True # negative mining from the ViNG paper (Shah et al.)
+    negative_mining: False # negative mining from the ViNG paper (Shah et al.)
 save_failure_index_to_data: True
+
+# evalulation mode
+eval_waypoint: False
+eval_pairwise_dist_pred: True
 
 # pre-trained model
 #load_run: gnm/gnm_test_2023_04_29_22_39_38  # random checkpoint for testing
@@ -67,6 +69,7 @@ load_run: gnm/gnm_debug_2023_03_10_20_05_22
 
 # logging stuff
 print_log_freq: 5 # in iterations
-image_log_freq: 25 # in iterations
+#image_log_freq: 25 # in iterations
+image_log_freq: 2500 # in iterations
 num_images_log: 32 # number of images to log in a logging iteration
 pairwise_test_freq: 1 # in epochs

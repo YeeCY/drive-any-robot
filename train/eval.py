@@ -86,7 +86,7 @@ def main(config):
     for dataset_name in config["datasets"]:
         data_config = config["datasets"][dataset_name]
         if "negative_mining" not in data_config:
-            data_config["negative_mining"] = True
+            data_config["negative_mining"] = False
         if "goals_per_obs" not in data_config:
             data_config["goals_per_obs"] = 1
         if "end_slack" not in data_config:
@@ -113,7 +113,6 @@ def main(config):
                             waypoint_spacing=data_config["waypoint_spacing"],
                             min_dist_cat=config["distance"]["min_dist_cat"],
                             max_dist_cat=config["distance"]["max_dist_cat"],
-                            close_far_threshold=config["close_far_threshold"],
                             negative_mining=data_config["negative_mining"],
                             context_size=config["context_size"],
                             context_type=config["context_type"],
@@ -129,7 +128,6 @@ def main(config):
                             waypoint_spacing=data_config["waypoint_spacing"],
                             min_dist_cat=config["distance"]["min_dist_cat"],
                             max_dist_cat=config["distance"]["max_dist_cat"],
-                            close_far_threshold=config["close_far_threshold"],
                             negative_mining=data_config["negative_mining"],
                             context_size=config["context_size"],
                             context_type=config["context_type"],
@@ -326,6 +324,8 @@ def main(config):
             alpha=config["alpha"],
             use_wandb=config["use_wandb"],
             save_failure_index_to_data=config["save_failure_index_to_data"],
+            eval_waypoint=config["eval_waypoint"],
+            eval_pairwise_dist_pred=config["eval_pairwise_dist_pred"],
         )
     elif config["eval"] == "rl":
         try:
@@ -346,7 +346,7 @@ def main(config):
             print_log_freq=config["print_log_freq"],
             image_log_freq=config["image_log_freq"],
             num_images_log=config["num_images_log"],
-            pairwise_test_freq=config["pairwise_test_freq"],
+            save_pairwise_dist_pred_freq=config["save_pairwise_dist_pred_freq"],
             current_epoch=current_epoch,
             learn_angle=config["learn_angle"],
             discount=config["discount"],
@@ -357,7 +357,9 @@ def main(config):
             use_actor_dist_q_loss=config["use_actor_dist_q_loss"],
             waypoint_gcbc_loss_scale=config["waypoint_gcbc_loss_scale"],
             use_wandb=config["use_wandb"],
-            pairwise_pred_use_critic=config["pairwise_pred_use_critic"],
+            pairwise_dist_pred_eval_mode=config["pairwise_dist_pred_eval_mode"],
+            eval_waypoint=config["eval_waypoint"],
+            eval_pairwise_dist_pred=config["eval_pairwise_dist_pred"],
         )
     else:
         raise ValueError(f"Evaluation type {config['train']} not supported")

@@ -85,8 +85,6 @@ action:
   max_dist_cat: 10
 oracle_angles: 45  # degree
 num_oracle_trajs: 9
-close_far_threshold: 6  # distance threshold used to seperate the close and the far subgoals that are sampled per datapoint
-pairwise_pred_use_critic: True
 
 # action output params
 len_traj_pred: 5
@@ -96,13 +94,19 @@ learn_angle: True
 image_size: [85, 64] # width, height
 datasets:
   recon:
-    data_folder: datasets/recon  # path to the dataset
+    data_folder: datasets/recon # path to the dataset
 #    train: gnm_train/data/data_splits/recon_small/train/ # path to the train dir with traj_names.txt, ~15776 samples
     test: gnm_train/data/data_splits/recon_small/test/ # path to the test dir with traj_names.txt, ~4544 samples
     end_slack: 3 # because many trajectories end in collisions
     goals_per_obs: 1 # how many goals are sampled per observation
+    negative_mining: False # negative mining from the ViNG paper (Shah et al.)
     discount: 0.99  # discount factor used to sample geometric future goals, can be a negative value for random future goals
 
+# evalulation mode
+eval_waypoint: False
+eval_pairwise_dist_pred: True
+pairwise_dist_pred_eval_mode: "close_logit_diff"
+#pairwise_dist_pred_eval_mode: "close_far_mi_diff"
 
 #load_run: gnm_release/train/logs/<project_name>/<log_run_name>/latest.pth
 #load_run: drive-any-robot/train/logs/gnm/gnm_debug_2023_03_10_20_05_22/latest.pth
@@ -121,6 +125,6 @@ load_run: stable_contrastive_rl/stable_contrastive_rl_recon_full_2023_06_08_15_0
 # logging stuff
 print_log_freq: 5 # in iterations
 #image_log_freq: 25 # in iterations
-image_log_freq: 2500 # in iterations
-num_images_log: 32 # number of images to log in a logging iteration
-pairwise_test_freq: 1 # in epochs
+#image_log_freq: 2500 # in iterations
+#num_images_log: 32 # number of images to log in a logging iteration
+save_pairwise_dist_pred_freq: 1 # in iterations

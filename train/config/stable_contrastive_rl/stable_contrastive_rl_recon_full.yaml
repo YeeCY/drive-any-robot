@@ -85,7 +85,6 @@ action:
   max_dist_cat: 10
 oracle_angles: 45  # degree
 num_oracle_trajs: 9
-close_far_threshold: 6  # distance threshold used to seperate the close and the far subgoals that are sampled per datapoint
 
 # action output params
 len_traj_pred: 5
@@ -100,7 +99,7 @@ datasets:
     test: gnm_train/data/data_splits/recon/test/ # path to the test dir with traj_names.txt
     end_slack: 3 # because many trajectories end in collisions
     goals_per_obs: 1 # how many goals are sampled per observation
-#    negative_mining: True # negative mining from the ViNG paper (Shah et al.)
+    negative_mining: False # negative mining from the ViNG paper (Shah et al.)
     discount: 0.99  # discount factor used to sample geometric future goals, can be a negative value for random future goals
 
 # logging stuff

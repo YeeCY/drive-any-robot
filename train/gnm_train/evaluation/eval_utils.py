@@ -11,7 +11,7 @@ from gnm_train.evaluation.visualization_utils import visualize_traj_pred
 from gnm_train.visualizing.visualize_utils import to_numpy
 from gnm_train.training.logger import Logger
 from gnm_train.training.train_utils import get_total_loss
-from gnm_train.evaluation.visualization_utils import visualize_dist_pairwise_pred
+from stable_contrastive_rl_train.evaluation.eval_utils import save_dist_pairwise_pred
 
 import torch
 import torch.nn as nn
@@ -39,6 +39,8 @@ def eval_loop(
     learn_angle: bool = True,
     use_wandb: bool = True,
     save_failure_index_to_data: bool = False,
+    eval_waypoint: bool = True,
+    eval_pairwise_dist_pred: bool = True,
 ):
     """
     Train and evaluate the model for several epochs.
@@ -86,76 +88,64 @@ def eval_loop(
         #     use_wandb,
         # )
         #
-        eval_total_losses = []
-        for dataset_type in test_dataloaders:
-            print(
-                f"Start {dataset_type} GNM Testing Epoch {epoch}/{current_epoch + epochs - 1}"
-            )
-            dist_loader = test_dataloaders[dataset_type]["distance"]
-            action_loader = test_dataloaders[dataset_type]["action"]
-            test_dist_loss, test_action_loss = evaluate(
-                dataset_type,
-                model,
-                dist_loader,
-                action_loader,
-                device,
-                project_folder,
-                normalized,
-                epoch,
-                alpha,
-                learn_angle,
-                print_log_freq,
-                image_log_freq,
-                num_images_log,
-                use_wandb,
-            )
-
-            total_eval_loss = get_total_loss(test_dist_loss, test_action_loss, alpha)
-            eval_total_losses.append(total_eval_loss)
-            print(f"{dataset_type}_total_loss: {total_eval_loss}")
-            print(f"{dataset_type}_dist_loss: {test_dist_loss}")
-            print(f"{dataset_type}_action_loss: {test_action_loss}")
-
-            if use_wandb:
-                wandb.log({f"{dataset_type}_total_loss": total_eval_loss})
-                wandb.log({f"{dataset_type}_dist_loss": test_dist_loss})
-                wandb.log({f"{dataset_type}_action_loss": test_action_loss})
-
-        # checkpoint = {
-        #     "epoch": epoch,
-        #     "model": model,
-        #     "optimizer": optimizer,
-        #     "avg_eval_loss": np.mean(eval_total_losses),
-        # }
-        #
-        # numbered_path = os.path.join(project_folder, f"{epoch}.pth")
-        # torch.save(checkpoint, latest_path)
-        # torch.save(checkpoint, numbered_path)  # keep track of model at every epoch
-
-        print(f"Start Pairwise Testing Epoch {epoch}/{current_epoch + epochs - 1}")
-        for dataset_type in test_dataloaders:
-            if "pairwise" in test_dataloaders[dataset_type]:
-                pairwise_dist_loader = test_dataloaders[dataset_type]["pairwise"]
-                pairwise_accuracy, pairwise_auc, failure_index_to_data = pairwise_acc(
+        if eval_waypoint:
+            eval_total_losses = []
+            for dataset_type in test_dataloaders:
+                print(
+                    f"Start {dataset_type} GNM Testing Epoch {epoch}/{current_epoch + epochs - 1}"
+                )
+                dist_loader = test_dataloaders[dataset_type]["distance"]
+                action_loader = test_dataloaders[dataset_type]["action"]
+                test_dist_loss, test_action_loss = evaluate(
+                    dataset_type,
                     model,
-                    pairwise_dist_loader,
+                    dist_loader,
+                    action_loader,
                     device,
                     project_folder,
+                    normalized,
                     epoch,
-                    dataset_type,
+                    alpha,
+                    learn_angle,
                     print_log_freq,
                     image_log_freq,
                     num_images_log,
-                    use_wandb=use_wandb,
-                    save_failure_index_to_data=save_failure_index_to_data,
+                    use_wandb,
                 )
 
-                if use_wandb:
-                    wandb.log({f"{dataset_type}_pairwise_acc": pairwise_accuracy})
-                    wandb.log({f"{dataset_type}_pairwise_auc": pairwise_auc})
+                total_eval_loss = get_total_loss(test_dist_loss, test_action_loss, alpha)
+                eval_total_losses.append(total_eval_loss)
+                print(f"{dataset_type}_total_loss: {total_eval_loss}")
+                print(f"{dataset_type}_dist_loss: {test_dist_loss}")
+                print(f"{dataset_type}_action_loss: {test_action_loss}")
 
-                print(f"{dataset_type}_pairwise_acc: {pairwise_accuracy}")
-                print(f"{dataset_type}_pairwise_auc: {pairwise_auc}")
+                if use_wandb:
+                    wandb.log({f"{dataset_type}_total_loss": total_eval_loss})
+                    wandb.log({f"{dataset_type}_dist_loss": test_dist_loss})
+                    wandb.log({f"{dataset_type}_action_loss": test_action_loss})
+
+        if eval_pairwise_dist_pred:
+            print(f"Start Pairwise Testing Epoch {epoch}/{current_epoch + epochs - 1}")
+            for dataset_type in test_dataloaders:
+                if "pairwise" in test_dataloaders[dataset_type]:
+                    pairwise_dist_loader = test_dataloaders[dataset_type]["pairwise"]
+                    pairwise_accuracy, pairwise_auc, failure_index_to_data = pairwise_acc(
+                        model,
+                        pairwise_dist_loader,
+                        device,
+                        project_folder,
+                        epoch,
+                        dataset_type,
+                        print_log_freq,
+                        save_failure_index_to_data=save_failure_index_to_data,
+                    )
+
+                    if use_wandb:
+                        wandb.log({f"{dataset_type}_pairwise_acc": pairwise_accuracy})
+                        wandb.log({f"{dataset_type}_pairwise_auc": pairwise_auc})
+
+                    print(f"{dataset_type}_pairwise_acc: {pairwise_accuracy}")
+                    print(f"{dataset_type}_pairwise_auc: {pairwise_auc}")
 
     if save_failure_index_to_data:
         # save failure_idxs_to_data
@@ -168,6 +158,7 @@ def eval_loop(
         print(f"Distance pairwise prediction failure index saved to: {os.path.abspath(failure_index_to_data_path)}")
 
     print()
+
 
 def evaluate(
     eval_type: str,
@@ -344,10 +335,7 @@ def pairwise_acc(
     epoch: int,
     eval_type: str,
     print_log_freq: int = 100,
-    image_log_freq: int = 1000,
-    num_images_log: int = 8,
-    use_wandb: bool = True,
-    display: bool = False,
+    save_result_freq: int = 1000,
     save_failure_index_to_data: bool = False,
 ):
     """
@@ -434,11 +422,8 @@ def pairwise_acc(
             if i % print_log_freq == 0:
                 print(f"({i}/{num_batches}) batch of points processed")
 
-            if i % image_log_freq == 0:
-                visualize_dist_pairwise_pred(
-                    to_numpy(obs_image),
-                    to_numpy(close_image),
-                    to_numpy(far_image),
+            if i % save_result_freq == 0:
+                save_dist_pairwise_pred(
                     to_numpy(close_pred),
                     to_numpy(far_pred),
                     to_numpy(close_dist_label),
@@ -447,9 +432,6 @@ def pairwise_acc(
                     save_folder,
                     epoch,
                     index_to_data,
-                    num_images_log,
-                    use_wandb,
-                    display,
                 )
         if len(correct_list) == 0:
             return 0
