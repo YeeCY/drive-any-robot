@@ -163,17 +163,16 @@ class RLDataset(Dataset):
                         int(self.max_dist_cat * self.waypoint_spacing),
                         traj_len - curr_time - 1,
                     )
-                    sampled_dists = []
+                    # sampled_dists = []
 
                     # sample self.goals_per_obs goals per observation
                     for _ in range(self.goals_per_obs):
                         # sample a distance from the distance categories as long as it is less than the trajectory length
                         filter_func = (
                             lambda dist: int(dist * self.waypoint_spacing) <= max_len
-                            and dist not in sampled_dists
                         )
                         len_to_goal = self.label_balancer.sample(filter_func)
-                        sampled_dists.append(len_to_goal)
+                        # sampled_dists.append(len_to_goal)
 
                         # break the loop if there are no more valid distances to sample
                         if len_to_goal is None:

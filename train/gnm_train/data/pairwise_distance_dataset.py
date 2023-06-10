@@ -26,7 +26,6 @@ class PairwiseDistanceDataset(Dataset):
         waypoint_spacing: int,
         min_dist_cat: int,
         max_dist_cat: int,
-        close_far_threshold: int,
         negative_mining: bool,
         context_size: int,
         context_type: str = "temporal",
@@ -65,29 +64,36 @@ class PairwiseDistanceDataset(Dataset):
         self.transform = transform
         self.aspect_ratio = aspect_ratio
         self.waypoint_spacing = waypoint_spacing
-        self.distance_categories = list(
-            range(min_dist_cat, max_dist_cat + 1, waypoint_spacing)
-        )
-        self.min_dist_cat = self.distance_categories[0]
-        self.max_dist_cat = self.distance_categories[-1]
-        self.negative_mining = negative_mining and len(self.distance_categories) > 1
-        if self.negative_mining:
-            self.distance_categories.append(-1)
 
-        threshold_index = -1
-        self.close_far_threshold = close_far_threshold
-        while (
-            threshold_index + 1 < len(self.distance_categories)
-            and self.distance_categories[threshold_index + 1] <= close_far_threshold
-        ):
-            threshold_index += 1
+        self.min_dist_cat = min_dist_cat
+        self.max_dist_cat = max_dist_cat
+        self.negative_mining = negative_mining
+        # self.close_far_threshold = close_far_threshold
 
-        self.pairwise_categories = []
-        for i in range(threshold_index, len(self.distance_categories)):
-            for j in range(threshold_index):
-                self.pairwise_categories.append(
-                    (self.distance_categories[j], self.distance_categories[i])
-                )
+        # (chongyi): we need to construct the distance_categories and pairwise_categories for each the trajectory separately
+        # self.distance_categories = list(
+        #     range(min_dist_cat, max_dist_cat + 1, waypoint_spacing)
+        # )
+        # self.min_dist_cat = self.distance_categories[0]
+        # self.max_dist_cat = self.distance_categories[-1]
+        # self.negative_mining = negative_mining and len(self.distance_categories) > 1
+        # if self.negative_mining:
+        #     self.distance_categories.append(-1)
+
+        # threshold_index = -1
+        # self.close_far_threshold = close_far_threshold
+        # while (
+        #     threshold_index + 1 < len(self.distance_categories)
+        #     and self.distance_categories[threshold_index + 1] <= close_far_threshold
+        # ):
+        #     threshold_index += 1
+        #
+        # self.pairwise_categories = []
+        # for i in range(threshold_index, len(self.distance_categories)):
+        #     for j in range(threshold_index):
+        #         self.pairwise_categories.append(
+        #             (self.distance_categories[j], self.distance_categories[i])
+        #         )
 
         self.context_size = context_size
         assert context_type in {
@@ -101,10 +107,10 @@ class PairwiseDistanceDataset(Dataset):
 
     def _gen_index_to_data(self):
         self.index_to_data = []
-        label_balancer = RandomizedClassBalancer(self.pairwise_categories)
+        # label_balancer = RandomizedClassBalancer(self.pairwise_categories)
         index_to_data_path = os.path.join(
             self.data_split_folder,
-            f"pairwise_waypoint_spacing_{self.waypoint_spacing}_{self.min_dist_cat}_{self.max_dist_cat}_close_far_threshold_{self.close_far_threshold}_negative_mining_{int(self.negative_mining)}_context_size_{self.context_size}_end_slack_{self.end_slack}.pkl",
+            f"pairwise_waypoint_spacing_{self.waypoint_spacing}_{self.min_dist_cat}_{self.max_dist_cat}_negative_mining_{int(self.negative_mining)}_context_size_{self.context_size}_end_slack_{self.end_slack}.pkl",
         )
         try:
             with open(index_to_data_path, "rb") as f1:
@@ -127,17 +133,68 @@ class PairwiseDistanceDataset(Dataset):
                     self.context_size * self.waypoint_spacing,
                     traj_len - self.end_slack,
                 ):
-                    max_len = min(
+                    # construct distance categories
+                    min_dist_cat = self.min_dist_cat
+                    # if self.max_dist_cat == "remaining_traj_len":
+                    #     max_dist_cat = traj_len - 1
+                    # elif isinstance(self.max_dist_cat, int):
+                    #     max_dist_cat = self.max_dist_cat
+                    max_dist_cat = min(
                         int(self.max_dist_cat * self.waypoint_spacing),
                         traj_len - curr_time - 1,
                     )
-                    filter_func = (
-                        lambda tup: max(tup) * self.waypoint_spacing <= max_len
+                    distance_categories = list(
+                        range(min_dist_cat, max_dist_cat + 1, self.waypoint_spacing)
                     )
-                    choice = label_balancer.sample(filter_func)
-                    if choice is None:
-                        break
-                    close_len_to_goal, far_len_to_goal = choice
+                    if self.negative_mining and len(distance_categories) > 1:
+                        distance_categories.append(-1)
+
+                    # construct pairwise_categories and label balancer
+                    # if self.close_far_threshold == "half_remaining_traj_len":
+                    #     close_far_threshold = (min_dist_cat + max_dist_cat) // 2
+                    # elif isinstance(self.close_far_threshold, int):
+                    #     close_far_threshold = self.close_far_threshold
+                    # else:
+                    #     raise RuntimeError("Unknown close far threshold: {}".format(
+                    #         self.close_far_threshold))
+
+                    # threshold_index = -1
+                    # while (
+                    #     threshold_index + 1 < len(distance_categories)
+                    #     and distance_categories[threshold_index + 1] <= close_far_threshold
+                    # ):
+                    #     threshold_index += 1
+
+                    # (chongyi): we don't need so many examples, just randomly sample one for each i in [0, threshold_index)
+                    # pairwise_categories = []
+                    # for i in range(threshold_index):
+                    #     j = np.random.choice(range(threshold_index, len(distance_categories)))
+                    #     pairwise_categories.append(
+                    #         (distance_categories[i], distance_categories[j])
+                    #     )
+                    # for i in range(threshold_index, len(distance_categories)):
+                    #     for j in range(threshold_index):
+                    #         pairwise_categories.append(
+                    #             (distance_categories[j], distance_categories[i])
+                    #         )
+
+                    # label_balancer = RandomizedClassBalancer(pairwise_categories)
+
+                    # max_len = min(
+                    #     int(max_dist_cat * self.waypoint_spacing),
+                    #     traj_len - curr_time - 1,
+                    # )
+                    # filter_func = (
+                    #     lambda tup: max(tup) * self.waypoint_spacing <= max_len
+                    # )
+                    # choice = label_balancer.sample()
+                    # if choice is None:
+                    #     break
+                    # close_len_to_goal, far_len_to_goal = choice
+                    close_idx = np.random.choice(len(distance_categories) - 1)
+                    far_idx = np.random.choice(range(close_idx + 1, len(distance_categories)))
+                    close_len_to_goal = distance_categories[close_idx]
+                    far_len_to_goal = distance_categories[far_idx]
 
                     if far_len_to_goal == -1:  # negative mining
                         new = np.random.randint(1, len(self.traj_names))

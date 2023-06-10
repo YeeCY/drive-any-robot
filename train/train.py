@@ -32,8 +32,10 @@ from stable_contrastive_rl_train.training.train_utils import train_eval_rl_loop
 
 
 def main(config):
-    assert config["distance"]["min_dist_cat"] < config["distance"]["max_dist_cat"]
-    assert config["action"]["min_dist_cat"] < config["action"]["max_dist_cat"]
+    assert config["distance"]["max_dist_cat"] == "traj_len" \
+           or config["distance"]["min_dist_cat"] < config["distance"]["max_dist_cat"]
+    assert config["action"]["max_dist_cat"] \
+           or config["action"]["min_dist_cat"] < config["action"]["max_dist_cat"]
 
     if torch.cuda.is_available():
         os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
@@ -68,7 +70,7 @@ def main(config):
     ]
     transform = transforms.Compose(transform)
     aspect_ratio = config["image_size"][0] / config["image_size"][1]
-    if config["img_encoder_kwargs"]:
+    if config.get("img_encoder_kwargs", None):
         config["img_encoder_kwargs"]["input_width"] = config["image_size"][1]
         config["img_encoder_kwargs"]["input_height"] = config["image_size"][0]
 
@@ -105,7 +107,6 @@ def main(config):
                             waypoint_spacing=data_config["waypoint_spacing"],
                             min_dist_cat=config["distance"]["min_dist_cat"],
                             max_dist_cat=config["distance"]["max_dist_cat"],
-                            close_far_threshold=config["close_far_threshold"],
                             negative_mining=data_config["negative_mining"],
                             context_size=config["context_size"],
                             context_type=config["context_type"],
