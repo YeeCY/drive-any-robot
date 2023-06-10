@@ -157,15 +157,15 @@ def eval_loop(
                 print(f"{dataset_type}_pairwise_acc: {pairwise_accuracy}")
                 print(f"{dataset_type}_pairwise_auc: {pairwise_auc}")
 
-    # if save_failure_index_to_data:
-    #     # save failure_idxs_to_data
-    #     failure_index_to_data_path = os.path.join(
-    #         project_folder,
-    #         "pairwise_dist_prediction_failure_index_to_data.pkl",
-    #     )
-    #     with open(failure_index_to_data_path, "wb") as f:
-    #         pickle.dump(failure_index_to_data, f)
-    #     print(f"Distance pairwise prediction failure index saved to: {os.path.abspath(failure_index_to_data_path)}")
+    if save_failure_index_to_data:
+        # save failure_idxs_to_data
+        failure_index_to_data_path = os.path.join(
+            project_folder,
+            "pairwise_dist_prediction_failure_index_to_data.pkl",
+        )
+        with open(failure_index_to_data_path, "wb") as f:
+            pickle.dump(failure_index_to_data, f)
+        print(f"Distance pairwise prediction failure index saved to: {os.path.abspath(failure_index_to_data_path)}")
 
     print()
 

@@ -153,31 +153,30 @@ def eval_rl_loop(
             print(f"{dataset_type}_critic_loss: {test_critic_loss}")
             print(f"{dataset_type}_actor_loss: {test_actor_loss}")
 
-        # FIXME (chongyi)
-        # print(f"Start Pairwise Testing Epoch {epoch}/{current_epoch + epochs - 1}")
-        # for dataset_type in test_dataloaders:
-        #     if "pairwise" in test_dataloaders[dataset_type]:
-        #         pairwise_dist_loader = test_dataloaders[dataset_type]["pairwise"]
-        #         pairwise_accuracy, pairwise_auc = pairwise_acc(
-        #             model,
-        #             pairwise_dist_loader,
-        #             device,
-        #             project_folder,
-        #             epoch,
-        #             dataset_type,
-        #             print_log_freq,
-        #             image_log_freq,
-        #             num_images_log,
-        #             use_wandb=use_wandb,
-        #             use_critic=pairwise_pred_use_critic,
-        #         )
-        #
-        #         if use_wandb:
-        #             wandb.log({f"{dataset_type}_pairwise_acc": pairwise_accuracy})
-        #             wandb.log({f"{dataset_type}_pairwise_auc": pairwise_auc})
-        #
-        #         print(f"{dataset_type}_pairwise_acc: {pairwise_accuracy}")
-        #         print(f"{dataset_type}_pairwise_auc: {pairwise_auc}")
+        print(f"Start Pairwise Testing Epoch {epoch}/{current_epoch + epochs - 1}")
+        for dataset_type in test_dataloaders:
+            if "pairwise" in test_dataloaders[dataset_type]:
+                pairwise_dist_loader = test_dataloaders[dataset_type]["pairwise"]
+                pairwise_accuracy, pairwise_auc = pairwise_acc(
+                    model,
+                    pairwise_dist_loader,
+                    device,
+                    project_folder,
+                    epoch,
+                    dataset_type,
+                    print_log_freq,
+                    image_log_freq,
+                    num_images_log,
+                    use_wandb=use_wandb,
+                    use_critic=pairwise_pred_use_critic,
+                )
+
+                if use_wandb:
+                    wandb.log({f"{dataset_type}_pairwise_acc": pairwise_accuracy})
+                    wandb.log({f"{dataset_type}_pairwise_auc": pairwise_auc})
+
+                print(f"{dataset_type}_pairwise_acc: {pairwise_accuracy}")
+                print(f"{dataset_type}_pairwise_auc: {pairwise_auc}")
     print()
 
 
@@ -576,33 +575,32 @@ def pairwise_acc(
 
             dummy_action = torch.zeros([batch_size, model.action_size], device=transf_obs_image.device)
             if use_critic:
-                # (b)
-                close_dist_obs_repr, _, close_dist_g_repr = model(transf_obs_image, transf_obs_image,
-                                                                  dummy_action[:, :model.action_size - 1], close_dist_label,
-                                                                  transf_close_image[:, -3:], transf_close_image[:, -3:])[1:4]
-                close_dist_logit = torch.einsum('ikl,jkl->ijl', close_dist_obs_repr, close_dist_g_repr)
-                close_dist_logit = torch.diag(torch.mean(close_dist_logit, dim=-1))
-                close_dist_pred = torch.sigmoid(close_dist_logit)
+                obs_a_repr, close_g_repr = model(
+                    transf_obs_image, dummy_action, transf_close_image)[0:2]
+                obs_a_close_g_logit = torch.einsum('ikl,jkl->ijl', obs_a_repr, close_g_repr)
+                obs_a_close_g_logit = torch.diag(torch.mean(obs_a_close_g_logit, dim=-1))
 
-                far_dist_obs_repr, _, far_dist_g_repr = model(transf_obs_image, transf_obs_image,
-                                                              dummy_action[:, :model.action_size - 1], far_dist_label,
-                                                              transf_far_image, transf_far_image)[1:4]
-                far_dist_logit = torch.einsum('ikl,jkl->ijl', far_dist_obs_repr, far_dist_g_repr)
-                far_dist_logit = torch.diag(torch.mean(far_dist_logit, dim=-1))
-                far_dist_pred = torch.sigmoid(far_dist_logit)
+                far_g_a_repr, close_g_repr = model(
+                    transf_far_image, dummy_action, transf_close_image)[0:2]
+                far_g_a_close_g_logit = torch.einsum('ikl,jkl->ijl', far_g_a_repr, close_g_repr)
+                far_g_a_close_g_logit = torch.diag(torch.mean(far_g_a_close_g_logit, dim=-1))
 
-                close_dist_flat = to_numpy(close_dist_pred)
-                far_dist_flat = to_numpy(far_dist_pred)
+                # FIXME (chongyiz): rename these variables
+                close_dist_pred = obs_a_close_g_logit.clone()
+                far_dist_pred = far_g_a_close_g_logit.clone()
 
-                correct = np.where(close_dist_flat >= far_dist_flat, 1, 0)
+                obs_a_close_g_logit = to_numpy(obs_a_close_g_logit)
+                far_g_a_close_g_logit = to_numpy(far_g_a_close_g_logit)
+
+                correct = np.where(obs_a_close_g_logit >= far_g_a_close_g_logit, 1, 0)
                 correct_list.append(correct.copy())
                 # correct[batch_size // 2:] = np.logical_not(correct[batch_size // 2:]).astype(np.int)
 
                 auc = roc_auc_score(
                     np.concatenate([np.ones_like(correct[:batch_size // 2]),
                                     np.zeros_like(correct[batch_size // 2:])]),
-                    np.concatenate([(close_dist_flat - far_dist_flat)[:batch_size // 2],
-                                    (far_dist_flat - close_dist_flat)[batch_size // 2:]])
+                    np.concatenate([(obs_a_close_g_logit - far_g_a_close_g_logit)[:batch_size // 2],
+                                    (far_g_a_close_g_logit - obs_a_close_g_logit)[batch_size // 2:]])
                 )
                 auc_list.append(auc)
 

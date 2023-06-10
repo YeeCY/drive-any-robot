@@ -7,7 +7,7 @@ eval: rl
 batch_size: 32  # default = 16, full size = 207
 eval_batch_size: 32  # default = 400
 epochs: 1  # evaluation epochs
-gpu_ids: [1] # list of gpu ids to use
+gpu_ids: [2] # list of gpu ids to use
 num_workers: 16
 lr: 5e-4
 optimizer: adam
@@ -120,6 +120,7 @@ load_run: stable_contrastive_rl/stable_contrastive_rl_recon_full_2023_06_08_15_0
 
 # logging stuff
 print_log_freq: 5 # in iterations
-image_log_freq: 25 # in iterations
+#image_log_freq: 25 # in iterations
+image_log_freq: 2500 # in iterations
 num_images_log: 32 # number of images to log in a logging iteration
 pairwise_test_freq: 1 # in epochs
