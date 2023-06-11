@@ -458,14 +458,13 @@ class PairwiseDistanceFailureDataset(PairwiseDistanceDataset):
         waypoint_spacing: int,
         min_dist_cat: int,
         max_dist_cat: int,
-        close_far_threshold: int,
         negative_mining: bool,
         context_size: int,
         context_type: str = "temporal",
         end_slack: int = 0,
     ):
         super().__init__(data_folder, data_split_folder, dataset_name, transform, aspect_ratio, waypoint_spacing,
-                         min_dist_cat, max_dist_cat, close_far_threshold, negative_mining, context_size, context_type,
+                         min_dist_cat, max_dist_cat, negative_mining, context_size, context_type,
                          end_slack)
 
         self.pairwise_failure_index_to_data_path = os.path.join(
@@ -496,7 +495,7 @@ class PairwiseDistanceFailureDataset(PairwiseDistanceDataset):
             "curr_time": curr_time,
             "close_time": close_time,
             "far_time": far_time,
-            "context_times": context_times,
+            "context_times": torch.IntTensor(context_times),
         }
 
         transf_obs_images = []

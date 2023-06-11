@@ -105,8 +105,8 @@ datasets:
 # evalulation mode
 eval_waypoint: False
 eval_pairwise_dist_pred: True
-pairwise_dist_pred_eval_mode: "close_logit_diff"
-#pairwise_dist_pred_eval_mode: "close_far_mi_diff"
+#pairwise_dist_pred_eval_mode: "close_logit_diff"
+pairwise_dist_pred_eval_mode: "close_far_mi_diff"
 
 #load_run: gnm_release/train/logs/<project_name>/<log_run_name>/latest.pth
 #load_run: drive-any-robot/train/logs/gnm/gnm_debug_2023_03_10_20_05_22/latest.pth
@@ -125,6 +125,6 @@ load_run: stable_contrastive_rl/stable_contrastive_rl_recon_full_2023_06_08_15_0
 # logging stuff
 print_log_freq: 5 # in iterations
 #image_log_freq: 25 # in iterations
-#image_log_freq: 2500 # in iterations
-#num_images_log: 32 # number of images to log in a logging iteration
+image_log_freq: 2500 # in iterations
+num_images_log: 32 # number of images to log in a logging iteration
 save_pairwise_dist_pred_freq: 1 # in iterations

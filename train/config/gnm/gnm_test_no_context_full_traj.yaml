@@ -23,7 +23,7 @@ normalize: True
 
 # context
 context_type: temporal
-context_size: 5
+context_size: 0
 
 # tradeoff between action and distance prediction loss
 alpha: 0.5
@@ -35,7 +35,6 @@ distance:
 action:
   min_dist_cat: 2
   max_dist_cat: 1000
-close_far_threshold: "half_traj" # distance threshold used to seperate the close and the far  subgoals that are sampled per datapoint
 
 # action output params
 len_traj_pred: 5

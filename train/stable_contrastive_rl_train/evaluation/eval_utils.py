@@ -569,7 +569,7 @@ def pairwise_acc(
                     far_dist_label,
                 ) = vals
             batch_size = transf_obs_image.shape[0]
-            transf_obs_image = transf_obs_image.to(device)
+            transf_obs_image = transf_obs_image[:, -(model.context_size + 1) * 3:].to(device)
             transf_close_image = transf_close_image.to(device)
             transf_far_image = transf_far_image.to(device)
             close_dist_label = close_dist_label.to(device)
@@ -621,12 +621,6 @@ def pairwise_acc(
                                     (far_g_logit_diff - close_g_logit_diff)[batch_size // 2:]])
                 )
                 auc_list.append(auc)
-            elif eval_mode == "eval_mode":
-                # TODO
-                # torch.roll(
-                #     torch.arange(batch_size, dtype=torch.int64), -1)
-                # transf_far_image = transf_far_image[]
-                pass
             elif eval_mode == "close_logit_diff":
                 obs_a_repr, close_g_repr = model(
                     transf_obs_image, dummy_action, transf_close_image)[0:2]

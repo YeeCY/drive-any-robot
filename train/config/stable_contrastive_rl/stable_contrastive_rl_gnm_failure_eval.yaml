@@ -11,20 +11,13 @@ gpu_ids: [1] # list of gpu ids to use
 num_workers: 16  # 16
 lr: 5e-4
 optimizer: adam
-seed: 1
+seed: 0
 
 # model params
 model_type: stable_contrastive_rl
-obs_encoding_size: 1024
-goal_encoding_size: 1024
-twin_q: True
-min_log_std: -13
-max_log_std: -2
-fixed_std: [0.1, 0.1, 0.1, 0.1, 0.1,
-            0.1, 0.1, 0.1, 0.1, 0.1,
-            0.1, 0.1, 0.1, 0.1, 0.1,
-            0.1, 0.1, 0.1, 0.1, 0.1,
-            0.5]
+#obs_encoding_size: 1024
+#goal_encoding_size: 1024
+#twin_q: True
 soft_target_tau: 0.005
 
 # normalization for the action space
@@ -32,22 +25,53 @@ normalize: True
 
 # context
 context_type: temporal
-context_size: 5
+context_size: 0
+
+# image encoder
+img_encoder_kwargs:
+  kernel_sizes: [8, 4, 3]
+  n_channels: [32, 64, 64]
+  strides: [4, 2, 1]
+  paddings: [2, 1, 1]
+  hidden_activation: ReLU
+  hidden_init: xavier_uniform
+  norm_type: layer
+
+# contrastive critic
+contrastive_critic_kwargs:
+  hidden_sizes: [1024, 1024, 1024, 1024]
+  twin_q: True
+  representation_dim: 16
+  init_w: 1E-12
+  hidden_activation: ReLU
+  hidden_init: xavier_uniform
+  layer_norm: True
+
+# policy
+policy_kwargs:
+  hidden_sizes: [1024, 1024, 1024, 1024]
+  hidden_activation: ReLU
+  hidden_init: xavier_uniform
+  layer_norm: True
+  min_log_std: -13
+  max_log_std: -2
+  std: 0.1
 
 # discount factor
 discount: 0.99
 
 # whether to use C-Learning (TD) or Contrastive NCE (MC)
-#use_td: False
+use_td: False
 
 # GCBC
-#bc_coef: 0.05  # td = 0.01 - 0.05
-#mle_gcbc_loss: True
+bc_coef: 0.05  # td = 0.01 - 0.05
+mle_gcbc_loss: True
+waypoint_gcbc_loss_scale: 0.25
 
 # whether to stop gradients from actor loss to policy image encoder
-#stop_grad_actor_img_encoder: True
-#use_actor_waypoint_q_loss: True
-#use_actor_dist_q_loss: False
+stop_grad_actor_img_encoder: True
+use_actor_waypoint_q_loss: True
+use_actor_dist_q_loss: True
 
 # number of training iterations to update target q network
 #target_update_freq: 1
@@ -58,11 +82,9 @@ distance:
   max_dist_cat: 20
 action:
   min_dist_cat: 2
-  max_dist_cat: 12
+  max_dist_cat: 10
 oracle_angles: 45  # degree
-num_oracle_trajs: 10
-close_far_threshold: 6  # distance threshold used to separate the close and the far subgoals that are sampled per datapoint
-pairwise_pred_use_critic: False
+num_oracle_trajs: 9
 
 # action output params
 len_traj_pred: 5
@@ -72,13 +94,20 @@ learn_angle: True
 image_size: [85, 64] # width, height
 datasets:
   recon:
-    data_folder: datasets/recon  # path to the dataset
+    data_folder: datasets/recon # path to the dataset
 #    train: gnm_train/data/data_splits/recon_small/train/ # path to the train dir with traj_names.txt, ~15776 samples
     test: gnm_train/data/data_splits/recon_small/test/ # path to the test dir with traj_names.txt, ~4544 samples
     end_slack: 3 # because many trajectories end in collisions
     goals_per_obs: 1 # how many goals are sampled per observation
+    negative_mining: False # negative mining from the ViNG paper (Shah et al.)
     discount: 0.99  # discount factor used to sample geometric future goals, can be a negative value for random future goals
-    pairwise_failure_index_to_data: gnm/gnm_eval_2023_05_22_21_51_44  # pairwise_acc: 0.9496038732394366, pairwise_auc: 0.9895466549295775
+    pairwise_failure_index_to_data: gnm/gnm_eval_2023_06_10_18_31_37  # gnm_pairwise_acc: 0.8347271126760564, gnm_pairwise_auc: 0.9123294454225352
+
+# evalulation mode
+eval_waypoint: False
+eval_pairwise_dist_pred: True
+#pairwise_dist_pred_eval_mode: "close_logit_diff"
+pairwise_dist_pred_eval_mode: "close_far_mi_diff"
 
 #load_run: gnm_release/train/logs/<project_name>/<log_run_name>/latest.pth
 #load_run: drive-any-robot/train/logs/gnm/gnm_debug_2023_03_10_20_05_22/latest.pth
@@ -86,10 +115,17 @@ datasets:
 # MC
 #load_run: stable_contrastive_rl/stable_contrastive_rl_recon_small_debug_2023_05_19_03_01_09
 # TD
-load_run: stable_contrastive_rl/stable_contrastive_rl_recon_small_debug_2023_05_19_03_01_38
+#load_run: stable_contrastive_rl/stable_contrastive_rl_recon_small_debug_2023_05_19_03_01_38
+
+# simplified model
+# MC
+load_run: stable_contrastive_rl/stable_contrastive_rl_recon_full_2023_06_08_15_00_17
+# TD
+#load_run: stable_contrastive_rl/stable_contrastive_rl_recon_full_2023_06_08_01_58_37
 
 # logging stuff
-print_log_freq: 100 # in iterations
-image_log_freq: 1 # in iterations
+print_log_freq: 5 # in iterations
+#image_log_freq: 25 # in iterations
+image_log_freq: 2500 # in iterations
 num_images_log: 32 # number of images to log in a logging iteration
-pairwise_test_freq: 1 # in epochs
+save_pairwise_dist_pred_freq: 1 # in iterations
