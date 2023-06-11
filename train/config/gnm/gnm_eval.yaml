@@ -23,7 +23,7 @@ normalize: True
 
 # context
 context_type: temporal
-context_size: 5
+context_size: 0
 
 # tradeoff between action and distance prediction loss
 alpha: 0.5
@@ -31,10 +31,10 @@ alpha: 0.5
 # distance bounds for distance and action and distance predictions 
 distance:
   min_dist_cat: 0
-  max_dist_cat: 20
+  max_dist_cat: 1000
 action:
   min_dist_cat: 2
-  max_dist_cat: 10
+  max_dist_cat: 1000
 
 # action output params
 len_traj_pred: 5
@@ -65,11 +65,13 @@ eval_pairwise_dist_pred: True
 #load_run: gnm/gnm_small_2023_05_25_14_17_26  # dist_max_cat = 30
 
 # GNM model trained on the full dataset
-load_run: gnm/gnm_debug_2023_03_10_20_05_22
+#load_run: gnm/gnm_debug_2023_03_10_20_05_22
+# GNM model trained on the full recon dataset with no context and full trajectory
+load_run: gnm/gnm_test_2023_06_10_20_53_15
 
 # logging stuff
 print_log_freq: 5 # in iterations
 #image_log_freq: 25 # in iterations
 image_log_freq: 2500 # in iterations
 num_images_log: 32 # number of images to log in a logging iteration
-pairwise_test_freq: 1 # in epochs
+save_pairwise_dist_pred_freq: 1 # in iterations

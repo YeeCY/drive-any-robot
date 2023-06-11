@@ -696,7 +696,7 @@ def save_dist_pairwise_pred(
         == len(batch_far_labels)
     )
     batch_size = batch_close_preds.shape[0]
-    result_save_path = os.path.join(save_folder, f"results.pkl")
+    result_save_path = os.path.join(save_dir, f"results.pkl")
     batch_results = {}
     for i in range(batch_size):
         close_dist_pred = np.round(batch_close_preds[i], rounding)
@@ -704,12 +704,13 @@ def save_dist_pairwise_pred(
         close_dist_label = np.round(batch_close_labels[i], rounding)
         far_dist_label = np.round(batch_far_labels[i], rounding)
 
-        result_label = "f_close={}_f_far={}_curr_time={}_close_time={}_far_time={}".format(
+        result_label = "f_close={}_f_far={}_curr_time={}_close_time={}_far_time={}_context_times={}".format(
             index_to_data["f_close"][i],
             index_to_data["f_far"][i],
             int(index_to_data["curr_time"][i]),
             int(index_to_data["close_time"][i]),
             int(index_to_data["far_time"][i]),
+            list(index_to_data["context_times"].numpy()[i]),
         )
         result = {
             "f_close": index_to_data["f_close"][i],

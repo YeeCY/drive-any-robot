@@ -34,6 +34,7 @@ def eval_loop(
     image_log_freq: int = 1000,
     num_images_log: int = 8,
     # pairwise_test_freq: int = 5,
+    save_pairwise_dist_pred_freq: int = 1000,
     current_epoch: int = 0,
     alpha: float = 0.5,
     learn_angle: bool = True,
@@ -137,6 +138,7 @@ def eval_loop(
                         epoch,
                         dataset_type,
                         print_log_freq,
+                        save_result_freq=save_pairwise_dist_pred_freq,
                         save_failure_index_to_data=save_failure_index_to_data,
                     )
 

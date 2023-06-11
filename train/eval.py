@@ -319,6 +319,7 @@ def main(config):
             image_log_freq=config["image_log_freq"],
             num_images_log=config["num_images_log"],
             # pairwise_test_freq=config["pairwise_test_freq"],
+            save_pairwise_dist_pred_freq=config["save_pairwise_dist_pred_freq"],
             current_epoch=current_epoch,
             learn_angle=config["learn_angle"],
             alpha=config["alpha"],

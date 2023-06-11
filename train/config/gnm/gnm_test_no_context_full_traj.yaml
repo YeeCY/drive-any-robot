@@ -49,7 +49,7 @@ datasets:
     test: gnm_train/data/data_splits/recon/test/ # path to the test dir with traj_names.txt
     end_slack: 3 # because many trajectories end in collisions
     goals_per_obs: 1 # how many goals are sampled per observation
-    negative_mining: True # negative mining from the ViNG paper (Shah et al.)
+    negative_mining: False # negative mining from the ViNG paper (Shah et al.)
 
 # logging stuff
 print_log_freq: 500 # in iterations
