@@ -10,7 +10,7 @@ from functools import partial
 
 from stable_contrastive_rl_train.models.base_model import BaseRLModel
 from stable_contrastive_rl_train.models.networks import (
-    CNN,
+    ContrastiveImgEncoder,
     ContrastiveQNetwork,
     ContrastivePolicy
 )
@@ -51,8 +51,6 @@ class StableContrastiveRL(BaseRLModel):
         self.action_size = self.len_trajectory_pred * self.num_action_params
 
         assert img_encoder_kwargs is not None
-        img_encoder_kwargs["num_images"] = context_size + 1
-
         if img_encoder_kwargs["hidden_init"] == "xavier_uniform":
             hidden_init = partial(nn.init.xavier_uniform_,
                                   gain=nn.init.calculate_gain(
@@ -66,13 +64,16 @@ class StableContrastiveRL(BaseRLModel):
         hidden_activation = getattr(nn, img_encoder_kwargs["hidden_activation"])()
         img_encoder_kwargs["hidden_activation"] = hidden_activation
 
-        self.img_encoder = CNN(
+        self.img_encoder = ContrastiveImgEncoder(
+            self.context_size,
             **img_encoder_kwargs
         )
-        self.target_img_encoder = CNN(
+        self.target_img_encoder = ContrastiveImgEncoder(
+            self.context_size,
             **img_encoder_kwargs
         )
-        self.policy_image_encoder = CNN(
+        self.policy_img_encoder = ContrastiveImgEncoder(
+            self.context_size,
             **img_encoder_kwargs
         )
 
@@ -87,7 +88,7 @@ class StableContrastiveRL(BaseRLModel):
         policy_kwargs["action_size"] = self.action_size
         policy_kwargs["learn_angle"] = self.learn_angle
         self.policy_network = ContrastivePolicy(
-            self.policy_image_encoder, **policy_kwargs)
+            self.policy_img_encoder, **policy_kwargs)
 
         # copy_model_params_from_to(self.q_network.critic_parameters(),
         #                           self.target_q_network.critic_parameters())

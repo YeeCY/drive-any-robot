@@ -1160,8 +1160,7 @@ def get_critic_loss(model, obs, next_obs, action, goal, discount, use_td=False):
         # use target critic
         next_obs_repr, next_rand_g_repr = model(
             waypoint_next_obs, next_waypoint, waypoint_rand_goal)[2:4]
-        next_q = torch.einsum('ikl,jkl->ijl',
-                                       next_obs_repr, next_rand_g_repr)
+        next_q = torch.einsum('ikl,jkl->ijl', next_obs_repr, next_rand_g_repr)
 
         next_q = torch.sigmoid(next_q)
         next_v = torch.min(next_q, dim=-1)[0].detach()

@@ -182,10 +182,44 @@ class Mlp(nn.Module):
             return output
 
 
+class ContrastiveImgEncoder(nn.Module):
+    def __init__(
+        self,
+        context_size,
+        **kwargs,
+    ) -> None:
+        """
+        TODO
+        """
+        super(ContrastiveImgEncoder, self).__init__()
+
+        self.context_size = context_size
+
+        kwargs["num_images"] = self.context_size + 1
+        self.obs_encoder = CNN(
+            **kwargs
+        )
+        kwargs["num_images"] = 1
+        self.goal_encoder = CNN(
+            **kwargs
+        )
+
+        self.obs_encoding_dim = self.obs_encoder.conv_output_flat_size
+        self.goal_encoding_dim = self.goal_encoder.conv_output_flat_size
+
+    def forward(
+        self, obs_img: torch.tensor, goal_img: torch.tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        obs_encoding = self.obs_encoder(obs_img)
+        goal_encoding = self.goal_encoder(goal_img)
+
+        return obs_encoding, goal_encoding
+
+
 class ContrastiveQNetwork(nn.Module):
     def __init__(
         self,
-        img_encoder: CNN,
+        img_encoder: ContrastiveImgEncoder,
         hidden_sizes: list,
         action_size: int,
         representation_dim: int = 16,
@@ -225,7 +259,6 @@ class ContrastiveQNetwork(nn.Module):
         #     nn.ReLU(),
         #     nn.Linear(256, 16),
         # )
-        img_encoding_dim = self.img_encoder.conv_output_flat_size
         if hidden_init == "xavier_uniform":
             hidden_init = partial(nn.init.xavier_uniform_,
                                   gain=nn.init.calculate_gain(hidden_activation.lower()))
@@ -238,24 +271,24 @@ class ContrastiveQNetwork(nn.Module):
             init_w = float(init_w)
 
         self.sa_net = Mlp(
-            hidden_sizes, representation_dim, img_encoding_dim + self.action_size,
+            hidden_sizes, representation_dim, self.img_encoder.obs_encoding_dim + self.action_size,
             init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
             layer_norm=layer_norm,
         )
         self.g_net = Mlp(
-            hidden_sizes, representation_dim, img_encoding_dim,
+            hidden_sizes, representation_dim, self.img_encoder.goal_encoding_dim,
             init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
             layer_norm=layer_norm,
         )
 
         if self.twin_q:
             self.sa_net2 = Mlp(
-                hidden_sizes, representation_dim, img_encoding_dim + self.action_size,
+                hidden_sizes, representation_dim, self.img_encoder.obs_encoding_dim + self.action_size,
                 init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
                 layer_norm=layer_norm,
             )
             self.g_net2 = Mlp(
-                hidden_sizes, representation_dim, img_encoding_dim,
+                hidden_sizes, representation_dim, self.img_encoder.goal_encoding_dim,
                 init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
                 layer_norm=layer_norm,
             )
@@ -275,8 +308,9 @@ class ContrastiveQNetwork(nn.Module):
         waypoint = waypoint.reshape(
             (waypoint.shape[0], self.action_size))
 
-        obs_encoding = self.img_encoder(obs_img)
-        goal_encoding = self.img_encoder(goal_img)
+        # obs_encoding = self.img_encoder(obs_img)
+        # goal_encoding = self.img_encoder(goal_img)
+        obs_encoding, goal_encoding = self.img_encoder(obs_img, goal_img)
 
         sa_repr = self.sa_net(torch.cat([obs_encoding, waypoint], dim=-1))
         g_repr = self.g_net(goal_encoding)
@@ -313,7 +347,7 @@ class ContrastiveQNetwork(nn.Module):
 class ContrastivePolicy(nn.Module):
     def __init__(
         self,
-        img_encoder: CNN,
+        img_encoder: ContrastiveImgEncoder,
         hidden_sizes: list,
         action_size: int,
         learn_angle: bool = True,
@@ -340,8 +374,6 @@ class ContrastivePolicy(nn.Module):
         self.std = std
         self.std_architecture = std_architecture
 
-        img_encoding_dim = self.img_encoder.conv_output_flat_size
-
         if hidden_init == "xavier_uniform":
             hidden_init = partial(nn.init.xavier_uniform_,
                                   gain=nn.init.calculate_gain(hidden_activation.lower()))
@@ -354,7 +386,8 @@ class ContrastivePolicy(nn.Module):
             init_w = float(init_w)
 
         self.policy_net = Mlp(
-            hidden_sizes, self.action_size, 2 * img_encoding_dim,
+            hidden_sizes, self.action_size,
+            self.img_encoder.obs_encoding_dim + self.img_encoder.goal_encoding_dim,
             init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
             layer_norm=layer_norm,
         )
@@ -378,8 +411,9 @@ class ContrastivePolicy(nn.Module):
     def forward(
         self, obs_img: torch.tensor, goal_img: torch.tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        obs_encoding = self.img_encoder(obs_img)
-        goal_encoding = self.img_encoder(goal_img)
+        # obs_encoding = self.img_encoder(obs_img)
+        # goal_encoding = self.img_encoder(goal_img)
+        obs_encoding, goal_encoding = self.img_encoder(obs_img, goal_img)
 
         waypoint_mu, h = self.policy_net(
             torch.cat([obs_encoding, goal_encoding], dim=-1),
