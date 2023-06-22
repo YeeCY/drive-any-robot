@@ -107,7 +107,8 @@ datasets:
 # evalulation mode
 eval_waypoint: False
 eval_pairwise_dist_pred: True
-pairwise_dist_pred_eval_mode: "close_logit_diff"
+#pairwise_dist_pred_eval_mode: "close_logit_diff"
+pairwise_dist_pred_eval_mode: "far_logit_diff"
 #pairwise_dist_pred_eval_mode: "close_far_mi_diff"
 
 #load_run: gnm_release/train/logs/<project_name>/<log_run_name>/latest.pth

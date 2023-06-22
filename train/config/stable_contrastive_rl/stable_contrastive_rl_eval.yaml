@@ -105,7 +105,8 @@ datasets:
 # evalulation mode
 eval_waypoint: False
 eval_pairwise_dist_pred: True
-pairwise_dist_pred_eval_mode: "close_logit_diff"
+#pairwise_dist_pred_eval_mode: "close_logit_diff"
+pairwise_dist_pred_eval_mode: "far_logit_diff"
 #pairwise_dist_pred_eval_mode: "close_far_mi_diff"
 
 #load_run: gnm_release/train/logs/<project_name>/<log_run_name>/latest.pth
@@ -124,9 +125,9 @@ pairwise_dist_pred_eval_mode: "close_logit_diff"
 
 # simplified model with full trajectory
 # MC
-load_run: stable_contrastive_rl/stable_contrastive_rl_recon_full_2023_06_10_20_50_36
+#load_run: stable_contrastive_rl/stable_contrastive_rl_recon_full_2023_06_10_20_50_36
 # TD
-#load_run: stable_contrastive_rl/stable_contrastive_rl_recon_full_2023_06_10_20_49_56
+load_run: stable_contrastive_rl/stable_contrastive_rl_recon_full_2023_06_10_20_49_56
 
 # logging stuff
 print_log_freq: 5 # in iterations

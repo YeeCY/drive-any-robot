@@ -9,29 +9,7 @@ import matplotlib.pyplot as plt
 
 from PIL import Image
 import torchvision.transforms.functional as TF
-# import time
-#
-# import torch
-# from torch.utils.data import DataLoader
-# from torchvision import transforms
-# import torch.backends.cudnn as cudnn
-#
-# from gnm_train.models.gnm import GNM
-# from gnm_train.models.siamese import SiameseModel
-# from gnm_train.models.stacked import StackedModel
-# from gnm_train.data.gnm_dataset import GNM_Dataset
-# # from gnm_train.data.pairwise_distance_dataset import PairwiseDistanceDataset
-# from gnm_train.data.pairwise_distance_dataset import (
-#     PairwiseDistanceEvalDataset,
-#     PairwiseDistanceFailureDataset
-# )
-# from gnm_train.training.train_utils import load_model
-# from gnm_train.evaluation.eval_utils import eval_loop
-#
-# from stable_contrastive_rl_train.data.rl_dataset import RLDataset
-# from stable_contrastive_rl_train.models.base_model import DataParallel
-# from stable_contrastive_rl_train.models.stable_contrastive_rl import StableContrastiveRL
-# from stable_contrastive_rl_train.evaluation.eval_utils import eval_rl_loop
+
 from gnm_train.data.data_utils import (
     VISUALIZATION_IMAGE_SIZE,
     get_image_path
@@ -94,13 +72,13 @@ def get_image(path, aspect_ratio):
 def main(config):
     # read results
     gnm_dir = config["result_dirs"]["gnm"]
-    rl_mc_logit_diff_dir = config["result_dirs"]["contrastive_rl_mc_logit_diff"]
-    rl_td_logit_diff_dir = config["result_dirs"]["contrastive_rl_td_logit_diff"]
-    rl_mc_mi_diff_dir = config["result_dirs"]["contrastive_rl_mc_mi_diff"]
-    rl_td_mi_diff_dir = config["result_dirs"]["contrastive_rl_td_mi_diff"]
+    rl_mc_close_logit_diff_dir = config["result_dirs"]["crl_mc_logit_diff"]
+    rl_td_close_logit_diff_dir = config["result_dirs"]["crl_td_logit_diff"]
+    rl_mc_mi_diff_dir = config["result_dirs"]["crl_mc_mi_diff"]
+    rl_td_mi_diff_dir = config["result_dirs"]["crl_td_mi_diff"]
     gnm_filename = os.path.join(gnm_dir, "results.pkl")
-    rl_mc_logit_diff_filename = os.path.join(rl_mc_logit_diff_dir, "results.pkl")
-    rl_td_logit_diff_filename = os.path.join(rl_td_logit_diff_dir, "results.pkl")
+    rl_mc_close_logit_diff_filename = os.path.join(rl_mc_close_logit_diff_dir, "results.pkl")
+    rl_td_close_logit_diff_filename = os.path.join(rl_mc_close_logit_diff_dir, "results.pkl")
     rl_mc_mi_diff_filename = os.path.join(rl_mc_mi_diff_dir, "results.pkl")
     rl_td_mi_diff_filename = os.path.join(rl_td_mi_diff_dir, "results.pkl")
     data_folder = config["data_folder"]

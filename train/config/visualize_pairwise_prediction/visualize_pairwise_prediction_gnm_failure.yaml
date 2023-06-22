@@ -104,10 +104,12 @@ image_size: [85, 64] # width, height
 # result folder
 result_dirs:
   gnm: logs/gnm/gnm_eval_2023_06_11_15_49_54/result/recon_test/epoch10/pairwise_dist_classification
-  contrastive_rl_mc_logit_diff: logs/stable_contrastive_rl/stable_contrastive_rl_gnm_failure_eval_2023_06_11_15_06_45
-  contrastive_rl_td_logit_diff: logs/stable_contrastive_rl/stable_contrastive_rl_gnm_failure_eval_2023_06_11_15_09_59
-  contrastive_rl_mc_mi_diff: logs/stable_contrastive_rl/stable_contrastive_rl_gnm_failure_eval_2023_06_11_15_02_48
-  contrastive_rl_td_mi_diff: logs/stable_contrastive_rl/stable_contrastive_rl_gnm_failure_eval_2023_06_11_15_08_31
+  crl_mc_close_logit_diff: logs/stable_contrastive_rl/stable_contrastive_rl_gnm_failure_eval_2023_06_11_15_06_45
+  crl_td_close_logit_diff: logs/stable_contrastive_rl/stable_contrastive_rl_gnm_failure_eval_2023_06_11_15_09_59
+#  crl_mc_far_logit_diff:
+#  crl_td_far_logit_diff:
+  crl_mc_mi_diff: logs/stable_contrastive_rl/stable_contrastive_rl_gnm_failure_eval_2023_06_11_15_02_48
+  crl_td_mi_diff: logs/stable_contrastive_rl/stable_contrastive_rl_gnm_failure_eval_2023_06_11_15_08_31
 
 # save folder
 save_dir: logs/visualize_pairwise_prediction_gnm_failure

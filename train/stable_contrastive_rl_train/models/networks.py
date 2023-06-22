@@ -219,7 +219,7 @@ class ContrastiveImgEncoder(nn.Module):
 class ContrastiveQNetwork(nn.Module):
     def __init__(
         self,
-        img_encoder: ContrastiveImgEncoder,
+        img_encoder: [ContrastiveImgEncoder, CNN],
         hidden_sizes: list,
         action_size: int,
         representation_dim: int = 16,
@@ -270,6 +270,10 @@ class ContrastiveQNetwork(nn.Module):
         if isinstance(init_w, str):
             init_w = float(init_w)
 
+        if isinstance(self.img_encoder, CNN):
+            self.img_encoder.obs_encoding_dim = self.img_encoder.conv_output_flat_size
+            self.img_encoder.goal_encoding_dim = self.img_encoder.conv_output_flat_size
+
         self.sa_net = Mlp(
             hidden_sizes, representation_dim, self.img_encoder.obs_encoding_dim + self.action_size,
             init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
@@ -308,9 +312,11 @@ class ContrastiveQNetwork(nn.Module):
         waypoint = waypoint.reshape(
             (waypoint.shape[0], self.action_size))
 
-        # obs_encoding = self.img_encoder(obs_img)
-        # goal_encoding = self.img_encoder(goal_img)
-        obs_encoding, goal_encoding = self.img_encoder(obs_img, goal_img)
+        if isinstance(self.img_encoder, CNN):
+            obs_encoding = self.img_encoder(obs_img)
+            goal_encoding = self.img_encoder(goal_img)
+        else:
+            obs_encoding, goal_encoding = self.img_encoder(obs_img, goal_img)
 
         sa_repr = self.sa_net(torch.cat([obs_encoding, waypoint], dim=-1))
         g_repr = self.g_net(goal_encoding)
@@ -347,7 +353,7 @@ class ContrastiveQNetwork(nn.Module):
 class ContrastivePolicy(nn.Module):
     def __init__(
         self,
-        img_encoder: ContrastiveImgEncoder,
+        img_encoder: [ContrastiveImgEncoder, CNN],
         hidden_sizes: list,
         action_size: int,
         learn_angle: bool = True,
@@ -385,6 +391,10 @@ class ContrastivePolicy(nn.Module):
         if isinstance(init_w, str):
             init_w = float(init_w)
 
+        if isinstance(self.img_encoder, CNN):
+            self.img_encoder.obs_encoding_dim = self.img_encoder.conv_output_flat_size
+            self.img_encoder.goal_encoding_dim = self.img_encoder.conv_output_flat_size
+
         self.policy_net = Mlp(
             hidden_sizes, self.action_size,
             self.img_encoder.obs_encoding_dim + self.img_encoder.goal_encoding_dim,
@@ -411,9 +421,11 @@ class ContrastivePolicy(nn.Module):
     def forward(
         self, obs_img: torch.tensor, goal_img: torch.tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        # obs_encoding = self.img_encoder(obs_img)
-        # goal_encoding = self.img_encoder(goal_img)
-        obs_encoding, goal_encoding = self.img_encoder(obs_img, goal_img)
+        if isinstance(self.img_encoder, CNN):
+            obs_encoding = self.img_encoder(obs_img)
+            goal_encoding = self.img_encoder(goal_img)
+        else:
+            obs_encoding, goal_encoding = self.img_encoder(obs_img, goal_img)
 
         waypoint_mu, h = self.policy_net(
             torch.cat([obs_encoding, goal_encoding], dim=-1),
