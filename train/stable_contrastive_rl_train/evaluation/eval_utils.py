@@ -7,7 +7,10 @@ import pickle as pkl
 
 # from gnm_train.visualizing.distance_utils import visualize_dist_pred, visualize_dist_pairwise_pred
 # from stable_contrastive_rl_train.visualizing.critic_utils import visualize_critic_pred
-from stable_contrastive_rl_train.evaluation.visualization_utils import visualize_critic_pred
+from stable_contrastive_rl_train.evaluation.visualization_utils import (
+    visualize_critic_pred,
+    visualize_traj_dist_pred,
+)
 from stable_contrastive_rl_train.training.train_utils import (
     get_critic_loss,
     get_actor_loss,
@@ -60,6 +63,7 @@ def eval_rl_loop(
     pairwise_dist_pred_eval_mode: str = "close_logit_diff",
     eval_waypoint: bool = True,
     eval_pairwise_dist_pred: bool = True,
+    eval_traj_dist_pred: bool = True,
 ):
     """
     Train and evaluate the model for several epochs.
@@ -183,6 +187,25 @@ def eval_rl_loop(
 
                     print(f"{dataset_type}_pairwise_acc: {pairwise_accuracy}")
                     print(f"{dataset_type}_pairwise_auc: {pairwise_auc}")
+
+        if eval_traj_dist_pred:
+            print(f"Start Trajectory Distance Prediction Testing Epoch {epoch}/{current_epoch + epochs - 1}")
+            for dataset_type in test_dataloaders:
+                if "traj_dist_pred" in test_dataloaders[dataset_type]:
+                    traj_loader = test_dataloaders[dataset_type]["traj_dist_pred"]
+                    traj_dist_pred(
+                        model,
+                        traj_loader,
+                        device,
+                        normalized,
+                        project_folder,
+                        epoch,
+                        dataset_type,
+                        print_log_freq,
+                        image_log_freq,
+                        save_pairwise_dist_pred_freq,
+                    )
+
     print()
 
 
@@ -762,4 +785,88 @@ def save_dist_pairwise_pred(
     else:
         with open(result_save_path, "wb+") as f:
             pkl.dump(batch_results, f)
+
+
+def traj_dist_pred(
+    model: nn.Module,
+    eval_loader: DataLoader,
+    device: torch.device,
+    normalized: bool,
+    project_folder: str,
+    epoch: int,
+    eval_type: str,
+    print_log_freq: int = 100,
+    image_log_freq: int = 1000,
+    save_result_freq: int = 1000,
+):
+    with torch.no_grad():
+        for i, vals in enumerate(eval_loader):
+            (
+                obs_image,
+                goal_image,
+                transf_obs_image,
+                transf_goal_image,
+                local_goal_pos,
+                waypoint_label,
+                global_curr_pos,
+                global_goal_pos,
+                dist_label,
+                dataset_index,
+            ) = tuple(v[0] for v in vals)
+            traj_len = transf_obs_image.shape[0]
+            transf_obs_image = transf_obs_image.to(device)
+            transf_goal_image = transf_goal_image.to(device)
+
+            # planning with SCRL
+            dummy_action = torch.zeros(
+                [traj_len, model.len_trajectory_pred, model.num_action_params],
+                device=transf_obs_image.device
+            )
+            dummy_action[..., 2] = 1  # cos of yaws
+            dummy_action = dummy_action.reshape([traj_len, model.action_size])
+            current_obs_idx = 0
+            path_obs_idxs = [current_obs_idx]
+
+            while current_obs_idx != traj_len - 1 and len(path_obs_idxs) < traj_len:
+                mask = torch.zeros(transf_obs_image.shape[0], dtype=torch.bool, device=device)
+                sg_indices = torch.arange(traj_len, dtype=torch.int, device=device)
+                mask[current_obs_idx] = True
+                transf_curr_obs_image = transf_obs_image[mask]
+                transf_sg_image = transf_obs_image[~mask]
+                sg_indices = sg_indices[~mask]
+                # tmp_curr_obs_a_repr, tmp_sg_repr = model(
+                #     transf_curr_obs_image, dummy_action[[0]], transf_curr_obs_image)[0:2]
+                # tmp_curr_obs_a_sg_logit = torch.einsum('ikl,jkl->ijl', tmp_curr_obs_a_repr, tmp_sg_repr)
+                # tmp_curr_obs_a_sg_logit = torch.diag(torch.mean(tmp_curr_obs_a_sg_logit, dim=-1))
+
+                curr_obs_a_repr, sg_repr = model(
+                    transf_curr_obs_image.repeat_interleave(transf_sg_image.shape[0], dim=0),
+                    dummy_action[:transf_sg_image.shape[0]],
+                    transf_sg_image
+                )[0:2]
+                curr_obs_a_sg_logit = torch.einsum('ikl,jkl->ijl', curr_obs_a_repr, sg_repr)
+                curr_obs_a_sg_logit = torch.diag(torch.mean(curr_obs_a_sg_logit, dim=-1))
+                sg_idx = int(sg_indices[torch.argmax(curr_obs_a_sg_logit)])
+
+                # assume we can move to the subgoal exactly
+                path_obs_idxs.append(sg_idx)
+                current_obs_idx = sg_idx
+
+            if i % image_log_freq == 0:
+                visualize_traj_dist_pred(
+                    to_numpy(transf_obs_image),
+                    to_numpy(transf_goal_image),
+                    to_numpy(dataset_index),
+                    to_numpy(local_goal_pos),
+                    to_numpy(waypoint_label),
+                    to_numpy(global_curr_pos),
+                    to_numpy(global_goal_pos),
+                    np.array(path_obs_idxs),
+                    eval_type,
+                    normalized,
+                    project_folder,
+                    epoch,
+                )
+
+            print()
 

@@ -30,6 +30,9 @@ def main(args: argparse.Namespace):
         except OSError:
             print(f"Error loading {filename}. Skipping...")
             continue
+        # attributes in the hdf5 file are "android", "collision", "commands", "gps", "images", "imu", "jackal", "lidar"
+        # attributes in the "jackal" group are "angular_velocity", "imu", "linear_velocity", "position", "yaw"
+        # we can plot satellite image with the recon dataset visualization script: https://sites.google.com/view/recon-robot/dataset
         # extract the position and yaw data
         position_data = h5_f["jackal"]["position"][:, :2]
         yaw_data = h5_f["jackal"]["yaw"][()]
