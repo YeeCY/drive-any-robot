@@ -11,7 +11,10 @@ from gnm_train.evaluation.visualization_utils import visualize_traj_pred
 from gnm_train.visualizing.visualize_utils import to_numpy
 from gnm_train.training.logger import Logger
 from gnm_train.training.train_utils import get_total_loss
-from stable_contrastive_rl_train.evaluation.eval_utils import save_dist_pairwise_pred
+from stable_contrastive_rl_train.evaluation.eval_utils import (
+    save_dist_pairwise_pred,
+    save_traj_dist_pred,
+)
 
 import torch
 import torch.nn as nn
@@ -34,7 +37,8 @@ def eval_loop(
     image_log_freq: int = 1000,
     num_images_log: int = 8,
     # pairwise_test_freq: int = 5,
-    save_pairwise_dist_pred_freq: int = 1000,
+    save_pairwise_dist_pred_freq: int = 5,
+    save_traj_dist_pred_freq: int = 5,
     current_epoch: int = 0,
     alpha: float = 0.5,
     learn_angle: bool = True,
@@ -42,6 +46,7 @@ def eval_loop(
     save_failure_index_to_data: bool = False,
     eval_waypoint: bool = True,
     eval_pairwise_dist_pred: bool = True,
+    eval_traj_dist_pred: bool = True,
 ):
     """
     Train and evaluate the model for several epochs.
@@ -69,26 +74,6 @@ def eval_loop(
     # latest_path = os.path.join(project_folder, f"latest.pth")
 
     for epoch in range(current_epoch, current_epoch + epochs):
-        # print(
-        #     f"Start GNM Training Epoch {epoch}/{current_epoch + epochs - 1}"
-        # )
-        # train(
-        #     model,
-        #     optimizer,
-        #     train_dist_loader,
-        #     train_action_loader,
-        #     device,
-        #     project_folder,
-        #     normalized,
-        #     epoch,
-        #     alpha,
-        #     learn_angle,
-        #     print_log_freq,
-        #     image_log_freq,
-        #     num_images_log,
-        #     use_wandb,
-        # )
-        #
         if eval_waypoint:
             eval_total_losses = []
             for dataset_type in test_dataloaders:
@@ -148,6 +133,22 @@ def eval_loop(
 
                     print(f"{dataset_type}_pairwise_acc: {pairwise_accuracy}")
                     print(f"{dataset_type}_pairwise_auc: {pairwise_auc}")
+
+        if eval_traj_dist_pred:
+            print(f"Start Trajectory Distance Prediction Testing Epoch {epoch}/{current_epoch + epochs - 1}")
+            for dataset_type in test_dataloaders:
+                if "traj_dist_pred" in test_dataloaders[dataset_type]:
+                    traj_loader = test_dataloaders[dataset_type]["traj_dist_pred"]
+                    traj_dist_pred(
+                        model,
+                        traj_loader,
+                        device,
+                        project_folder,
+                        epoch,
+                        dataset_type,
+                        print_log_freq,
+                        save_traj_dist_pred_freq,
+                    )
 
     if save_failure_index_to_data:
         # save failure_idxs_to_data
@@ -438,3 +439,72 @@ def pairwise_acc(
         if len(correct_list) == 0:
             return 0
         return np.concatenate(correct_list).mean(), np.asarray(auc_list).mean(), failure_index_to_data
+
+
+def traj_dist_pred(
+    model: nn.Module,
+    eval_loader: DataLoader,
+    device: torch.device,
+    save_folder: str,
+    epoch: int,
+    eval_type: str,
+    print_log_freq: int = 100,
+    save_result_freq: int = 1000,
+):
+    model.eval()
+    num_trajs = len(eval_loader)
+
+    with torch.no_grad():
+        for i, vals in enumerate(eval_loader):
+            (
+                obs_image,
+                goal_image,
+                transf_obs_image,
+                transf_goal_image,
+                local_goal_pos,
+                waypoint_label,
+                global_curr_pos,
+                global_goal_pos,
+                dist_label,
+                dataset_index,
+                index_to_traj,
+            ) = tuple([v[0] for v in vals[:-1]] + [vals[-1]])
+            traj_len = transf_obs_image.shape[0]
+            transf_obs_image = transf_obs_image.to(device)
+            transf_goal_image = transf_goal_image.to(device)
+
+            # planning with GNM
+            current_obs_idx = 0
+            path_obs_idxs = [current_obs_idx]
+
+            while current_obs_idx != traj_len - 1 and len(path_obs_idxs) < traj_len:
+                mask = torch.zeros(transf_obs_image.shape[0], dtype=torch.bool, device=device)
+                sg_indices = torch.arange(traj_len, dtype=torch.int, device=device)
+                mask[current_obs_idx] = True
+                transf_curr_obs_image = transf_obs_image[mask]
+                transf_sg_image = transf_obs_image[~mask]
+                sg_indices = sg_indices[~mask]
+
+                dist, waypoint = model(
+                    transf_curr_obs_image.repeat_interleave(transf_sg_image.shape[0], dim=0),
+                    transf_sg_image
+                )
+                sg_idx = int(sg_indices[torch.argmin(dist)])
+
+                # assume we can move to the subgoal exactly
+                path_obs_idxs.append(sg_idx)
+                current_obs_idx = sg_idx
+
+            if i % print_log_freq == 0:
+                print(f"({i}/{num_trajs}) trajectories processed")
+
+            if i % save_result_freq == 0:
+                save_traj_dist_pred(
+                    to_numpy(global_curr_pos),
+                    to_numpy(global_goal_pos),
+                    np.array(path_obs_idxs),
+                    eval_type,
+                    save_folder,
+                    epoch,
+                    index_to_traj,
+                )

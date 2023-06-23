@@ -1,0 +1,79 @@
+project_name: gnm
+run_name: gnm_eval_traj_dist_pred
+
+# training setup
+use_wandb: False # set to false if you don't want to log to wandb
+eval: supervised
+traj_batch_size: 1  # batch size for number of trajectories
+traj_eval_batch_size: 1  # eval batch size for number of trajectories
+batch_size: 32
+eval_batch_size: 32
+epochs: 1
+gpu_ids: [1] # list of gpu ids to use
+num_workers: 16
+lr: 5e-4
+optimizer: adam
+seed: 0
+
+# model params
+model_type: gnm
+obs_encoding_size: 1024
+goal_encoding_size: 1024
+
+# normalization for the action space
+normalize: True
+
+# context
+context_type: temporal
+context_size: 0
+
+# tradeoff between action and distance prediction loss
+alpha: 0.5
+
+# action output params
+len_traj_pred: 5
+learn_angle: True
+
+# dataset specific parameters
+image_size: [85, 64] # width, height
+datasets:
+  recon:
+    data_folder: datasets/recon # path to the dataset
+#    test: gnm_train/data/data_splits/recon_traj_dist_pred/test/ # folder to read trajectory names
+    test_traj_names: [
+      "jackal_2019-08-06-16-16-07_15_r02",
+      "jackal_2019-08-08-16-52-33_10_r00",
+      "jackal_2019-09-19-15-57-48_33_r00",
+    ]
+    # goal node index in the trajectory (if -1, then the goal node is the last node in the trajectory)
+    goal_idxs: [
+      -1,
+      -1,
+      -1,
+    ]
+    end_slack: 3 # because many trajectories end in collisions
+    subsampling_spacing: 5 # sampling trajectory points every "subsampling_spacing" timestep
+
+# evalulation mode
+eval_waypoint: False
+eval_pairwise_dist_pred: False
+eval_traj_dist_pred: True
+
+# pre-trained model
+#load_run: gnm/gnm_test_2023_04_29_22_39_38  # random checkpoint for testing
+
+# GNM distance prediction drop-off
+#load_run: gnm/gnm_small_2023_05_25_14_17_06  # dist_max_cat = 20
+#load_run: gnm/gnm_small_2023_05_25_14_17_12  # dist_max_cat = 25
+#load_run: gnm/gnm_small_2023_05_25_14_17_26  # dist_max_cat = 30
+
+# GNM model trained on the full dataset
+#load_run: gnm/gnm_debug_2023_03_10_20_05_22
+# GNM model trained on the full recon dataset with no context and full trajectory
+load_run: gnm/gnm_test_2023_06_10_20_53_15
+
+# logging stuff
+print_log_freq: 5 # in iterations
+#image_log_freq: 25 # in iterations
+image_log_freq: 2500 # in iterations
+save_traj_dist_pred_freq: 1 # in iterations

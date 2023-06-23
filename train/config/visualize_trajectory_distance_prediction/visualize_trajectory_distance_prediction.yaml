@@ -1,0 +1,14 @@
+# data folder
+data_folder: datasets/recon  # path to the dataset
+
+# image size
+image_size: [85, 64] # width, height
+
+# result folder
+result_dirs:
+  gnm: logs/gnm/gnm_eval_traj_dist_pred_2023_06_23_11_56_01/result/recon_test/epoch10/trajectory_distance_prediction
+  scrl_mc: logs/stable_contrastive_rl/stable_contrastive_rl_eval_traj_dist_pred_2023_06_23_11_57_14/result/recon_test/epoch10/trajectory_distance_prediction
+  scrl_td: logs/stable_contrastive_rl/stable_contrastive_rl_eval_traj_dist_pred_2023_06_23_11_57_47/result/recon_test/epoch10/trajectory_distance_prediction
+
+# save folder
+save_dir: logs/visualize_trajectory_distance_prediction

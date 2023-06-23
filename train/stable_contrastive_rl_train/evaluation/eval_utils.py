@@ -47,7 +47,8 @@ def eval_rl_loop(
     print_log_freq: int = 100,
     image_log_freq: int = 1000,
     num_images_log: int = 8,
-    save_pairwise_dist_pred_freq: int=5,
+    save_pairwise_dist_pred_freq: int = 5,
+    save_traj_dist_pred_freq: int = 5,
     current_epoch: int = 0,
     # target_update_freq: int = 1,
     discount: float = 0.99,
@@ -197,13 +198,11 @@ def eval_rl_loop(
                         model,
                         traj_loader,
                         device,
-                        normalized,
                         project_folder,
                         epoch,
                         dataset_type,
                         print_log_freq,
-                        image_log_freq,
-                        save_pairwise_dist_pred_freq,
+                        save_traj_dist_pred_freq,
                     )
 
     print()
@@ -791,14 +790,15 @@ def traj_dist_pred(
     model: nn.Module,
     eval_loader: DataLoader,
     device: torch.device,
-    normalized: bool,
-    project_folder: str,
+    save_folder: str,
     epoch: int,
     eval_type: str,
     print_log_freq: int = 100,
-    image_log_freq: int = 1000,
     save_result_freq: int = 1000,
 ):
+    model.eval()
+    num_trajs = len(eval_loader)
+
     with torch.no_grad():
         for i, vals in enumerate(eval_loader):
             (
@@ -812,7 +812,8 @@ def traj_dist_pred(
                 global_goal_pos,
                 dist_label,
                 dataset_index,
-            ) = tuple(v[0] for v in vals)
+                index_to_traj,
+            ) = tuple([v[0] for v in vals[:-1]] + [vals[-1]])
             traj_len = transf_obs_image.shape[0]
             transf_obs_image = transf_obs_image.to(device)
             transf_goal_image = transf_goal_image.to(device)
@@ -852,21 +853,81 @@ def traj_dist_pred(
                 path_obs_idxs.append(sg_idx)
                 current_obs_idx = sg_idx
 
-            if i % image_log_freq == 0:
-                visualize_traj_dist_pred(
-                    to_numpy(transf_obs_image),
-                    to_numpy(transf_goal_image),
-                    to_numpy(dataset_index),
-                    to_numpy(local_goal_pos),
-                    to_numpy(waypoint_label),
+            if i % print_log_freq == 0:
+                print(f"({i}/{num_trajs}) trajectories processed")
+
+            if i % save_result_freq == 0:
+                save_traj_dist_pred(
                     to_numpy(global_curr_pos),
                     to_numpy(global_goal_pos),
                     np.array(path_obs_idxs),
                     eval_type,
-                    normalized,
-                    project_folder,
+                    save_folder,
                     epoch,
+                    index_to_traj,
                 )
 
-            print()
+            # if i % image_log_freq == 0:
+            #     visualize_traj_dist_pred(
+            #         to_numpy(transf_obs_image),
+            #         to_numpy(transf_goal_image),
+            #         to_numpy(dataset_index),
+            #         to_numpy(local_goal_pos),
+            #         to_numpy(waypoint_label),
+            #         to_numpy(global_curr_pos),
+            #         to_numpy(global_goal_pos),
+            #         np.array(path_obs_idxs),
+            #         eval_type,
+            #         normalized,
+            #         save_folder,
+            #         epoch,
+            #     )
 
+
+def save_traj_dist_pred(
+    global_curr_pos: np.ndarray,
+    global_goal_pos: np.ndarray,
+    path_idxs: np.ndarray,
+    eval_type: str,
+    save_folder: str,
+    epoch: int,
+    index_to_traj: dict,
+):
+    save_dir = os.path.join(
+        save_folder,
+        "result",
+        eval_type,
+        f"epoch{epoch}",
+        "trajectory_distance_prediction",
+    )
+    os.makedirs(save_dir, exist_ok=True)
+    result_save_path = os.path.join(save_dir, f"results.pkl")
+
+    result_label = "f_traj={}_context_size={}_end_slack={}_subsampling_spacing={}_goal_time={}".format(
+        index_to_traj["f_traj"],
+        index_to_traj["context_size"],
+        index_to_traj["end_slack"],
+        index_to_traj["subsampling_spacing"],
+        index_to_traj["goal_time"],
+    )
+    result = {
+        "f_traj": index_to_traj["f_traj"],
+        "context_size": index_to_traj["context_size"],
+        "end_slack": index_to_traj["end_slack"],
+        "subsampling_spacing": index_to_traj["subsampling_spacing"],
+        "goal_time": index_to_traj["goal_time"],
+        "global_curr_pos": global_curr_pos,
+        "global_goal_pos": global_goal_pos,
+        "path_idxs": path_idxs,
+    }
+    traj_results = {result_label: result}
+
+    if os.path.exists(result_save_path):
+        with open(result_save_path, "rb") as f:
+            results = pkl.load(f)
+        results.update(traj_results)
+        with open(result_save_path, "wb") as f:
+            pkl.dump(results, f)
+    else:
+        with open(result_save_path, "wb+") as f:
+            pkl.dump(traj_results, f)

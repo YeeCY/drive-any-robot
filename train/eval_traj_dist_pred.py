@@ -91,43 +91,59 @@ def main(config):
             data_config["waypoint_spacing"] = 1
 
         output_type = "traj_dist_pred"
-        if config["eval"] == "rl":
-            dataset = RLTrajDataset(
-                data_folder=data_config["data_folder"],
-                traj_names=data_config["test_traj_names"],
-                goal_idxs=data_config["goal_idxs"],
-                dataset_name=dataset_name,
-                transform=transform,
-                aspect_ratio=aspect_ratio,
-                waypoint_spacing=data_config["waypoint_spacing"],
-                subsampling_spacing=data_config["subsampling_spacing"],
-                len_traj_pred=config["len_traj_pred"],
-                learn_angle=config["learn_angle"],
-                context_size=config["context_size"],
-                context_type=config["context_type"],
-                end_slack=data_config["end_slack"],
-                normalize=config["normalize"],
-            )
-        else:
-            dataset = GNM_EvalDataset(
-                data_folder=data_config["data_folder"],
-                data_split_folder=data_config[data_split_type],
-                dataset_name=dataset_name,
-                is_action=(output_type == "action"),
-                transform=transform,
-                aspect_ratio=aspect_ratio,
-                waypoint_spacing=data_config["waypoint_spacing"],
-                min_dist_cat=config[output_type]["min_dist_cat"],
-                max_dist_cat=config[output_type]["max_dist_cat"],
-                negative_mining=data_config["negative_mining"],
-                len_traj_pred=config["len_traj_pred"],
-                learn_angle=config["learn_angle"],
-                context_size=config["context_size"],
-                context_type=config["context_type"],
-                end_slack=data_config["end_slack"],
-                goals_per_obs=data_config["goals_per_obs"],
-                normalize=config["normalize"],
-            )
+        # if config["eval"] == "rl":
+        #     dataset = RLTrajDataset(
+        #         data_folder=data_config["data_folder"],
+        #         traj_names=data_config["test_traj_names"],
+        #         goal_idxs=data_config["goal_idxs"],
+        #         dataset_name=dataset_name,
+        #         transform=transform,
+        #         aspect_ratio=aspect_ratio,
+        #         waypoint_spacing=data_config["waypoint_spacing"],
+        #         subsampling_spacing=data_config["subsampling_spacing"],
+        #         len_traj_pred=config["len_traj_pred"],
+        #         learn_angle=config["learn_angle"],
+        #         context_size=config["context_size"],
+        #         context_type=config["context_type"],
+        #         end_slack=data_config["end_slack"],
+        #         normalize=config["normalize"],
+        #     )
+        # else:
+        #     dataset = GNM_EvalDataset(
+        #         data_folder=data_config["data_folder"],
+        #         data_split_folder=data_config[data_split_type],
+        #         dataset_name=dataset_name,
+        #         is_action=(output_type == "action"),
+        #         transform=transform,
+        #         aspect_ratio=aspect_ratio,
+        #         waypoint_spacing=data_config["waypoint_spacing"],
+        #         min_dist_cat=config[output_type]["min_dist_cat"],
+        #         max_dist_cat=config[output_type]["max_dist_cat"],
+        #         negative_mining=data_config["negative_mining"],
+        #         len_traj_pred=config["len_traj_pred"],
+        #         learn_angle=config["learn_angle"],
+        #         context_size=config["context_size"],
+        #         context_type=config["context_type"],
+        #         end_slack=data_config["end_slack"],
+        #         goals_per_obs=data_config["goals_per_obs"],
+        #         normalize=config["normalize"],
+        #     )
+        dataset = RLTrajDataset(
+            data_folder=data_config["data_folder"],
+            traj_names=data_config["test_traj_names"],
+            goal_idxs=data_config["goal_idxs"],
+            dataset_name=dataset_name,
+            transform=transform,
+            aspect_ratio=aspect_ratio,
+            waypoint_spacing=data_config["waypoint_spacing"],
+            subsampling_spacing=data_config["subsampling_spacing"],
+            len_traj_pred=config["len_traj_pred"],
+            learn_angle=config["learn_angle"],
+            context_size=config["context_size"],
+            context_type=config["context_type"],
+            end_slack=data_config["end_slack"],
+            normalize=config["normalize"],
+        )
         dataset_type = f"{dataset_name}_{data_split_type}"
         if dataset_type not in test_dataloaders:
             test_dataloaders[dataset_type] = {}
@@ -221,15 +237,14 @@ def main(config):
             print_log_freq=config["print_log_freq"],
             image_log_freq=config["image_log_freq"],
             num_images_log=config["num_images_log"],
-            # pairwise_test_freq=config["pairwise_test_freq"],
-            save_pairwise_dist_pred_freq=config["save_pairwise_dist_pred_freq"],
+            save_traj_dist_pred_freq=config["save_traj_dist_pred_freq"],
             current_epoch=current_epoch,
             learn_angle=config["learn_angle"],
             alpha=config["alpha"],
             use_wandb=config["use_wandb"],
-            save_failure_index_to_data=config["save_failure_index_to_data"],
             eval_waypoint=config["eval_waypoint"],
             eval_pairwise_dist_pred=config["eval_pairwise_dist_pred"],
+            eval_traj_dist_pred=config["eval_traj_dist_pred"],
         )
     elif config["eval"] == "rl":
         try:
@@ -254,7 +269,7 @@ def main(config):
             print_log_freq=config["print_log_freq"],
             image_log_freq=config["image_log_freq"],
             num_images_log=config["num_images_log"],
-            save_pairwise_dist_pred_freq=config["save_pairwise_dist_pred_freq"],
+            save_traj_dist_pred_freq=config["save_traj_dist_pred_freq"],
             current_epoch=current_epoch,
             learn_angle=config["learn_angle"],
             discount=config["discount"],

@@ -747,82 +747,6 @@ class RLTrajDataset(Dataset):
         # use this index to retrieve the dataset name from the data_config.yaml
         self.dataset_index = dataset_names.index(self.dataset_name)
         self.data_config = all_data_config[self.dataset_name]
-        # self._gen_index_to_data()
-
-    # def _gen_index_to_data(self) -> None:
-    #     self.index_to_data = []
-    #
-    #     dataset_type = "action" if self.is_action else "distance"
-    #     index_to_data_path = os.path.join(
-    #         self.data_split_folder,
-    #         f"rl_dataset_type_{dataset_type}_waypoint_spacing_{self.waypoint_spacing}_len_traj_pred_{self.len_traj_pred}_learn_angle_{self.learn_angle}_context_size_{self.context_size}_context_type_{self.context_type}_end_slack_{self.end_slack}.pkl",
-    #     )
-    #     try:
-    #         # load the index_to_data if it already exists (to save time)
-    #         with open(index_to_data_path, "rb") as f1:
-    #             self.index_to_data = pickle.load(f1)
-    #     except:
-    #         # if the index_to_data file doesn't exist, create it
-    #         print(
-    #             f"Sampling subgoals for each observation in the {self.dataset_name} {dataset_type} rl dataset..."
-    #         )
-    #         print(
-    #             "This will take a while, but it will only be done once for each configuration per dataset."
-    #         )
-    #         for i in tqdm.tqdm(range(len(self.traj_names))):
-    #             f_curr = self.traj_names[i]
-    #             with open(
-    #                     os.path.join(
-    #                         os.path.join(self.data_folder, f_curr), "traj_data.pkl"
-    #                     ),
-    #                     "rb",
-    #             ) as f3:
-    #                 traj_data = pickle.load(f3)
-    #             traj_len = len(traj_data["position"])
-    #             # start sampling a little bit into the trajectory to give enought time to generate context
-    #             for curr_time in range(
-    #                 self.context_size * self.waypoint_spacing,
-    #                 traj_len - self.end_slack,
-    #             ):
-    #                 max_len = min(
-    #                     int(self.max_dist_cat * self.waypoint_spacing),
-    #                     traj_len - curr_time - 1,
-    #                 )
-    #                 # sampled_dists = []
-    #
-    #                 # sample self.goals_per_obs goals per observation
-    #                 for _ in range(self.goals_per_obs):
-    #                     # sample a distance from the distance categories as long as it is less than the trajectory length
-    #                     filter_func = (
-    #                         lambda dist: int(dist * self.waypoint_spacing) <= max_len
-    #                     )
-    #                     len_to_goal = self.label_balancer.sample(filter_func)
-    #                     # sampled_dists.append(len_to_goal)
-    #
-    #                     # break the loop if there are no more valid distances to sample
-    #                     if len_to_goal is None:
-    #                         break
-    #
-    #                     # if the length to the goal is negative, then we are using negative mining (sample an goal from another trajectory)
-    #                     if len_to_goal == -1:
-    #                         new = np.random.randint(1, len(self.traj_names))
-    #                         f_rand = self.traj_names[(i + new) % len(self.traj_names)]
-    #                         with open(
-    #                                 os.path.join(self.data_folder, f_rand, "traj_data.pkl"),
-    #                                 "rb",
-    #                         ) as f4:
-    #                             rand_traj_data = pickle.load(f4)
-    #                         rand_traj_len = len(rand_traj_data["position"])
-    #                         goal_time = np.random.randint(rand_traj_len)
-    #                         f_goal = f_rand
-    #                     else:
-    #                         goal_time = curr_time + int(
-    #                             len_to_goal * self.waypoint_spacing
-    #                         )
-    #                         f_goal = f_curr
-    #                     self.index_to_data += [(f_curr, f_goal, curr_time, goal_time)]
-    #         with open(index_to_data_path, "wb") as f2:
-    #             pickle.dump(self.index_to_data, f2)
 
     def __len__(self) -> int:
         return len(self.traj_names)
@@ -992,4 +916,13 @@ class RLTrajDataset(Dataset):
 
             # data.append(torch.LongTensor([self.dataset_index]))
             data.setdefault("dataset_index", []).append(torch.LongTensor([self.dataset_index]))
-        return tuple(torch.stack(v) for v in data.values())
+
+        index_to_traj = {
+            "f_traj": f_traj,
+            "context_size": int(self.context_size),
+            "end_slack": int(self.end_slack),
+            "subsampling_spacing": int(self.subsampling_spacing),
+            "goal_time": int(goal_time),
+        }
+
+        return tuple([torch.stack(v) for v in data.values()] + [index_to_traj])
