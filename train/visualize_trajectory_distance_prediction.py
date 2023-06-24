@@ -52,14 +52,26 @@ from stable_contrastive_rl_train.evaluation.visualization_utils import (
 
 def display_traj_dist_pred(
     global_curr_pos, global_goal_pos,
-    gnm_path_idxs, rl_mc_path_idxs, rl_td_path_idxs,
+    gnm_path_idxs,
+    rl_mc_logit_sum_path_idxs, rl_td_logit_sum_path_idxs,
+    rl_mc_close_logit_diff_path_idxs, rl_td_close_logit_diff_path_idxs,
+    rl_mc_far_logit_diff_path_idxs, rl_td_far_logit_diff_path_idxs,
+    rl_mc_mi_diff_path_idxs, rl_td_mi_diff_path_idxs,
     text_color="black", save_path=None, display=False
 ):
     plt.figure()
     fig, ax = plt.subplots(1, 1)
 
-    plt.suptitle(f"gnm w/o context w/ long horizon path: {gnm_path_idxs}\nscrl mc w/o context w/ long horizon path: {rl_mc_path_idxs}\nscrl td w/o context w/ long horizon path: {rl_td_path_idxs}",
-                 y=1.05,
+    plt.suptitle(f"gnm w/o context w/ long horizon path: {gnm_path_idxs}\n"
+                 + f"scrl mc w/o context w/ long horizon logit-sum path: {rl_mc_close_logit_diff_path_idxs}\n"
+                 + f"scrl td w/o context w/ long horizon logit-sum path: {rl_td_close_logit_diff_path_idxs}\n"
+                 + f"scrl mc w/o context w/ long horizon close-logit-diff path: {rl_mc_close_logit_diff_path_idxs}\n"
+                 + f"scrl td w/o context w/ long horizon close-logit-diff path: {rl_td_close_logit_diff_path_idxs}\n"
+                 + f"scrl mc w/o context w/ long horizon far-logit-diff path: {rl_mc_far_logit_diff_path_idxs}\n"
+                 + f"scrl td w/o context w/ long horizon far-logit-diff path: {rl_td_far_logit_diff_path_idxs}\n"
+                 + f"scrl mc w/o context w/ long horizon mi-diff path: {rl_mc_mi_diff_path_idxs}\n"
+                 + f"scrl td w/o context w/ long horizon mi-diff path: {rl_td_mi_diff_path_idxs}",
+                 y=1.2,
                  color=text_color)
 
     traj_len = len(global_curr_pos)
@@ -103,26 +115,66 @@ def get_image(path, aspect_ratio):
 def main(config):
     # read results
     gnm_dir = config["result_dirs"]["gnm"]
-    rl_mc_dir = config["result_dirs"]["scrl_mc"]
-    rl_td_dir = config["result_dirs"]["scrl_td"]
+    rl_mc_logit_sum_dir = config["result_dirs"]["scrl_mc_logit_sum"]
+    rl_td_logit_sum_dir = config["result_dirs"]["scrl_td_logit_sum"]
+    rl_mc_close_logit_diff_dir = config["result_dirs"]["scrl_mc_close_logit_diff"]
+    rl_td_close_logit_diff_dir = config["result_dirs"]["scrl_td_close_logit_diff"]
+    rl_mc_far_logit_diff_dir = config["result_dirs"]["scrl_mc_far_logit_diff"]
+    rl_td_far_logit_diff_dir = config["result_dirs"]["scrl_td_far_logit_diff"]
+    rl_mc_mi_diff_dir = config["result_dirs"]["scrl_mc_mi_diff"]
+    rl_td_mi_diff_dir = config["result_dirs"]["scrl_td_mi_diff"]
     gnm_filename = os.path.join(gnm_dir, "results.pkl")
-    rl_mc_filename = os.path.join(rl_mc_dir, "results.pkl")
-    rl_td_filename = os.path.join(rl_td_dir, "results.pkl")
+    rl_mc_logit_sum_filename = os.path.join(rl_mc_logit_sum_dir, "results.pkl")
+    rl_td_logit_sum_filename = os.path.join(rl_td_logit_sum_dir, "results.pkl")
+    rl_mc_close_logit_diff_filename = os.path.join(rl_mc_close_logit_diff_dir, "results.pkl")
+    rl_td_close_logit_diff_filename = os.path.join(rl_td_close_logit_diff_dir, "results.pkl")
+    rl_mc_far_logit_diff_filename = os.path.join(rl_mc_far_logit_diff_dir, "results.pkl")
+    rl_td_far_logit_diff_filename = os.path.join(rl_td_far_logit_diff_dir, "results.pkl")
+    rl_mc_mi_diff_filename = os.path.join(rl_mc_mi_diff_dir, "results.pkl")
+    rl_td_mi_diff_filename = os.path.join(rl_td_mi_diff_dir, "results.pkl")
     data_folder = config["data_folder"]
     aspect_ratio = config["image_size"][0] / config["image_size"][1]
     os.makedirs(config["save_dir"], exist_ok=True)
 
     with open(gnm_filename, "rb") as f:
         gnm_results = pkl.load(f)
-    with open(rl_mc_filename, "rb") as f:
-        rl_mc_results = pkl.load(f)
-    with open(rl_td_filename, "rb") as f:
-        rl_td_results = pkl.load(f)
-    assert set(gnm_results.keys()) == set(rl_mc_results.keys()) == set(rl_td_results.keys())
+    with open(rl_mc_logit_sum_filename, "rb") as f:
+        rl_mc_logit_sum_results = pkl.load(f)
+    with open(rl_td_logit_sum_filename, "rb") as f:
+        rl_td_logit_sum_results = pkl.load(f)
+    with open(rl_mc_close_logit_diff_filename, "rb") as f:
+        rl_mc_close_logit_diff_results = pkl.load(f)
+    with open(rl_td_close_logit_diff_filename, "rb") as f:
+        rl_td_close_logit_diff_results = pkl.load(f)
+    with open(rl_mc_far_logit_diff_filename, "rb") as f:
+        rl_mc_far_logit_diff_results = pkl.load(f)
+    with open(rl_td_far_logit_diff_filename, "rb") as f:
+        rl_td_far_logit_diff_results = pkl.load(f)
+    with open(rl_mc_mi_diff_filename, "rb") as f:
+        rl_mc_mi_diff_results = pkl.load(f)
+    with open(rl_td_mi_diff_filename, "rb") as f:
+        rl_td_mi_diff_results = pkl.load(f)
+    assert (
+        set(gnm_results.keys())
+        == set(rl_mc_logit_sum_results.keys())
+        == set(rl_td_logit_sum_results.keys())
+        == set(rl_mc_close_logit_diff_results.keys())
+        == set(rl_td_close_logit_diff_results.keys())
+        == set(rl_mc_far_logit_diff_results.keys())
+        == set(rl_td_far_logit_diff_results.keys())
+        == set(rl_mc_mi_diff_results.keys())
+        == set(rl_td_mi_diff_results.keys())
+    )
 
     for label, gnm_result in gnm_results.items():
-        assert label in rl_mc_results
-        assert label in rl_td_results
+        assert label in rl_mc_logit_sum_results
+        assert label in rl_td_logit_sum_results
+        assert label in rl_mc_close_logit_diff_results
+        assert label in rl_td_close_logit_diff_results
+        assert label in rl_mc_far_logit_diff_results
+        assert label in rl_td_far_logit_diff_results
+        assert label in rl_mc_mi_diff_results
+        assert label in rl_td_mi_diff_results
 
         save_path = os.path.join(config["save_dir"], label + ".png")
 
@@ -135,32 +187,102 @@ def main(config):
         global_goal_pos = gnm_result["global_goal_pos"]
         gnm_path_idxs = gnm_result["path_idxs"]
 
-        rl_mc_result = rl_mc_results[label]
-        assert f_traj == rl_mc_result["f_traj"]
-        assert context_size == rl_mc_result["context_size"]
-        assert end_slack == rl_mc_result["end_slack"]
-        assert subsampling_spacing == rl_mc_result["subsampling_spacing"]
-        assert goal_time == rl_mc_result["goal_time"]
-        assert np.all(global_curr_pos == rl_mc_result["global_curr_pos"])
-        assert np.all(global_goal_pos == rl_mc_result["global_goal_pos"])
-        rl_mc_path_idxs = rl_mc_result["path_idxs"]
+        # logit-sum
+        rl_mc_logit_sum_result = rl_mc_logit_sum_results[label]
+        assert f_traj == rl_mc_logit_sum_result["f_traj"]
+        assert context_size == rl_mc_logit_sum_result["context_size"]
+        assert end_slack == rl_mc_logit_sum_result["end_slack"]
+        assert subsampling_spacing == rl_mc_logit_sum_result["subsampling_spacing"]
+        assert goal_time == rl_mc_logit_sum_result["goal_time"]
+        assert np.all(global_curr_pos == rl_mc_logit_sum_result["global_curr_pos"])
+        assert np.all(global_goal_pos == rl_mc_logit_sum_result["global_goal_pos"])
+        rl_mc_logit_sum_path_idxs = rl_mc_logit_sum_result["path_idxs"]
 
-        rl_td_result = rl_td_results[label]
-        assert f_traj == rl_td_result["f_traj"]
-        assert context_size == rl_td_result["context_size"]
-        assert end_slack == rl_td_result["end_slack"]
-        assert subsampling_spacing == rl_td_result["subsampling_spacing"]
-        assert goal_time == rl_td_result["goal_time"]
-        assert np.all(global_curr_pos == rl_td_result["global_curr_pos"])
-        assert np.all(global_goal_pos == rl_td_result["global_goal_pos"])
-        rl_td_path_idxs = rl_td_result["path_idxs"]
+        rl_td_logit_sum_result = rl_td_logit_sum_results[label]
+        assert f_traj == rl_td_logit_sum_result["f_traj"]
+        assert context_size == rl_td_logit_sum_result["context_size"]
+        assert end_slack == rl_td_logit_sum_result["end_slack"]
+        assert subsampling_spacing == rl_td_logit_sum_result["subsampling_spacing"]
+        assert goal_time == rl_td_logit_sum_result["goal_time"]
+        assert np.all(global_curr_pos == rl_td_logit_sum_result["global_curr_pos"])
+        assert np.all(global_goal_pos == rl_td_logit_sum_result["global_goal_pos"])
+        rl_td_logit_sum_path_idxs = rl_td_logit_sum_result["path_idxs"]
+
+        # close-logit-diff
+        rl_mc_close_logit_diff_result = rl_mc_close_logit_diff_results[label]
+        assert f_traj == rl_mc_close_logit_diff_result["f_traj"]
+        assert context_size == rl_mc_close_logit_diff_result["context_size"]
+        assert end_slack == rl_mc_close_logit_diff_result["end_slack"]
+        assert subsampling_spacing == rl_mc_close_logit_diff_result["subsampling_spacing"]
+        assert goal_time == rl_mc_close_logit_diff_result["goal_time"]
+        assert np.all(global_curr_pos == rl_mc_close_logit_diff_result["global_curr_pos"])
+        assert np.all(global_goal_pos == rl_mc_close_logit_diff_result["global_goal_pos"])
+        rl_mc_close_logit_diff_path_idxs = rl_mc_close_logit_diff_result["path_idxs"]
+
+        rl_td_close_logit_diff_result = rl_td_close_logit_diff_results[label]
+        assert f_traj == rl_td_close_logit_diff_result["f_traj"]
+        assert context_size == rl_td_close_logit_diff_result["context_size"]
+        assert end_slack == rl_td_close_logit_diff_result["end_slack"]
+        assert subsampling_spacing == rl_td_close_logit_diff_result["subsampling_spacing"]
+        assert goal_time == rl_td_close_logit_diff_result["goal_time"]
+        assert np.all(global_curr_pos == rl_td_close_logit_diff_result["global_curr_pos"])
+        assert np.all(global_goal_pos == rl_td_close_logit_diff_result["global_goal_pos"])
+        rl_td_close_logit_diff_path_idxs = rl_td_close_logit_diff_result["path_idxs"]
+
+        # far-logit-diff
+        rl_mc_far_logit_diff_result = rl_mc_far_logit_diff_results[label]
+        assert f_traj == rl_mc_far_logit_diff_result["f_traj"]
+        assert context_size == rl_mc_far_logit_diff_result["context_size"]
+        assert end_slack == rl_mc_far_logit_diff_result["end_slack"]
+        assert subsampling_spacing == rl_mc_far_logit_diff_result["subsampling_spacing"]
+        assert goal_time == rl_mc_far_logit_diff_result["goal_time"]
+        assert np.all(global_curr_pos == rl_mc_far_logit_diff_result["global_curr_pos"])
+        assert np.all(global_goal_pos == rl_mc_far_logit_diff_result["global_goal_pos"])
+        rl_mc_far_logit_diff_path_idxs = rl_mc_far_logit_diff_result["path_idxs"]
+
+        rl_td_far_logit_diff_result = rl_td_far_logit_diff_results[label]
+        assert f_traj == rl_td_far_logit_diff_result["f_traj"]
+        assert context_size == rl_td_far_logit_diff_result["context_size"]
+        assert end_slack == rl_td_far_logit_diff_result["end_slack"]
+        assert subsampling_spacing == rl_td_far_logit_diff_result["subsampling_spacing"]
+        assert goal_time == rl_td_far_logit_diff_result["goal_time"]
+        assert np.all(global_curr_pos == rl_td_far_logit_diff_result["global_curr_pos"])
+        assert np.all(global_goal_pos == rl_td_far_logit_diff_result["global_goal_pos"])
+        rl_td_far_logit_diff_path_idxs = rl_td_far_logit_diff_result["path_idxs"]
+
+        # mi-diff
+        rl_mc_mi_diff_result = rl_mc_mi_diff_results[label]
+        assert f_traj == rl_mc_mi_diff_result["f_traj"]
+        assert context_size == rl_mc_mi_diff_result["context_size"]
+        assert end_slack == rl_mc_mi_diff_result["end_slack"]
+        assert subsampling_spacing == rl_mc_mi_diff_result["subsampling_spacing"]
+        assert goal_time == rl_mc_mi_diff_result["goal_time"]
+        assert np.all(global_curr_pos == rl_mc_mi_diff_result["global_curr_pos"])
+        assert np.all(global_goal_pos == rl_mc_mi_diff_result["global_goal_pos"])
+        rl_mc_mi_diff_path_idxs = rl_mc_mi_diff_result["path_idxs"]
+
+        rl_td_mi_diff_result = rl_td_mi_diff_results[label]
+        assert f_traj == rl_td_mi_diff_result["f_traj"]
+        assert context_size == rl_td_mi_diff_result["context_size"]
+        assert end_slack == rl_td_mi_diff_result["end_slack"]
+        assert subsampling_spacing == rl_td_mi_diff_result["subsampling_spacing"]
+        assert goal_time == rl_td_mi_diff_result["goal_time"]
+        assert np.all(global_curr_pos == rl_td_mi_diff_result["global_curr_pos"])
+        assert np.all(global_goal_pos == rl_td_mi_diff_result["global_goal_pos"])
+        rl_td_mi_diff_path_idxs = rl_td_far_logit_diff_result["path_idxs"]
 
         display_traj_dist_pred(
             global_curr_pos,
             global_goal_pos,
             gnm_path_idxs.tolist(),
-            rl_mc_path_idxs.tolist(),
-            rl_td_path_idxs.tolist(),
+            rl_mc_logit_sum_path_idxs.tolist(),
+            rl_td_logit_sum_path_idxs.tolist(),
+            rl_mc_close_logit_diff_path_idxs.tolist(),
+            rl_td_close_logit_diff_path_idxs.tolist(),
+            rl_mc_far_logit_diff_path_idxs.tolist(),
+            rl_td_far_logit_diff_path_idxs.tolist(),
+            rl_mc_mi_diff_path_idxs.tolist(),
+            rl_td_mi_diff_path_idxs.tolist(),
             "black",
             save_path,
         )

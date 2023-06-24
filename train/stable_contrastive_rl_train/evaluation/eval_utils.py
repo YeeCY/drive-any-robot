@@ -62,6 +62,7 @@ def eval_rl_loop(
     learn_angle: bool = True,
     use_wandb: bool = True,
     pairwise_dist_pred_eval_mode: str = "close_logit_diff",
+    traj_dist_pred_eval_mode: str = "logit_sum",
     eval_waypoint: bool = True,
     eval_pairwise_dist_pred: bool = True,
     eval_traj_dist_pred: bool = True,
@@ -203,6 +204,7 @@ def eval_rl_loop(
                         dataset_type,
                         print_log_freq,
                         save_traj_dist_pred_freq,
+                        eval_mode=traj_dist_pred_eval_mode,
                     )
 
     print()
@@ -795,6 +797,7 @@ def traj_dist_pred(
     eval_type: str,
     print_log_freq: int = 100,
     save_result_freq: int = 1000,
+    eval_mode: str = "logit_sum",
 ):
     model.eval()
     num_trajs = len(eval_loader)
@@ -847,7 +850,39 @@ def traj_dist_pred(
                 )[0:2]
                 curr_obs_a_sg_logit = torch.einsum('ikl,jkl->ijl', curr_obs_a_repr, sg_repr)
                 curr_obs_a_sg_logit = torch.diag(torch.mean(curr_obs_a_sg_logit, dim=-1))
-                sg_idx = int(sg_indices[torch.argmax(curr_obs_a_sg_logit)])
+
+                sg_a_repr, g_repr = model(
+                    transf_sg_image,
+                    dummy_action[:transf_sg_image.shape[0]],
+                    transf_goal_image[:transf_sg_image.shape[0]]
+                )[0:2]
+                sg_a_g_logit = torch.einsum('ikl,jkl->ijl', sg_a_repr, g_repr)
+                sg_a_g_logit = torch.diag(torch.mean(sg_a_g_logit, dim=-1))
+
+                curr_obs_a_repr, g_repr = model(
+                    transf_curr_obs_image.repeat_interleave(transf_sg_image.shape[0], dim=0),
+                    dummy_action[:transf_sg_image.shape[0]],
+                    transf_goal_image[:transf_sg_image.shape[0]]
+                )[0:2]
+                curr_obs_a_g_logit = torch.einsum('ikl,jkl->ijl', curr_obs_a_repr, g_repr)
+                curr_obs_a_g_logit = torch.diag(torch.mean(curr_obs_a_g_logit, dim=-1))
+
+                g_a_repr, sg_repr = model(
+                    transf_goal_image[:transf_sg_image.shape[0]],
+                    dummy_action[:transf_sg_image.shape[0]],
+                    transf_sg_image
+                )[0:2]
+                g_a_sg_logit = torch.einsum('ikl,jkl->ijl', g_a_repr, sg_repr)
+                g_a_sg_logit = torch.diag(torch.mean(g_a_sg_logit, dim=-1))
+
+                if eval_mode == "logit_sum":
+                    sg_idx = int(sg_indices[torch.argmax(curr_obs_a_sg_logit + sg_a_g_logit)])
+                elif eval_mode == "close_logit_diff":
+                    sg_idx = int(sg_indices[torch.argmax(curr_obs_a_sg_logit - g_a_sg_logit)])
+                elif eval_mode == "far_logit_diff":
+                    sg_idx = int(sg_indices[torch.argmax(sg_a_g_logit - curr_obs_a_g_logit)])
+                elif eval_mode == "mi_diff":
+                    sg_idx = int(sg_indices[torch.argmax((curr_obs_a_sg_logit - g_a_sg_logit) - (curr_obs_a_g_logit - sg_a_g_logit))])
 
                 # assume we can move to the subgoal exactly
                 path_obs_idxs.append(sg_idx)
@@ -905,17 +940,17 @@ def save_traj_dist_pred(
 
     result_label = "f_traj={}_context_size={}_end_slack={}_subsampling_spacing={}_goal_time={}".format(
         index_to_traj["f_traj"],
-        index_to_traj["context_size"],
-        index_to_traj["end_slack"],
-        index_to_traj["subsampling_spacing"],
-        index_to_traj["goal_time"],
+        int(index_to_traj["context_size"]),
+        int(index_to_traj["end_slack"]),
+        int(index_to_traj["subsampling_spacing"]),
+        int(index_to_traj["goal_time"]),
     )
     result = {
         "f_traj": index_to_traj["f_traj"],
-        "context_size": index_to_traj["context_size"],
-        "end_slack": index_to_traj["end_slack"],
-        "subsampling_spacing": index_to_traj["subsampling_spacing"],
-        "goal_time": index_to_traj["goal_time"],
+        "context_size": int(index_to_traj["context_size"]),
+        "end_slack": int(index_to_traj["end_slack"]),
+        "subsampling_spacing": int(index_to_traj["subsampling_spacing"]),
+        "goal_time": int(index_to_traj["goal_time"]),
         "global_curr_pos": global_curr_pos,
         "global_goal_pos": global_goal_pos,
         "path_idxs": path_idxs,

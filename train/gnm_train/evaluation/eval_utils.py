@@ -485,11 +485,16 @@ def traj_dist_pred(
                 transf_sg_image = transf_obs_image[~mask]
                 sg_indices = sg_indices[~mask]
 
-                dist, waypoint = model(
+                obs_sg_dist = model(
                     transf_curr_obs_image.repeat_interleave(transf_sg_image.shape[0], dim=0),
                     transf_sg_image
-                )
-                sg_idx = int(sg_indices[torch.argmin(dist)])
+                )[0]
+                sg_g_dist = model(
+                    transf_sg_image,
+                    transf_goal_image[:transf_sg_image.shape[0]]  # transf_goal_images are the same for the entire trajectory
+                )[0]
+
+                sg_idx = int(sg_indices[torch.argmin(obs_sg_dist + sg_g_dist)])
 
                 # assume we can move to the subgoal exactly
                 path_obs_idxs.append(sg_idx)

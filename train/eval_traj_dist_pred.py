@@ -280,7 +280,7 @@ def main(config):
             use_actor_dist_q_loss=config["use_actor_dist_q_loss"],
             waypoint_gcbc_loss_scale=config["waypoint_gcbc_loss_scale"],
             use_wandb=config["use_wandb"],
-            pairwise_dist_pred_eval_mode=config["pairwise_dist_pred_eval_mode"],
+            traj_dist_pred_eval_mode=config["traj_dist_pred_eval_mode"],
             eval_waypoint=config["eval_waypoint"],
             eval_pairwise_dist_pred=config["eval_pairwise_dist_pred"],
             eval_traj_dist_pred=config["eval_traj_dist_pred"],

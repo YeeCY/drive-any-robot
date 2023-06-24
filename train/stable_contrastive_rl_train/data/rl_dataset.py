@@ -919,10 +919,10 @@ class RLTrajDataset(Dataset):
 
         index_to_traj = {
             "f_traj": f_traj,
-            "context_size": int(self.context_size),
-            "end_slack": int(self.end_slack),
-            "subsampling_spacing": int(self.subsampling_spacing),
-            "goal_time": int(goal_time),
+            "context_size": self.context_size,
+            "end_slack": self.end_slack,
+            "subsampling_spacing": self.subsampling_spacing,
+            "goal_time": goal_time,
         }
 
         return tuple([torch.stack(v) for v in data.values()] + [index_to_traj])
