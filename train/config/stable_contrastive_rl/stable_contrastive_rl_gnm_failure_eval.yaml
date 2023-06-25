@@ -25,7 +25,8 @@ normalize: True
 
 # context
 context_type: temporal
-context_size: 0
+#context_size: 0
+context_size: 5
 
 # image encoder
 img_encoder_kwargs:
@@ -102,14 +103,15 @@ datasets:
     negative_mining: False # negative mining from the ViNG paper (Shah et al.)
     discount: 0.99  # discount factor used to sample geometric future goals, can be a negative value for random future goals
 #    pairwise_failure_index_to_data: gnm/gnm_eval_2023_06_10_18_31_37  # gnm_pairwise_acc: 0.8347271126760564, gnm_pairwise_auc: 0.9123294454225352
-    pairwise_failure_index_to_data: gnm/gnm_eval_2023_06_11_14_20_50  # gnm_pairwise_acc: 0.6253987240829346, gnm_pairwise_auc: 0.6564269285208775
+#    pairwise_failure_index_to_data: gnm/gnm_eval_2023_06_11_14_20_50  # gnm_pairwise_acc: 0.6253987240829346, gnm_pairwise_auc: 0.6564269285208775
+    pairwise_failure_index_to_data: gnm/gnm_eval_2023_06_24_21_17_18  # gnm_pairwise_acc: 0.659330985915493, gnm_pairwise_auc: 0.6783670774647887
 
-# evalulation mode
+# evaluation mode
 eval_waypoint: False
 eval_pairwise_dist_pred: True
 #pairwise_dist_pred_eval_mode: "close_logit_diff"
-pairwise_dist_pred_eval_mode: "far_logit_diff"
-#pairwise_dist_pred_eval_mode: "close_far_mi_diff"
+#pairwise_dist_pred_eval_mode: "far_logit_diff"
+pairwise_dist_pred_eval_mode: "close_far_mi_diff"
 
 #load_run: gnm_release/train/logs/<project_name>/<log_run_name>/latest.pth
 #load_run: drive-any-robot/train/logs/gnm/gnm_debug_2023_03_10_20_05_22/latest.pth
@@ -125,11 +127,17 @@ pairwise_dist_pred_eval_mode: "far_logit_diff"
 # TD
 #load_run: stable_contrastive_rl/stable_contrastive_rl_recon_full_2023_06_08_01_58_37
 
-# simplified model with full trajectory
+# simplified model with full trajectory and no context
 # MC
 #load_run: stable_contrastive_rl/stable_contrastive_rl_recon_full_2023_06_10_20_50_36
 # TD
-load_run: stable_contrastive_rl/stable_contrastive_rl_recon_full_2023_06_10_20_49_56
+#load_run: stable_contrastive_rl/stable_contrastive_rl_recon_full_2023_06_10_20_49_56
+
+# simplified model with full trajectory
+# MC
+#load_run: stable_contrastive_rl/stable_contrastive_rl_recon_full_2023_06_21_17_29_28
+# TD
+load_run: stable_contrastive_rl/stable_contrastive_rl_recon_full_2023_06_22_22_55_23
 
 # logging stuff
 print_log_freq: 5 # in iterations

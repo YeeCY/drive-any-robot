@@ -607,22 +607,22 @@ def pairwise_acc(
             dummy_action = dummy_action.reshape([batch_size, model.action_size])
             if eval_mode == "close_far_mi_diff":
                 obs_a_repr, close_g_repr = model(
-                    transf_obs_image, dummy_action, transf_close_image)[0:2]
+                    transf_obs_image, dummy_action, transf_close_image[:, -3:])[0:2]
                 obs_a_close_g_logit = torch.einsum('ikl,jkl->ijl', obs_a_repr, close_g_repr)
                 obs_a_close_g_logit = torch.diag(torch.mean(obs_a_close_g_logit, dim=-1))
 
                 far_g_a_repr, close_g_repr = model(
-                    transf_far_image, dummy_action, transf_close_image)[0:2]
+                    transf_far_image, dummy_action, transf_close_image[:, -3:])[0:2]
                 far_g_a_close_g_logit = torch.einsum('ikl,jkl->ijl', far_g_a_repr, close_g_repr)
                 far_g_a_close_g_logit = torch.diag(torch.mean(far_g_a_close_g_logit, dim=-1))
 
                 obs_a_repr, far_g_repr = model(
-                    transf_obs_image, dummy_action, transf_far_image)[0:2]
+                    transf_obs_image, dummy_action, transf_far_image[:, -3:])[0:2]
                 obs_a_far_g_logit = torch.einsum('ikl,jkl->ijl', obs_a_repr, far_g_repr)
                 obs_a_far_g_logit = torch.diag(torch.mean(obs_a_far_g_logit, dim=-1))
 
                 close_g_a_repr, far_g_repr = model(
-                    transf_close_image, dummy_action, transf_far_image)[0:2]
+                    transf_close_image, dummy_action, transf_far_image[:, -3:])[0:2]
                 close_g_a_far_g_logit = torch.einsum('ikl,jkl->ijl', close_g_a_repr, far_g_repr)
                 close_g_a_far_g_logit = torch.diag(torch.mean(close_g_a_far_g_logit, dim=-1))
 
@@ -647,12 +647,12 @@ def pairwise_acc(
                 auc_list.append(auc)
             elif eval_mode == "close_logit_diff":
                 obs_a_repr, close_g_repr = model(
-                    transf_obs_image, dummy_action, transf_close_image)[0:2]
+                    transf_obs_image, dummy_action, transf_close_image[:, -3:])[0:2]
                 obs_a_close_g_logit = torch.einsum('ikl,jkl->ijl', obs_a_repr, close_g_repr)
                 obs_a_close_g_logit = torch.diag(torch.mean(obs_a_close_g_logit, dim=-1))
 
                 far_g_a_repr, close_g_repr = model(
-                    transf_far_image, dummy_action, transf_close_image)[0:2]
+                    transf_far_image, dummy_action, transf_close_image[:, -3:])[0:2]
                 far_g_a_close_g_logit = torch.einsum('ikl,jkl->ijl', far_g_a_repr, close_g_repr)
                 far_g_a_close_g_logit = torch.diag(torch.mean(far_g_a_close_g_logit, dim=-1))
 
@@ -674,12 +674,12 @@ def pairwise_acc(
                 auc_list.append(auc)
             elif eval_mode == "far_logit_diff":
                 close_g_a_repr, far_g_repr = model(
-                    transf_close_image, dummy_action, transf_far_image)[0:2]
+                    transf_close_image, dummy_action, transf_far_image[:, -3:])[0:2]
                 close_g_a_far_g_logit = torch.einsum('ikl,jkl->ijl', close_g_a_repr, far_g_repr)
                 close_g_a_far_g_logit = torch.diag(torch.mean(close_g_a_far_g_logit, dim=-1))
 
                 obs_a_repr, far_g_repr = model(
-                    transf_obs_image, dummy_action, transf_far_image)[0:2]
+                    transf_obs_image, dummy_action, transf_far_image[:, -3:])[0:2]
                 obs_a_far_g_logit = torch.einsum('ikl,jkl->ijl', obs_a_repr, far_g_repr)
                 obs_a_far_g_logit = torch.diag(torch.mean(obs_a_far_g_logit, dim=-1))
 

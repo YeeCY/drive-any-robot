@@ -23,7 +23,8 @@ normalize: True
 
 # context
 context_type: temporal
-context_size: 0
+#context_size: 0
+context_size: 5
 
 # tradeoff between action and distance prediction loss
 alpha: 0.5
@@ -67,7 +68,9 @@ eval_pairwise_dist_pred: True
 # GNM model trained on the full dataset
 #load_run: gnm/gnm_debug_2023_03_10_20_05_22
 # GNM model trained on the full recon dataset with no context and full trajectory
-load_run: gnm/gnm_test_2023_06_10_20_53_15
+#load_run: gnm/gnm_test_2023_06_10_20_53_15
+# GNM model trained on the full recon dataset with context = 5 and full trajectory
+load_run: gnm/gnm_test_2023_06_21_17_32_22
 
 # logging stuff
 print_log_freq: 5 # in iterations

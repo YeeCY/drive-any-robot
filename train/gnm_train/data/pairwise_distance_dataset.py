@@ -418,12 +418,30 @@ class PairwiseDistanceEvalDataset(PairwiseDistanceDataset):
             transf_close_images.append(transf_close_image)
         transf_close_image = torch.cat(transf_close_images, dim=0)
 
-        far_image_path = get_image_path(self.data_folder, f_far, far_time)
-        far_image, transf_far_image = img_path_to_data(
-            far_image_path,
-            self.transform,
-            self.aspect_ratio,
+        transf_far_images = []
+        far_context_times = list(
+            range(
+                far_time + -self.context_size * self.waypoint_spacing,
+                far_time + 1,
+                self.waypoint_spacing,
+            )
         )
+        far_context = [(f_close, t) for t in far_context_times]
+        for f, t in far_context:
+            far_image_path = get_image_path(self.data_folder, f, t)
+            far_image, transf_far_image = img_path_to_data(
+                far_image_path,
+                self.transform,
+                self.aspect_ratio,
+            )
+            transf_far_images.append(transf_far_image)
+        transf_far_image = torch.cat(transf_far_images, dim=0)
+        # far_image_path = get_image_path(self.data_folder, f_far, far_time)
+        # far_image, transf_far_image = img_path_to_data(
+        #     far_image_path,
+        #     self.transform,
+        #     self.aspect_ratio,
+        # )
 
         close_dist_label = torch.FloatTensor(
             [(close_time - curr_time) / self.waypoint_spacing]
@@ -537,12 +555,30 @@ class PairwiseDistanceFailureDataset(PairwiseDistanceDataset):
         #     self.aspect_ratio,
         # )
 
-        far_image_path = get_image_path(self.data_folder, f_far, far_time)
-        far_image, transf_far_image = img_path_to_data(
-            far_image_path,
-            self.transform,
-            self.aspect_ratio,
+        transf_far_images = []
+        far_context_times = list(
+            range(
+                far_time + -self.context_size * self.waypoint_spacing,
+                far_time + 1,
+                self.waypoint_spacing,
+            )
         )
+        far_context = [(f_close, t) for t in far_context_times]
+        for f, t in far_context:
+            far_image_path = get_image_path(self.data_folder, f, t)
+            far_image, transf_far_image = img_path_to_data(
+                far_image_path,
+                self.transform,
+                self.aspect_ratio,
+            )
+            transf_far_images.append(transf_far_image)
+        transf_far_image = torch.cat(transf_far_images, dim=0)
+        # far_image_path = get_image_path(self.data_folder, f_far, far_time)
+        # far_image, transf_far_image = img_path_to_data(
+        #     far_image_path,
+        #     self.transform,
+        #     self.aspect_ratio,
+        # )
 
         close_dist_label = torch.FloatTensor(
             [(close_time - curr_time) / self.waypoint_spacing]
