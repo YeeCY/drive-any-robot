@@ -49,6 +49,8 @@ from stable_contrastive_rl_train.evaluation.visualization_utils import (
     plot_trajs
 )
 
+from gps.plotter import GPSPlotter
+
 
 def display_traj_dist_pred(
     global_curr_pos, global_goal_pos,
@@ -149,6 +151,8 @@ def main(config):
     data_folder = config["data_folder"]
     aspect_ratio = config["image_size"][0] / config["image_size"][1]
     os.makedirs(config["save_dir"], exist_ok=True)
+
+    gps_plotter = GPSPlotter()
 
     with open(gnm_filename, "rb") as f:
         gnm_results = pkl.load(f)
@@ -294,6 +298,19 @@ def main(config):
         assert np.all(global_goal_pos == rl_td_mi_diff_result["global_goal_pos"])
         rl_td_mi_diff_path_idxs = rl_td_mi_diff_result["path_idxs"]
         rl_td_mi_diff_success = np.any(np.abs(rl_td_mi_diff_path_idxs - traj_len) <= 2)
+
+        # TODO (chongyi): add satellite image
+        def _plot_gpscompass(self):
+            compass_bearing = self._get_hdf5_topic('imu/compass_bearing')
+            latlong = self._get_hdf5_topic('gps/latlong')
+            if not np.isfinite(latlong).all():
+                latlong = self._gps_plotter.SE_LATLONG
+                color = (1., 1., 1., 0.)
+            else:
+                color = 'r'
+            gps_plotter.plot_latlong_and_compass_bearing(self._ax_gpscompass, latlong, compass_bearing,
+                                                         color=color)
+            gps_plotter.plot_latlong_density()
 
         display_traj_dist_pred(
             global_curr_pos,

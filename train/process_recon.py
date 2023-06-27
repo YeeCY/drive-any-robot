@@ -36,8 +36,9 @@ def main(args: argparse.Namespace):
         # extract the position and yaw data
         position_data = h5_f["jackal"]["position"][:, :2]
         yaw_data = h5_f["jackal"]["yaw"][()]
+        latlong_data = h5_f["gps"]["latlong"][()]
         # save the data to a dictionary
-        traj_data = {"position": position_data, "yaw": yaw_data}
+        traj_data = {"position": position_data, "yaw": yaw_data, "latlong": latlong_data}
         traj_folder = os.path.join(output_dir, traj_name)
         os.makedirs(traj_folder, exist_ok=True)
         with open(os.path.join(traj_folder, "traj_data.pkl"), "wb") as f:
