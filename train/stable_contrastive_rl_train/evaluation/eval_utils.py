@@ -843,9 +843,14 @@ def traj_dist_pred(
                 # tmp_curr_obs_a_sg_logit = torch.einsum('ikl,jkl->ijl', tmp_curr_obs_a_repr, tmp_sg_repr)
                 # tmp_curr_obs_a_sg_logit = torch.diag(torch.mean(tmp_curr_obs_a_sg_logit, dim=-1))
 
-                curr_obs_a_repr, sg_repr = model(
+                waypoint_pred = model(
                     transf_curr_obs_image.repeat_interleave(transf_sg_image.shape[0], dim=0),
                     dummy_action[:transf_sg_image.shape[0]],
+                    transf_sg_image
+                )[-2]
+                curr_obs_a_repr, sg_repr = model(
+                    transf_curr_obs_image.repeat_interleave(transf_sg_image.shape[0], dim=0),
+                    waypoint_pred,
                     transf_sg_image
                 )[0:2]
                 curr_obs_a_sg_logit = torch.einsum('ikl,jkl->ijl', curr_obs_a_repr, sg_repr)
@@ -859,17 +864,27 @@ def traj_dist_pred(
                 sg_a_g_logit = torch.einsum('ikl,jkl->ijl', sg_a_repr, g_repr)
                 sg_a_g_logit = torch.diag(torch.mean(sg_a_g_logit, dim=-1))
 
-                curr_obs_a_repr, g_repr = model(
+                waypoint_pred = model(
                     transf_curr_obs_image.repeat_interleave(transf_sg_image.shape[0], dim=0),
                     dummy_action[:transf_sg_image.shape[0]],
+                    transf_goal_image[:transf_sg_image.shape[0]]
+                )[-2]
+                curr_obs_a_repr, g_repr = model(
+                    transf_curr_obs_image.repeat_interleave(transf_sg_image.shape[0], dim=0),
+                    waypoint_pred,
                     transf_goal_image[:transf_sg_image.shape[0]]
                 )[0:2]
                 curr_obs_a_g_logit = torch.einsum('ikl,jkl->ijl', curr_obs_a_repr, g_repr)
                 curr_obs_a_g_logit = torch.diag(torch.mean(curr_obs_a_g_logit, dim=-1))
 
-                g_a_repr, sg_repr = model(
+                waypoint_pred = model(
                     transf_goal_image[:transf_sg_image.shape[0]],
                     dummy_action[:transf_sg_image.shape[0]],
+                    transf_sg_image
+                )[-2]
+                g_a_repr, sg_repr = model(
+                    transf_goal_image[:transf_sg_image.shape[0]],
+                    waypoint_pred,
                     transf_sg_image
                 )[0:2]
                 g_a_sg_logit = torch.einsum('ikl,jkl->ijl', g_a_repr, sg_repr)
