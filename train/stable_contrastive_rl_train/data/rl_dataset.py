@@ -821,6 +821,8 @@ class RLTrajDataset(Dataset):
                 transf_obs_images.append(transf_obs_image)
             transf_obs_image = torch.cat(transf_obs_images, dim=0)
 
+            obs_latlong = traj_data["latlong"][curr_time]
+
             assert goal_time < traj_len, f"{goal_time} an {traj_len}"
             goal_image_path = get_image_path(self.data_folder, f_traj, goal_time)
             goal_image, transf_goal_image = img_path_to_data(
@@ -828,6 +830,8 @@ class RLTrajDataset(Dataset):
                 self.transform,
                 self.aspect_ratio,
             )
+
+            goal_latlong = traj_data["latlong"][goal_time]
 
             # data = [
             #     obs_image,
@@ -841,6 +845,8 @@ class RLTrajDataset(Dataset):
             data.setdefault("goal_image", []).append(goal_image)
             data.setdefault("transf_obs_image", []).append(transf_obs_image)
             data.setdefault("transf_goal_image", []).append(transf_goal_image)
+            data.setdefault("obs_latlong", []).append(torch.Tensor(obs_latlong.astype(float)))
+            data.setdefault("goal_latlong", []).append(torch.Tensor(goal_latlong.astype(float)))
 
             spacing = self.waypoint_spacing
             len_traj_pred = min(self.len_traj_pred, (goal_time - curr_time) // spacing)
@@ -904,7 +910,7 @@ class RLTrajDataset(Dataset):
             # )
             data.setdefault("local_goal_pos", []).append(goal)
             data.setdefault("waypoints", []).append(waypoints)
-            data.setdefault("global_curr_pos", []).append(global_pos)
+            data.setdefault("global_obs_pos", []).append(global_pos)
             data.setdefault("global_goal_pos", []).append(global_pos_goal)
 
             # temporal distance

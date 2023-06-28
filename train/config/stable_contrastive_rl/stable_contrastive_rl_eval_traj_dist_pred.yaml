@@ -90,11 +90,15 @@ datasets:
 #    test: gnm_train/data/data_splits/recon_traj_dist_pred/test/ # folder to read trajectory names
     test_traj_names: [
       "jackal_2019-08-06-16-16-07_15_r02",
+       # test loop closure
       "jackal_2019-08-08-16-52-33_10_r00",
       "jackal_2019-09-19-15-57-48_33_r00",
       "jackal_2019-08-02-17-37-37_61_r02",
       "jackal_2019-08-06-15-08-36_7_r00",
       "jackal_2019-09-19-15-57-48_33_r00",
+
+#      "jackal_2019-08-06-15-08-36_7_r00",
+
     ]
     # goal node index in the trajectory (if -1, then the goal node is the last node in the trajectory)
     goal_idxs: [
@@ -103,7 +107,8 @@ datasets:
       -1,
       -1,
       -1,
-      -1
+      -1,
+#      -1,
     ]
     end_slack: 3 # because many trajectories end in collisions
     subsampling_spacing: 5 # sampling trajectory points every "subsampling_spacing" timestep

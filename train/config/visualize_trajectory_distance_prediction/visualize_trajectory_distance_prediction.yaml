@@ -22,7 +22,9 @@ result_dirs:
 #  scrl_mc_mi_diff: logs/stable_contrastive_rl/stable_contrastive_rl_eval_traj_dist_pred_2023_06_23_17_29_14/result/recon_test/epoch10/trajectory_distance_prediction  # dummy waypoint
   scrl_mc_mi_diff: logs/stable_contrastive_rl/stable_contrastive_rl_eval_traj_dist_pred_2023_06_26_14_53_45/result/recon_test/epoch10/trajectory_distance_prediction  # predicted waypoint
 #  scrl_td_mi_diff: logs/stable_contrastive_rl/stable_contrastive_rl_eval_traj_dist_pred_2023_06_23_17_30_25/result/recon_test/epoch10/trajectory_distance_prediction  # dummy waypoint
-  scrl_td_mi_diff: logs/stable_contrastive_rl/stable_contrastive_rl_eval_traj_dist_pred_2023_06_26_14_54_29/result/recon_test/epoch10/trajectory_distance_prediction  # predicted waypoint
+#  scrl_td_mi_diff: logs/stable_contrastive_rl/stable_contrastive_rl_eval_traj_dist_pred_2023_06_26_14_54_29/result/recon_test/epoch10/trajectory_distance_prediction  # predicted waypoint
+  # test gps
+  scrl_td_mi_diff: logs/stable_contrastive_rl/stable_contrastive_rl_eval_traj_dist_pred_2023_06_28_14_35_02/result/recon_test/epoch10/trajectory_distance_prediction  # predicted waypoint
 
 # save folder
 save_dir: logs/visualize_trajectory_distance_prediction

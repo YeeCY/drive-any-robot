@@ -24,15 +24,18 @@ class GPSPlotter(object):
                  se_latlong=(37.914514, -122.334064),
                  zoom=19,
                  satellite_img_fname=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'rfs_satellite.png'),
-                 google_maps_api_key=None):
+                 google_maps_api_key="AIzaSyCj77sQFM1rcIjh0G2ksNFMxzph9jWnmSE"):
         self.nw_latlong = nw_latlong
         self.se_latlong = se_latlong
         self._zoom = zoom
         self._satellite_img_fname = satellite_img_fname
+        self._google_maps_api_key = google_maps_api_key
         
-        if not os.path.exists(self._satellite_img_fname):
-            assert google_maps_api_key is not None
-            self._save_satellite_image(google_maps_api_key)
+        # if not os.path.exists(self._satellite_img_fname):
+        #     assert google_maps_api_key is not None
+        #     self._save_satellite_image(google_maps_api_key)
+        assert google_maps_api_key is not None
+        self._update_satellite_image(google_maps_api_key, save_fig=True)
         assert os.path.exists(self._satellite_img_fname)
         self._img = np.array(Image.open(self._satellite_img_fname))
 
@@ -43,6 +46,7 @@ class GPSPlotter(object):
         self._top_right_pixel = np.array([max(x_c0, x_c1), max(y_c0, y_c1)])
 
         self._plt_latlong_and_compass_bearing_dict = dict()
+        self._plt_latlong_dict = dict()
         self._plt_utms_dicts = dict()
 
     @property
@@ -70,21 +74,92 @@ class GPSPlotter(object):
     def plot_latlong_and_compass_bearing(self, ax, latlong, compass_bearing, blit=True, color='r'):
         return self.plot_utm_and_compass_bearing(ax, latlong_to_utm(latlong), compass_bearing, blit=blit, color=color)
 
+    def plot_latlong(self, ax, latlong, blit=True, colors=['r'], labels=[''],
+                     point_size=20, font_size=10, remove_other_latlong=False,
+                     adaptive_satellite_img=True):
+        if adaptive_satellite_img:
+            max_latlong = latlong.max(axis=0)
+            min_latlong = latlong.min(axis=0)
+
+            self.nw_latlong = (max_latlong[0] + 1e-5, min_latlong[1] - 1e-5)
+            self.se_latlong = (min_latlong[0] - 1e-5, max_latlong[1] + 1e-5)
+
+            assert self._google_maps_api_key is not None
+            self._img = self._update_satellite_image(self._google_maps_api_key)
+
+            x_c0, y_c0 = self.latlong_to_pixels(*self.nw_latlong)
+            x_c1, y_c1 = self.latlong_to_pixels(*self.se_latlong)
+
+            self._bottom_left_pixel = np.array([min(x_c0, x_c1), min(y_c0, y_c1)])
+            self._top_right_pixel = np.array([max(x_c0, x_c1), max(y_c0, y_c1)])
+
+        x, y = np.split(self.utm_to_coordinate(latlong_to_utm(latlong)), 2, axis=-1)
+
+        if ax not in self._plt_latlong_dict:
+            imshow = ax.imshow(np.flipud(self._img), origin='lower')
+            # points = ax.scatter(x, y, color=colors, label=label, s=point_size)
+            points = []
+            texts = []
+            for idx, (x_, y_) in enumerate(zip(x, y)):
+                point = ax.scatter(x_, y_, color=colors[idx], label=labels[idx], s=point_size)
+                points.append(point)
+
+                text = ax.text(x_ + 0.20, y_ - 0.20, str(idx), fontsize=font_size)
+                texts.append(text)
+            ax.get_xaxis().set_visible(False)
+            ax.get_yaxis().set_visible(False)
+            self._plt_latlong_dict[ax] = (imshow, points, texts)
+            # self._plt_latlong_dict[ax] = (imshow, points)
+        else:
+            imshow, points, texts = self._plt_latlong_dict[ax]
+            if remove_other_latlong:
+                points.remove()
+                for text in texts:
+                    text.remove()
+            # imshow, points = self._plt_latlong_dict[ax]
+            # if remove_other_latlong:
+            #     points.remove()
+            # points = ax.scatter(x, y, color=color, label=label, s=point_size)
+            # texts = []
+            # for idx, (x_, y_) in enumerate(zip(x, y)):
+            #     text = ax.text(x_, y_, str(idx))
+            #     texts.append(text)
+            points = []
+            texts = []
+            for idx, (x_, y_) in enumerate(zip(x, y)):
+                point = ax.scatter(x_, y_, color=colors[idx], label=labels[idx], s=point_size)
+                points.append(point)
+
+                text = ax.text(x_ + 0.20, y_ - 0.20, str(idx), fontsize=font_size)
+                texts.append(text)
+            self._plt_latlong_dict[ax] = (imshow, points, texts)
+            # self._plt_latlong_dict[ax] = (imshow, points)
+
+            if blit:
+                ax.draw_artist(ax.patch)
+                ax.draw_artist(imshow)
+                for point, text in zip(points, texts):
+                    ax.draw_artist(point)
+                    ax.draw_artist(text)
+                ax.figure.canvas.blit(ax.bbox)
+
     def plot_utm_and_compass_bearing(self, ax, utm, compass_bearing,
                                      blit=True, color='r', arrow_length=15, arrow_head_width=10):
-        x, y = self.utm_to_coordinate(utm)
+        x, y = np.split(self.utm_to_coordinate(utm), 2, axis=-1)
         dx, dy = arrow_length * self.compass_bearing_to_dcoord(compass_bearing)
 
         if ax not in self._plt_latlong_and_compass_bearing_dict:
             imshow = ax.imshow(np.flipud(self._img), origin='lower')
-            arrow = ax.arrow(x, y, dx, dy, color=color, head_width=arrow_head_width)
+            arrow = ax.quiver(
+                x, y, dx, dy, color=color, headwidth=arrow_head_width)
             ax.get_xaxis().set_visible(False)
             ax.get_yaxis().set_visible(False)
             self._plt_latlong_and_compass_bearing_dict[ax] = (imshow, arrow)
         else:
             imshow, arrow = self._plt_latlong_and_compass_bearing_dict[ax]
             arrow.remove()
-            arrow = ax.arrow(x, y, dx, dy, color=color, head_width=arrow_head_width)
+            arrow = ax.quiver(
+                x, y, dx, dy, color=color, headwidth=arrow_head_width)
             self._plt_latlong_and_compass_bearing_dict[ax] = (imshow, arrow)
 
             if blit:
@@ -136,7 +211,7 @@ class GPSPlotter(object):
         lon = (mx / ORIGIN_SHIFT) * 180.0
         return lat, lon
 
-    def _save_satellite_image(self, google_maps_api_key):
+    def _update_satellite_image(self, google_maps_api_key, save_fig=False):
 
         ullat, ullon = self.nw_latlong
         lrlat, lrlon = self.se_latlong
@@ -190,7 +265,10 @@ class GPSPlotter(object):
                 im = Image.open(BytesIO(response.content))
                 final.paste(im, (int(x * largura), int(y * altura)))
 
-        final.save(self._satellite_img_fname)
+        if save_fig:
+            final.save(self._satellite_img_fname)
+
+        return final
 
 
 class AllRfsGPSPlotter(GPSPlotter):

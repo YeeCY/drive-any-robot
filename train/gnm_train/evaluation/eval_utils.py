@@ -461,9 +461,11 @@ def traj_dist_pred(
                 goal_image,
                 transf_obs_image,
                 transf_goal_image,
+                obs_latlong,
+                goal_latlong,
                 local_goal_pos,
                 waypoint_label,
-                global_curr_pos,
+                global_obs_pos,
                 global_goal_pos,
                 dist_label,
                 dataset_index,
@@ -505,7 +507,9 @@ def traj_dist_pred(
 
             if i % save_result_freq == 0:
                 save_traj_dist_pred(
-                    to_numpy(global_curr_pos),
+                    to_numpy(obs_latlong),
+                    to_numpy(goal_latlong),
+                    to_numpy(global_obs_pos),
                     to_numpy(global_goal_pos),
                     np.array(path_obs_idxs),
                     eval_type,

@@ -53,6 +53,8 @@ from gps.plotter import GPSPlotter
 
 
 def display_traj_dist_pred(
+    gps_plotter,
+    obs_latlong, goal_latlong,
     global_curr_pos, global_goal_pos,
     gnm_path_idxs, gnm_success,
     rl_mc_logit_sum_path_idxs, rl_mc_logit_sum_success,
@@ -67,6 +69,11 @@ def display_traj_dist_pred(
 ):
     plt.figure()
     fig, ax = plt.subplots(1, 1)
+
+    # if not np.isfinite(obs_latlong).all():
+    #     obs_latlong = np.array(gps_plotter.se_latlong)
+    # if not np.isfinite(goal_latlong).all():
+    #     goal_latlong = np.array(gps_plotter.se_latlong)
 
     gnm_marker = u"\u2713" if gnm_success else u"\u2717"
     rl_mc_logit_sum_marker = u"\u2713" if rl_mc_logit_sum_success else u"\u2717"
@@ -90,16 +97,37 @@ def display_traj_dist_pred(
                  y=1.4,
                  color=text_color)
 
-    traj_len = len(global_curr_pos)
-    assert len(np.unique(global_goal_pos)) == 3, "Multiple goal positions found!"
-    global_goal_pos = global_goal_pos[0]
+    # traj_len = len(global_curr_pos)
+    # assert len(np.unique(global_goal_pos)) == 3, "Multiple goal positions found!"
+    # global_goal_pos = global_goal_pos[0]
+    #
+    # plot_trajs(
+    #     ax,
+    #     [*global_curr_pos, global_goal_pos],
+    #     point_colors=[BLUE] + [GREEN] * (traj_len - 1) + [RED],
+    #     point_labels=["start"] + ["obs"] * (traj_len - 1) + ["goal"],
+    # )
 
-    plot_trajs(
+    traj_len = len(obs_latlong)
+    assert len(np.unique(goal_latlong)) == 2, "Multiple goal positions found!"
+    goal_latlong = goal_latlong[0][None]
+
+    gps_plotter.plot_latlong(
         ax,
-        [*global_curr_pos, global_goal_pos],
-        point_colors=[BLUE] + [GREEN] * (traj_len - 1) + [RED],
-        point_labels=["start"] + ["obs"] * (traj_len - 1) + ["goal"],
+        np.concatenate([obs_latlong, goal_latlong]),
+        colors=[BLUE] + [GREEN] * (traj_len - 1) + [RED],
+        labels=["start"] + ["obs"] * (traj_len - 1) + ["goal"]
     )
+    # latlong = np.concatenate([obs_latlong, goal_latlong], axis=0)
+    # gps_plotter.plot_latlong_and_compass_bearing(ax, latlong, np.zeros(latlong.shape[0]))
+
+    # remove duplicate legends
+    handles, labels = ax.get_legend_handles_labels()
+    by_label = dict(zip(labels, handles))
+
+    # put the legend below the plot
+    ax.legend(by_label.values(), by_label.keys(),
+              bbox_to_anchor=(0.0, -0.05), loc="upper left", ncol=2)
 
     fig.set_size_inches(6.5, 6.5)
     ax.set_title(f"Trajectory Visualization")
@@ -152,7 +180,12 @@ def main(config):
     aspect_ratio = config["image_size"][0] / config["image_size"][1]
     os.makedirs(config["save_dir"], exist_ok=True)
 
-    gps_plotter = GPSPlotter()
+    # new nw and se latlongs for visualization
+    gps_plotter = GPSPlotter(
+        nw_latlong=(37.915185, -122.334651),
+        se_latlong=(37.914884, -122.334064),
+        zoom=22,
+    )
 
     with open(gnm_filename, "rb") as f:
         gnm_results = pkl.load(f)
@@ -294,25 +327,30 @@ def main(config):
         assert end_slack == rl_td_mi_diff_result["end_slack"]
         assert subsampling_spacing == rl_td_mi_diff_result["subsampling_spacing"]
         assert goal_time == rl_td_mi_diff_result["goal_time"]
-        assert np.all(global_curr_pos == rl_td_mi_diff_result["global_curr_pos"])
+        assert np.all(global_curr_pos == rl_td_mi_diff_result["global_obs_pos"])
         assert np.all(global_goal_pos == rl_td_mi_diff_result["global_goal_pos"])
         rl_td_mi_diff_path_idxs = rl_td_mi_diff_result["path_idxs"]
         rl_td_mi_diff_success = np.any(np.abs(rl_td_mi_diff_path_idxs - traj_len) <= 2)
+        obs_latlong = rl_td_mi_diff_result["obs_latlong"]
+        goal_latlong = rl_td_mi_diff_result["goal_latlong"]
 
         # TODO (chongyi): add satellite image
-        def _plot_gpscompass(self):
-            compass_bearing = self._get_hdf5_topic('imu/compass_bearing')
-            latlong = self._get_hdf5_topic('gps/latlong')
-            if not np.isfinite(latlong).all():
-                latlong = self._gps_plotter.SE_LATLONG
-                color = (1., 1., 1., 0.)
-            else:
-                color = 'r'
-            gps_plotter.plot_latlong_and_compass_bearing(self._ax_gpscompass, latlong, compass_bearing,
-                                                         color=color)
-            gps_plotter.plot_latlong_density()
+        # def _plot_gpscompass(self):
+        #     compass_bearing = self._get_hdf5_topic('imu/compass_bearing')
+        #     latlong = self._get_hdf5_topic('gps/latlong')
+        #     if not np.isfinite(latlong).all():
+        #         latlong = self._gps_plotter.SE_LATLONG
+        #         color = (1., 1., 1., 0.)
+        #     else:
+        #         color = 'r'
+        #     gps_plotter.plot_latlong_and_compass_bearing(self._ax_gpscompass, latlong, compass_bearing,
+        #                                                  color=color)
+        #     gps_plotter.plot_latlong_density()
 
         display_traj_dist_pred(
+            gps_plotter,
+            obs_latlong,
+            goal_latlong,
             global_curr_pos,
             global_goal_pos,
             gnm_path_idxs.tolist(), gnm_success,
