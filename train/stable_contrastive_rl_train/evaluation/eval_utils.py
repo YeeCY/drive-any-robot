@@ -795,7 +795,7 @@ def planning_via_sorting(model, obs_image, goal_image, cand_image, ref_image):
         [max_batch_size, model.len_trajectory_pred, model.num_action_params],
         device=obs_image.device
     )
-    dummy_action[..., 2] = 1  # cos of yaws
+    # dummy_action[..., 2] = 1  # cos of yaws
     dummy_action = dummy_action.reshape([max_batch_size, model.action_size])
     # dummy_action = torch.zeros(
     #     [traj_len, model.len_trajectory_pred, model.num_action_params],
@@ -961,12 +961,15 @@ def traj_dist_pred(
 
                 # planning via sorting
                 transf_obs_image = traj_transf_obs_image[current_obs_idx][None]
-                subgoal_idx = planning_via_sorting(
+                selected_cand_idx = planning_via_sorting(
                     model, transf_obs_image, transf_goal_image,
                     # torch.cat([traj_transf_obs_image, transf_goal_image], dim=0),
                     traj_transf_obs_image[1:],  # (chongyi): Do we need to include the starting state and the goal in the candidates?
                     torch.cat([traj_transf_obs_image, transf_goal_image], dim=0)
                 )
+
+                # we used all the states except the starting and the goal states as the candidates.
+                subgoal_idx = selected_cand_idx + 1
 
                 # assume we can move to the subgoal exactly
                 path_obs_idxs.append(subgoal_idx)
