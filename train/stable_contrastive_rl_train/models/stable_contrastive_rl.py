@@ -66,30 +66,18 @@ class StableContrastiveRL(BaseRLModel):
         img_encoder_kwargs["hidden_activation"] = hidden_activation
 
         # TODO (chongyi): delete if statement for context_size == 0.
-        if self.context_size == 0:
-            img_encoder_kwargs["num_images"] = 1
-            self.img_encoder = CNN(
-                **img_encoder_kwargs
-            )
-            self.target_img_encoder = CNN(
-                **img_encoder_kwargs
-            )
-            self.policy_image_encoder = CNN(
-                **img_encoder_kwargs
-            )
-        else:
-            self.img_encoder = ContrastiveImgEncoder(
-                self.context_size,
-                **img_encoder_kwargs
-            )
-            self.target_img_encoder = ContrastiveImgEncoder(
-                self.context_size,
-                **img_encoder_kwargs
-            )
-            self.policy_img_encoder = ContrastiveImgEncoder(
-                self.context_size,
-                **img_encoder_kwargs
-            )
+        self.img_encoder = ContrastiveImgEncoder(
+            self.context_size,
+            **img_encoder_kwargs
+        )
+        self.target_img_encoder = ContrastiveImgEncoder(
+            self.context_size,
+            **img_encoder_kwargs
+        )
+        self.policy_img_encoder = ContrastiveImgEncoder(
+            self.context_size,
+            **img_encoder_kwargs
+        )
 
         assert contrastive_critic_kwargs is not None
         contrastive_critic_kwargs["action_size"] = self.action_size
@@ -101,12 +89,8 @@ class StableContrastiveRL(BaseRLModel):
         assert policy_kwargs is not None
         policy_kwargs["action_size"] = self.action_size
         policy_kwargs["learn_angle"] = self.learn_angle
-        if self.context_size == 0:
-            self.policy_network = ContrastivePolicy(
-                self.policy_image_encoder, **policy_kwargs)
-        else:
-            self.policy_network = ContrastivePolicy(
-                self.policy_img_encoder, **policy_kwargs)
+        self.policy_network = ContrastivePolicy(
+            self.policy_img_encoder, **policy_kwargs)
 
         # copy_model_params_from_to(self.q_network.critic_parameters(),
         #                           self.target_q_network.critic_parameters())

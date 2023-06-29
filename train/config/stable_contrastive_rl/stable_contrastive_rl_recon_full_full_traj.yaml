@@ -6,7 +6,7 @@ use_wandb: True # set to false if you don't want to log to wandb
 train: rl
 batch_size: 1024  # 200 for mc, 160 for td
 eval_batch_size: 1024  # 200 for mc, 160 for td
-epochs: 10
+epochs: 30
 gpu_ids: [0] # list of gpu ids to use
 num_workers: 16
 lr: 5e-4
@@ -25,7 +25,8 @@ normalize: True
 
 # context
 context_type: temporal
-context_size: 5
+context_size: 0
+#context_size: 5
 
 # image encoder
 img_encoder_kwargs:

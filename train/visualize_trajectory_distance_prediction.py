@@ -55,16 +55,10 @@ from gps.plotter import GPSPlotter
 def display_traj_dist_pred(
     gps_plotter,
     obs_latlong, goal_latlong,
-    global_curr_pos, global_goal_pos,
+    global_obs_pos, global_goal_pos,
     gnm_path_idxs, gnm_success,
-    rl_mc_logit_sum_path_idxs, rl_mc_logit_sum_success,
-    rl_td_logit_sum_path_idxs, rl_td_logit_sum_success,
-    rl_mc_close_logit_diff_path_idxs, rl_mc_close_logit_diff_success,
-    rl_td_close_logit_diff_path_idxs, rl_td_close_logit_diff_success,
-    rl_mc_far_logit_diff_path_idxs, rl_mc_far_logit_diff_success,
-    rl_td_far_logit_diff_path_idxs, rl_td_far_logit_diff_success,
-    rl_mc_mi_diff_path_idxs, rl_mc_mi_diff_success,
-    rl_td_mi_diff_path_idxs, rl_td_mi_diff_success,
+    rl_mc_sorting_path_idxs, rl_mc_sorting_success,
+    rl_td_sorting_path_idxs, rl_td_sorting_success,
     text_color="black", save_path=None, display=False
 ):
     plt.figure()
@@ -76,24 +70,12 @@ def display_traj_dist_pred(
     #     goal_latlong = np.array(gps_plotter.se_latlong)
 
     gnm_marker = u"\u2713" if gnm_success else u"\u2717"
-    rl_mc_logit_sum_marker = u"\u2713" if rl_mc_logit_sum_success else u"\u2717"
-    rl_td_logit_sum_marker = u"\u2713" if rl_td_logit_sum_success else u"\u2717"
-    rl_mc_close_logit_diff_marker = u"\u2713" if rl_mc_close_logit_diff_success else u"\u2717"
-    rl_td_close_logit_diff_marker = u"\u2713" if rl_td_close_logit_diff_success else u"\u2717"
-    rl_mc_far_logit_diff_marker = u"\u2713" if rl_mc_far_logit_diff_success else u"\u2717"
-    rl_td_far_logit_diff_marker = u"\u2713" if rl_td_far_logit_diff_success else u"\u2717"
-    rl_mc_mi_diff_marker = u"\u2713" if rl_mc_mi_diff_success else u"\u2717"
-    rl_td_mi_diff_marker = u"\u2713" if rl_td_mi_diff_success else u"\u2717"
+    rl_mc_sorting_marker = u"\u2713" if rl_mc_sorting_success else u"\u2717"
+    rl_td_sorting_marker = u"\u2713" if rl_td_sorting_success else u"\u2717"
 
-    plt.suptitle(f"gnm w/o context w/ long horizon path: {gnm_path_idxs} [{gnm_marker}]\n"
-                 + f"scrl mc w/o context w/ long horizon logit-sum path: {rl_mc_logit_sum_path_idxs} [{rl_mc_logit_sum_marker}]\n"
-                 + f"scrl td w/o context w/ long horizon logit-sum path: {rl_td_logit_sum_path_idxs} [{rl_td_logit_sum_marker}]\n"
-                 + f"scrl mc w/o context w/ long horizon close-logit-diff path: {rl_mc_close_logit_diff_path_idxs} [{rl_mc_close_logit_diff_marker}]\n"
-                 + f"scrl td w/o context w/ long horizon close-logit-diff path: {rl_td_close_logit_diff_path_idxs} [{rl_td_close_logit_diff_marker}]\n"
-                 + f"scrl mc w/o context w/ long horizon far-logit-diff path: {rl_mc_far_logit_diff_path_idxs} [{rl_mc_far_logit_diff_marker}]\n"
-                 + f"scrl td w/o context w/ long horizon far-logit-diff path: {rl_td_far_logit_diff_path_idxs} [{rl_td_far_logit_diff_marker}]\n"
-                 + f"scrl mc w/o context w/ long horizon mi-diff path: {rl_mc_mi_diff_path_idxs} [{rl_mc_mi_diff_marker}]\n"
-                 + f"scrl td w/o context w/ long horizon mi-diff path: {rl_td_mi_diff_path_idxs} [{rl_td_mi_diff_marker}]",
+    plt.suptitle(f"gnm: {gnm_path_idxs} [{gnm_marker}]\n"
+                 + f"scrl mc sorting: {rl_mc_sorting_path_idxs} [{rl_mc_sorting_marker}]\n"
+                 + f"scrl td sorting: {rl_td_sorting_path_idxs} [{rl_td_sorting_marker}]\n",
                  y=1.4,
                  color=text_color)
 
@@ -116,7 +98,8 @@ def display_traj_dist_pred(
         ax,
         np.concatenate([obs_latlong, goal_latlong]),
         colors=[BLUE] + [GREEN] * (traj_len - 1) + [RED],
-        labels=["start"] + ["obs"] * (traj_len - 1) + ["goal"]
+        labels=["start"] + ["obs"] * (traj_len - 1) + ["goal"],
+        adaptive_satellite_img=True,
     )
     # latlong = np.concatenate([obs_latlong, goal_latlong], axis=0)
     # gps_plotter.plot_latlong_and_compass_bearing(ax, latlong, np.zeros(latlong.shape[0]))
@@ -159,73 +142,37 @@ def get_image(path, aspect_ratio):
 def main(config):
     # read results
     gnm_dir = config["result_dirs"]["gnm"]
-    rl_mc_logit_sum_dir = config["result_dirs"]["scrl_mc_logit_sum"]
-    rl_td_logit_sum_dir = config["result_dirs"]["scrl_td_logit_sum"]
-    rl_mc_close_logit_diff_dir = config["result_dirs"]["scrl_mc_close_logit_diff"]
-    rl_td_close_logit_diff_dir = config["result_dirs"]["scrl_td_close_logit_diff"]
-    rl_mc_far_logit_diff_dir = config["result_dirs"]["scrl_mc_far_logit_diff"]
-    rl_td_far_logit_diff_dir = config["result_dirs"]["scrl_td_far_logit_diff"]
-    rl_mc_mi_diff_dir = config["result_dirs"]["scrl_mc_mi_diff"]
-    rl_td_mi_diff_dir = config["result_dirs"]["scrl_td_mi_diff"]
+    rl_mc_sorting_dir = config["result_dirs"]["scrl_mc_sorting"]
+    rl_td_sorting_dir = config["result_dirs"]["scrl_td_sorting"]
     gnm_filename = os.path.join(gnm_dir, "results.pkl")
-    rl_mc_logit_sum_filename = os.path.join(rl_mc_logit_sum_dir, "results.pkl")
-    rl_td_logit_sum_filename = os.path.join(rl_td_logit_sum_dir, "results.pkl")
-    rl_mc_close_logit_diff_filename = os.path.join(rl_mc_close_logit_diff_dir, "results.pkl")
-    rl_td_close_logit_diff_filename = os.path.join(rl_td_close_logit_diff_dir, "results.pkl")
-    rl_mc_far_logit_diff_filename = os.path.join(rl_mc_far_logit_diff_dir, "results.pkl")
-    rl_td_far_logit_diff_filename = os.path.join(rl_td_far_logit_diff_dir, "results.pkl")
-    rl_mc_mi_diff_filename = os.path.join(rl_mc_mi_diff_dir, "results.pkl")
-    rl_td_mi_diff_filename = os.path.join(rl_td_mi_diff_dir, "results.pkl")
+    rl_mc_sorting_filename = os.path.join(rl_mc_sorting_dir, "results.pkl")
+    rl_td_sorting_filename = os.path.join(rl_td_sorting_dir, "results.pkl")
     data_folder = config["data_folder"]
     aspect_ratio = config["image_size"][0] / config["image_size"][1]
     os.makedirs(config["save_dir"], exist_ok=True)
 
     # new nw and se latlongs for visualization
     gps_plotter = GPSPlotter(
-        nw_latlong=(37.915185, -122.334651),
-        se_latlong=(37.914884, -122.334064),
+        # nw_latlong=(37.915185, -122.334651),
+        # se_latlong=(37.914884, -122.334064),
         zoom=22,
     )
 
     with open(gnm_filename, "rb") as f:
         gnm_results = pkl.load(f)
-    with open(rl_mc_logit_sum_filename, "rb") as f:
-        rl_mc_logit_sum_results = pkl.load(f)
-    with open(rl_td_logit_sum_filename, "rb") as f:
-        rl_td_logit_sum_results = pkl.load(f)
-    with open(rl_mc_close_logit_diff_filename, "rb") as f:
-        rl_mc_close_logit_diff_results = pkl.load(f)
-    with open(rl_td_close_logit_diff_filename, "rb") as f:
-        rl_td_close_logit_diff_results = pkl.load(f)
-    with open(rl_mc_far_logit_diff_filename, "rb") as f:
-        rl_mc_far_logit_diff_results = pkl.load(f)
-    with open(rl_td_far_logit_diff_filename, "rb") as f:
-        rl_td_far_logit_diff_results = pkl.load(f)
-    with open(rl_mc_mi_diff_filename, "rb") as f:
-        rl_mc_mi_diff_results = pkl.load(f)
-    with open(rl_td_mi_diff_filename, "rb") as f:
-        rl_td_mi_diff_results = pkl.load(f)
+    with open(rl_mc_sorting_filename, "rb") as f:
+        rl_mc_sorting_results = pkl.load(f)
+    with open(rl_td_sorting_filename, "rb") as f:
+        rl_td_sorting_results = pkl.load(f)
     assert (
         set(gnm_results.keys())
-        == set(rl_mc_logit_sum_results.keys())
-        == set(rl_td_logit_sum_results.keys())
-        == set(rl_mc_close_logit_diff_results.keys())
-        == set(rl_td_close_logit_diff_results.keys())
-        == set(rl_mc_far_logit_diff_results.keys())
-        == set(rl_td_far_logit_diff_results.keys())
-        == set(rl_mc_mi_diff_results.keys())
-        == set(rl_td_mi_diff_results.keys())
+        == set(rl_mc_sorting_results.keys())
+        == set(rl_td_sorting_results.keys())
     )
 
     for label, gnm_result in gnm_results.items():
-        assert label in rl_mc_logit_sum_results
-        assert label in rl_td_logit_sum_results
-        assert label in rl_mc_close_logit_diff_results
-        assert label in rl_td_close_logit_diff_results
-        assert label in rl_mc_far_logit_diff_results
-        assert label in rl_td_far_logit_diff_results
-        assert label in rl_mc_mi_diff_results
-        assert label in rl_td_mi_diff_results
+        assert label in rl_mc_sorting_results
+        assert label in rl_td_sorting_results
 
         save_path = os.path.join(config["save_dir"], label + ".png")
 
@@ -234,134 +181,50 @@ def main(config):
         end_slack = gnm_result["end_slack"]
         subsampling_spacing = gnm_result["subsampling_spacing"]
         goal_time = gnm_result["goal_time"]
-        global_curr_pos = gnm_result["global_curr_pos"]
+        obs_latlong = gnm_result["obs_latlong"]
+        goal_latlong = gnm_result["goal_latlong"]
+        global_obs_pos = gnm_result["global_obs_pos"]
         global_goal_pos = gnm_result["global_goal_pos"]
         gnm_path_idxs = gnm_result["path_idxs"]
-        traj_len = len(global_curr_pos) - 1
+        traj_len = len(global_obs_pos) - 1
         gnm_success = np.any(np.abs(gnm_path_idxs - traj_len) <= 3)
 
-        # logit-sum
-        rl_mc_logit_sum_result = rl_mc_logit_sum_results[label]
-        assert f_traj == rl_mc_logit_sum_result["f_traj"]
-        assert context_size == rl_mc_logit_sum_result["context_size"]
-        assert end_slack == rl_mc_logit_sum_result["end_slack"]
-        assert subsampling_spacing == rl_mc_logit_sum_result["subsampling_spacing"]
-        assert goal_time == rl_mc_logit_sum_result["goal_time"]
-        assert np.all(global_curr_pos == rl_mc_logit_sum_result["global_curr_pos"])
-        assert np.all(global_goal_pos == rl_mc_logit_sum_result["global_goal_pos"])
-        rl_mc_logit_sum_path_idxs = rl_mc_logit_sum_result["path_idxs"]
-        rl_mc_logit_sum_success = np.any(np.abs(rl_mc_logit_sum_path_idxs - traj_len) <= 2)
+        # sorting
+        rl_mc_sorting_result = rl_mc_sorting_results[label]
+        assert f_traj == rl_mc_sorting_result["f_traj"]
+        assert context_size == rl_mc_sorting_result["context_size"]
+        assert end_slack == rl_mc_sorting_result["end_slack"]
+        assert subsampling_spacing == rl_mc_sorting_result["subsampling_spacing"]
+        assert goal_time == rl_mc_sorting_result["goal_time"]
+        assert np.all(obs_latlong == rl_mc_sorting_result["obs_latlong"])
+        assert np.all(goal_latlong == rl_mc_sorting_result["goal_latlong"])
+        assert np.all(global_obs_pos == rl_mc_sorting_result["global_obs_pos"])
+        assert np.all(global_goal_pos == rl_mc_sorting_result["global_goal_pos"])
+        rl_mc_sorting_path_idxs = rl_mc_sorting_result["path_idxs"]
+        rl_mc_sorting_success = np.any(np.abs(rl_mc_sorting_path_idxs - traj_len) <= 2)
 
-        rl_td_logit_sum_result = rl_td_logit_sum_results[label]
-        assert f_traj == rl_td_logit_sum_result["f_traj"]
-        assert context_size == rl_td_logit_sum_result["context_size"]
-        assert end_slack == rl_td_logit_sum_result["end_slack"]
-        assert subsampling_spacing == rl_td_logit_sum_result["subsampling_spacing"]
-        assert goal_time == rl_td_logit_sum_result["goal_time"]
-        assert np.all(global_curr_pos == rl_td_logit_sum_result["global_curr_pos"])
-        assert np.all(global_goal_pos == rl_td_logit_sum_result["global_goal_pos"])
-        rl_td_logit_sum_path_idxs = rl_td_logit_sum_result["path_idxs"]
-        rl_td_logit_sum_success = np.any(np.abs(rl_td_logit_sum_path_idxs - traj_len) <= 2)
-
-        # close-logit-diff
-        rl_mc_close_logit_diff_result = rl_mc_close_logit_diff_results[label]
-        assert f_traj == rl_mc_close_logit_diff_result["f_traj"]
-        assert context_size == rl_mc_close_logit_diff_result["context_size"]
-        assert end_slack == rl_mc_close_logit_diff_result["end_slack"]
-        assert subsampling_spacing == rl_mc_close_logit_diff_result["subsampling_spacing"]
-        assert goal_time == rl_mc_close_logit_diff_result["goal_time"]
-        assert np.all(global_curr_pos == rl_mc_close_logit_diff_result["global_curr_pos"])
-        assert np.all(global_goal_pos == rl_mc_close_logit_diff_result["global_goal_pos"])
-        rl_mc_close_logit_diff_path_idxs = rl_mc_close_logit_diff_result["path_idxs"]
-        rl_mc_close_logit_diff_success = np.any(np.abs(rl_mc_close_logit_diff_path_idxs - traj_len) <= 2)
-
-        rl_td_close_logit_diff_result = rl_td_close_logit_diff_results[label]
-        assert f_traj == rl_td_close_logit_diff_result["f_traj"]
-        assert context_size == rl_td_close_logit_diff_result["context_size"]
-        assert end_slack == rl_td_close_logit_diff_result["end_slack"]
-        assert subsampling_spacing == rl_td_close_logit_diff_result["subsampling_spacing"]
-        assert goal_time == rl_td_close_logit_diff_result["goal_time"]
-        assert np.all(global_curr_pos == rl_td_close_logit_diff_result["global_curr_pos"])
-        assert np.all(global_goal_pos == rl_td_close_logit_diff_result["global_goal_pos"])
-        rl_td_close_logit_diff_path_idxs = rl_td_close_logit_diff_result["path_idxs"]
-        rl_td_close_logit_diff_success = np.any(np.abs(rl_td_close_logit_diff_path_idxs - traj_len) <= 2)
-
-        # far-logit-diff
-        rl_mc_far_logit_diff_result = rl_mc_far_logit_diff_results[label]
-        assert f_traj == rl_mc_far_logit_diff_result["f_traj"]
-        assert context_size == rl_mc_far_logit_diff_result["context_size"]
-        assert end_slack == rl_mc_far_logit_diff_result["end_slack"]
-        assert subsampling_spacing == rl_mc_far_logit_diff_result["subsampling_spacing"]
-        assert goal_time == rl_mc_far_logit_diff_result["goal_time"]
-        assert np.all(global_curr_pos == rl_mc_far_logit_diff_result["global_curr_pos"])
-        assert np.all(global_goal_pos == rl_mc_far_logit_diff_result["global_goal_pos"])
-        rl_mc_far_logit_diff_path_idxs = rl_mc_far_logit_diff_result["path_idxs"]
-        rl_mc_far_logit_diff_success = np.any(np.abs(rl_mc_far_logit_diff_path_idxs - traj_len) <= 2)
-
-        rl_td_far_logit_diff_result = rl_td_far_logit_diff_results[label]
-        assert f_traj == rl_td_far_logit_diff_result["f_traj"]
-        assert context_size == rl_td_far_logit_diff_result["context_size"]
-        assert end_slack == rl_td_far_logit_diff_result["end_slack"]
-        assert subsampling_spacing == rl_td_far_logit_diff_result["subsampling_spacing"]
-        assert goal_time == rl_td_far_logit_diff_result["goal_time"]
-        assert np.all(global_curr_pos == rl_td_far_logit_diff_result["global_curr_pos"])
-        assert np.all(global_goal_pos == rl_td_far_logit_diff_result["global_goal_pos"])
-        rl_td_far_logit_diff_path_idxs = rl_td_far_logit_diff_result["path_idxs"]
-        rl_td_far_logit_diff_success = np.any(np.abs(rl_td_far_logit_diff_path_idxs - traj_len) <= 2)
-
-        # mi-diff
-        rl_mc_mi_diff_result = rl_mc_mi_diff_results[label]
-        assert f_traj == rl_mc_mi_diff_result["f_traj"]
-        assert context_size == rl_mc_mi_diff_result["context_size"]
-        assert end_slack == rl_mc_mi_diff_result["end_slack"]
-        assert subsampling_spacing == rl_mc_mi_diff_result["subsampling_spacing"]
-        assert goal_time == rl_mc_mi_diff_result["goal_time"]
-        assert np.all(global_curr_pos == rl_mc_mi_diff_result["global_curr_pos"])
-        assert np.all(global_goal_pos == rl_mc_mi_diff_result["global_goal_pos"])
-        rl_mc_mi_diff_path_idxs = rl_mc_mi_diff_result["path_idxs"]
-        rl_mc_mi_diff_success = np.any(np.abs(rl_mc_mi_diff_path_idxs - traj_len) <= 2)
-
-        rl_td_mi_diff_result = rl_td_mi_diff_results[label]
-        assert f_traj == rl_td_mi_diff_result["f_traj"]
-        assert context_size == rl_td_mi_diff_result["context_size"]
-        assert end_slack == rl_td_mi_diff_result["end_slack"]
-        assert subsampling_spacing == rl_td_mi_diff_result["subsampling_spacing"]
-        assert goal_time == rl_td_mi_diff_result["goal_time"]
-        assert np.all(global_curr_pos == rl_td_mi_diff_result["global_obs_pos"])
-        assert np.all(global_goal_pos == rl_td_mi_diff_result["global_goal_pos"])
-        rl_td_mi_diff_path_idxs = rl_td_mi_diff_result["path_idxs"]
-        rl_td_mi_diff_success = np.any(np.abs(rl_td_mi_diff_path_idxs - traj_len) <= 2)
-        obs_latlong = rl_td_mi_diff_result["obs_latlong"]
-        goal_latlong = rl_td_mi_diff_result["goal_latlong"]
-
-        # TODO (chongyi): add satellite image
-        # def _plot_gpscompass(self):
-        #     compass_bearing = self._get_hdf5_topic('imu/compass_bearing')
-        #     latlong = self._get_hdf5_topic('gps/latlong')
-        #     if not np.isfinite(latlong).all():
-        #         latlong = self._gps_plotter.SE_LATLONG
-        #         color = (1., 1., 1., 0.)
-        #     else:
-        #         color = 'r'
-        #     gps_plotter.plot_latlong_and_compass_bearing(self._ax_gpscompass, latlong, compass_bearing,
-        #                                                  color=color)
-        #     gps_plotter.plot_latlong_density()
+        rl_td_sorting_result = rl_td_sorting_results[label]
+        assert f_traj == rl_td_sorting_result["f_traj"]
+        assert context_size == rl_td_sorting_result["context_size"]
+        assert end_slack == rl_td_sorting_result["end_slack"]
+        assert subsampling_spacing == rl_td_sorting_result["subsampling_spacing"]
+        assert goal_time == rl_td_sorting_result["goal_time"]
+        assert np.all(obs_latlong == rl_td_sorting_result["obs_latlong"])
+        assert np.all(goal_latlong == rl_td_sorting_result["goal_latlong"])
+        assert np.all(global_obs_pos == rl_td_sorting_result["global_obs_pos"])
+        assert np.all(global_goal_pos == rl_td_sorting_result["global_goal_pos"])
+        rl_td_sorting_path_idxs = rl_td_sorting_result["path_idxs"]
+        rl_td_sorting_success = np.any(np.abs(rl_td_sorting_path_idxs - traj_len) <= 2)
 
         display_traj_dist_pred(
             gps_plotter,
             obs_latlong,
             goal_latlong,
-            global_curr_pos,
+            global_obs_pos,
             global_goal_pos,
             gnm_path_idxs.tolist(), gnm_success,
-            rl_mc_logit_sum_path_idxs.tolist(), rl_mc_logit_sum_success,
-            rl_td_logit_sum_path_idxs.tolist(), rl_td_logit_sum_success,
-            rl_mc_close_logit_diff_path_idxs.tolist(), rl_mc_close_logit_diff_success,
-            rl_td_close_logit_diff_path_idxs.tolist(), rl_td_close_logit_diff_success,
-            rl_mc_far_logit_diff_path_idxs.tolist(), rl_mc_far_logit_diff_success,
-            rl_td_far_logit_diff_path_idxs.tolist(), rl_td_far_logit_diff_success,
-            rl_mc_mi_diff_path_idxs.tolist(), rl_mc_mi_diff_success,
-            rl_td_mi_diff_path_idxs.tolist(), rl_td_mi_diff_success,
+            rl_mc_sorting_path_idxs.tolist(), rl_mc_sorting_success,
+            rl_td_sorting_path_idxs.tolist(), rl_td_sorting_success,
             "black",
             save_path,
         )

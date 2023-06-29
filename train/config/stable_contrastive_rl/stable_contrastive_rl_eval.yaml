@@ -136,7 +136,6 @@ pairwise_dist_pred_eval_mode: "close_far_mi_diff"
 # TD
 load_run: stable_contrastive_rl/stable_contrastive_rl_recon_full_2023_06_22_22_55_23
 
-
 # logging stuff
 print_log_freq: 5 # in iterations
 #image_log_freq: 25 # in iterations

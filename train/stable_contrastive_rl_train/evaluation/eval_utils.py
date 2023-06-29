@@ -806,17 +806,17 @@ def planning_via_sorting(model, obs_image, goal_image, cand_image, ref_image):
     obs_zero_repr, goal_repr = model(
         obs_image,
         dummy_action[:obs_image.shape[0]],
-        goal_image
+        goal_image[:, -3:]
     )[:2]
     cand_zero_repr, cand_repr = model(
         cand_image,
         dummy_action[:cand_image.shape[0]],
-        cand_image
+        cand_image[:, -3:]
     )[:2]
     ref_zero_repr = model(
         ref_image,
         dummy_action[:ref_image.shape[0]],
-        ref_image  # not used
+        ref_image[:, -3:]  # not used
     )[0]
 
     ref_cand_logits = torch.mean(torch.einsum("ikl,jkl->ijl", ref_zero_repr, cand_repr), dim=-1)
@@ -961,11 +961,18 @@ def traj_dist_pred(
 
                 # planning via sorting
                 transf_obs_image = traj_transf_obs_image[current_obs_idx][None]
+                # selected_cand_idx = planning_via_sorting(
+                #     model, transf_obs_image, transf_goal_image,
+                #     # torch.cat([traj_transf_obs_image, transf_goal_image], dim=0),
+                #     traj_transf_obs_image[1:],  # (chongyi): Do we need to include the starting state and the goal in the candidates?
+                #     torch.cat([traj_transf_obs_image, transf_goal_image], dim=0)
+                # )
                 selected_cand_idx = planning_via_sorting(
                     model, transf_obs_image, transf_goal_image,
                     # torch.cat([traj_transf_obs_image, transf_goal_image], dim=0),
-                    traj_transf_obs_image[1:],  # (chongyi): Do we need to include the starting state and the goal in the candidates?
-                    torch.cat([traj_transf_obs_image, transf_goal_image], dim=0)
+                    traj_transf_obs_image[1:],
+                    # (chongyi): Do we need to include the starting state and the goal in the candidates?
+                    traj_transf_obs_image,
                 )
 
                 # we used all the states except the starting and the goal states as the candidates.
