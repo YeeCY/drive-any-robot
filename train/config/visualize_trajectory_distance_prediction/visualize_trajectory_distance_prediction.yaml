@@ -27,9 +27,14 @@ result_dirs:
 #  scrl_td_mi_diff: logs/stable_contrastive_rl/stable_contrastive_rl_eval_traj_dist_pred_2023_06_28_14_35_02/result/recon_test/epoch10/trajectory_distance_prediction  # predicted waypoint
 
   # use training set
-  gnm: logs/gnm/gnm_eval_traj_dist_pred_2023_06_28_23_30_25/result/recon_test/epoch10/trajectory_distance_prediction
-  scrl_mc_sorting: logs/stable_contrastive_rl/stable_contrastive_rl_eval_traj_dist_pred_2023_06_28_23_44_33/result/recon_test/epoch10/trajectory_distance_prediction
-  scrl_td_sorting: logs/stable_contrastive_rl/stable_contrastive_rl_eval_traj_dist_pred_2023_06_28_23_45_07/result/recon_test/epoch10/trajectory_distance_prediction
+#  gnm: logs/gnm/gnm_eval_traj_dist_pred_2023_06_28_23_30_25/result/recon_test/epoch10/trajectory_distance_prediction
+#  scrl_mc_sorting: logs/stable_contrastive_rl/stable_contrastive_rl_eval_traj_dist_pred_2023_06_28_23_44_33/result/recon_test/epoch10/trajectory_distance_prediction
+#  scrl_td_sorting: logs/stable_contrastive_rl/stable_contrastive_rl_eval_traj_dist_pred_2023_06_28_23_45_07/result/recon_test/epoch10/trajectory_distance_prediction
+
+  # sanity check:
+  gnm: logs/gnm/gnm_eval_traj_dist_pred_2023_06_29_23_34_34/result/recon_test/epoch10/trajectory_distance_prediction
+  scrl_mc_sorting: logs/stable_contrastive_rl/stable_contrastive_rl_eval_traj_dist_pred_2023_06_29_23_32_34/result/recon_test/epoch30/trajectory_distance_prediction
+  scrl_td_sorting: logs/stable_contrastive_rl/stable_contrastive_rl_eval_traj_dist_pred_2023_06_29_23_32_34/result/recon_test/epoch30/trajectory_distance_prediction
 
 # save folder
 save_dir: logs/visualize_trajectory_distance_prediction

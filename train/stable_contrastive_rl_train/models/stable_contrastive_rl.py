@@ -13,7 +13,8 @@ from stable_contrastive_rl_train.models.networks import (
     CNN,
     ContrastiveImgEncoder,
     ContrastiveQNetwork,
-    ContrastivePolicy
+    ContrastivePolicy,
+    MobileNetImgEncoder
 )
 from stable_contrastive_rl_train.models.utils import fanin_init
 
@@ -41,9 +42,6 @@ class StableContrastiveRL(BaseRLModel):
         contrastive_critic_kwargs=None,
         policy_kwargs=None,
     ) -> None:
-        """
-        TODO
-        """
         super(StableContrastiveRL, self).__init__(context_size, len_traj_pred, learn_angle)
 
         self.soft_target_tau = soft_target_tau
@@ -51,46 +49,60 @@ class StableContrastiveRL(BaseRLModel):
         # action size = waypoint sizes + distance size
         self.action_size = self.len_trajectory_pred * self.num_action_params
 
-        assert img_encoder_kwargs is not None
-        if img_encoder_kwargs["hidden_init"] == "xavier_uniform":
-            hidden_init = partial(nn.init.xavier_uniform_,
-                                  gain=nn.init.calculate_gain(
-                                      img_encoder_kwargs["hidden_activation"].lower()))
-        elif img_encoder_kwargs["hidden_init"] == "fanin":
-            hidden_init = fanin_init
-        else:
-            raise NotImplementedError
-        img_encoder_kwargs["hidden_init"] = hidden_init
+        # assert img_encoder_kwargs is not None
+        # if img_encoder_kwargs["hidden_init"] == "xavier_uniform":
+        #     hidden_init = partial(nn.init.xavier_uniform_,
+        #                           gain=nn.init.calculate_gain(
+        #                               img_encoder_kwargs["hidden_activation"].lower()))
+        # elif img_encoder_kwargs["hidden_init"] == "fanin":
+        #     hidden_init = fanin_init
+        # else:
+        #     raise NotImplementedError
+        # img_encoder_kwargs["hidden_init"] = hidden_init
+        #
+        # hidden_activation = getattr(nn, img_encoder_kwargs["hidden_activation"])()
+        # img_encoder_kwargs["hidden_activation"] = hidden_activation
+        #
+        # # TODO (chongyi): delete if statement for context_size == 0.
+        # if self.context_size == 0:
+        #     img_encoder_kwargs["num_images"] = 1
+        #     self.img_encoder = CNN(
+        #         **img_encoder_kwargs
+        #     )
+        #     self.target_img_encoder = CNN(
+        #         **img_encoder_kwargs
+        #     )
+        #     self.policy_img_encoder = CNN(
+        #         **img_encoder_kwargs
+        #     )
+        # else:
+        #     self.img_encoder = ContrastiveImgEncoder(
+        #         self.context_size,
+        #         **img_encoder_kwargs
+        #     )
+        #     self.target_img_encoder = ContrastiveImgEncoder(
+        #         self.context_size,
+        #         **img_encoder_kwargs
+        #     )
+        #     self.policy_img_encoder = ContrastiveImgEncoder(
+        #         self.context_size,
+        #         **img_encoder_kwargs
+        #     )
 
-        hidden_activation = getattr(nn, img_encoder_kwargs["hidden_activation"])()
-        img_encoder_kwargs["hidden_activation"] = hidden_activation
-
-        # TODO (chongyi): delete if statement for context_size == 0.
-        self.img_encoder = ContrastiveImgEncoder(
-            self.context_size,
-            **img_encoder_kwargs
-        )
-        self.target_img_encoder = ContrastiveImgEncoder(
-            self.context_size,
-            **img_encoder_kwargs
-        )
-        self.policy_img_encoder = ContrastiveImgEncoder(
-            self.context_size,
-            **img_encoder_kwargs
-        )
+        self.img_encoder = MobileNetImgEncoder(context_size)
 
         assert contrastive_critic_kwargs is not None
         contrastive_critic_kwargs["action_size"] = self.action_size
         self.q_network = ContrastiveQNetwork(
             self.img_encoder, **contrastive_critic_kwargs)
         self.target_q_network = ContrastiveQNetwork(
-            self.target_img_encoder, **contrastive_critic_kwargs)
+            self.img_encoder, **contrastive_critic_kwargs)
 
         assert policy_kwargs is not None
         policy_kwargs["action_size"] = self.action_size
         policy_kwargs["learn_angle"] = self.learn_angle
         self.policy_network = ContrastivePolicy(
-            self.policy_img_encoder, **policy_kwargs)
+            self.img_encoder, **policy_kwargs)
 
         # copy_model_params_from_to(self.q_network.critic_parameters(),
         #                           self.target_q_network.critic_parameters())
@@ -156,15 +168,15 @@ class StableContrastiveRL(BaseRLModel):
 
     def forward(
         self, obs_img: torch.tensor, waypoint: torch.tensor, goal_img: torch.tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         TODO docstring
         """
-        obs_a_repr, goal_repr = self.q_network(
-            obs_img, waypoint, goal_img)
-        target_obs_a_repr, target_goal_repr = self.target_q_network(
-            obs_img, waypoint, goal_img)
+        logits = self.q_network(
+            obs_img, waypoint, goal_img)[0]
+        target_logits = self.target_q_network(
+            obs_img, waypoint, goal_img)[0]
         waypoint_mean, waypoint_std = self.policy_network(
             obs_img, goal_img)
 
-        return obs_a_repr, goal_repr, target_obs_a_repr, target_goal_repr, waypoint_mean, waypoint_std
+        return logits, target_logits, waypoint_mean, waypoint_std

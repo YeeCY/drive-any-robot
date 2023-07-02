@@ -66,13 +66,13 @@ def main(config):
         transforms.Resize(
             (config["image_size"][1], config["image_size"][0])
         ),  # torch does (h, w)
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ]
     transform = transforms.Compose(transform)
     aspect_ratio = config["image_size"][0] / config["image_size"][1]
     if config.get("img_encoder_kwargs", None):
-        config["img_encoder_kwargs"]["input_width"] = config["image_size"][1]
-        config["img_encoder_kwargs"]["input_height"] = config["image_size"][0]
+        config["img_encoder_kwargs"]["input_width"] = config["image_size"][0]
+        config["img_encoder_kwargs"]["input_height"] = config["image_size"][1]
 
     # Load the data
     train_dist_dataset = []

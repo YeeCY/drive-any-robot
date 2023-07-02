@@ -316,6 +316,7 @@ def evaluate(
                 dist_label,
                 dist_dataset_index,
                 dist_index_to_data,
+                dist_data_info,
             ) = dist_vals
             (
                 waypoint_obs_image,
@@ -331,6 +332,7 @@ def evaluate(
                 waypoint_yaw,
                 waypoint_dataset_index,
                 waypoint_index_to_data,
+                waypoint_data_info,
             ) = waypoint_vals
             dist_obs_data = dist_trans_obs_image.to(device)
             dist_next_obs_data = dist_trans_next_obs_image.to(device)
@@ -355,9 +357,14 @@ def evaluate(
             # waypoint_oracle_goal_data = waypoint_goal_data[:, None].repeat_interleave(
             #     waypoint_oracle.shape[1], dim=1)
 
+            waypoint_f_curr, waypoint_obs_time, waypoint_f_goal, waypoint_g_time = waypoint_data_info
+            f_mask = torch.Tensor(np.array(waypoint_f_curr)[:, None] == np.array(waypoint_f_goal)[None])
+            time_mask = waypoint_obs_time[:, None] < waypoint_g_time[None]
+            mc_bce_labels = (f_mask * time_mask).to(device)
             critic_loss, critic_info = get_critic_loss(
-                model, obs_data, next_obs_data, action_data, goal_data,
-                discount, use_td=use_td)
+                model, waypoint_obs_data, waypoint_next_obs_image,
+                waypoint_label.reshape([waypoint_label.shape[0], -1]), waypoint_goal_data,
+                discount, mc_bce_labels, use_td=use_td)
 
             actor_loss, actor_info = get_actor_loss(
                 model, obs_data, action_data, goal_data,
@@ -803,27 +810,31 @@ def planning_via_sorting(model, obs_image, goal_image, cand_image, ref_image):
     # )
     # dummy_action[..., 2] = 1  # cos of yaws
     # dummy_action = dummy_action.reshape([traj_len, model.action_size])
-    obs_zero_repr, goal_repr = model(
-        obs_image,
-        dummy_action[:obs_image.shape[0]],
-        goal_image[:, -3:]
-    )[:2]
-    cand_zero_repr, cand_repr = model(
-        cand_image,
-        dummy_action[:cand_image.shape[0]],
-        cand_image[:, -3:]
-    )[:2]
-    ref_zero_repr = model(
-        ref_image,
-        dummy_action[:ref_image.shape[0]],
-        ref_image[:, -3:]  # not used
-    )[0]
+    # obs_zero_repr, goal_repr = model(
+    #     obs_image,
+    #     dummy_action[:obs_image.shape[0]],
+    #     goal_image[:, -3:]
+    # )[:2]
+    # cand_zero_repr, cand_repr = model(
+    #     cand_image,
+    #     dummy_action[:cand_image.shape[0]],
+    #     cand_image[:, -3:]
+    # )[:2]
+    # ref_zero_repr = model(
+    #     ref_image,
+    #     dummy_action[:ref_image.shape[0]],
+    #     ref_image[:, -3:]  # not used
+    # )[0]
+    #
+    # ref_cand_logits = torch.mean(torch.einsum("ikl,jkl->ijl", ref_zero_repr, cand_repr), dim=-1)
+    # obs_cand_logits = torch.mean(torch.einsum("ikl,jkl->ijl", obs_zero_repr, cand_repr), dim=-1)
+    ref_cand_logits = model.q_network(ref_image, dummy_action[:ref_image.shape[0]], cand_image)[0].mean(-1)
+    obs_cand_logits = model.q_network(obs_image, dummy_action[:obs_image.shape[0]], cand_image)[0].mean(-1)
 
-    ref_cand_logits = torch.mean(torch.einsum("ikl,jkl->ijl", ref_zero_repr, cand_repr), dim=-1)
-    obs_cand_logits = torch.mean(torch.einsum("ikl,jkl->ijl", obs_zero_repr, cand_repr), dim=-1)
-
-    ref_goal_logits = torch.mean(torch.einsum("ikl,jkl->ijl", ref_zero_repr, goal_repr), dim=-1)
-    cand_goal_logits = torch.mean(torch.einsum("ikl,jkl->ijl", cand_zero_repr, goal_repr), dim=-1)
+    # ref_goal_logits = torch.mean(torch.einsum("ikl,jkl->ijl", ref_zero_repr, goal_repr), dim=-1)
+    # cand_goal_logits = torch.mean(torch.einsum("ikl,jkl->ijl", cand_zero_repr, goal_repr), dim=-1)
+    ref_goal_logits = model.q_network(ref_image, dummy_action[:ref_image.shape[0]], goal_image)[0].mean(-1)
+    cand_goal_logits = model.q_network(cand_image, dummy_action[:cand_image.shape[0]], goal_image)[0].mean(-1)
 
     ref_cand_logits = torch.cat([ref_cand_logits, obs_cand_logits], dim=0)
     ref_goal_logits = torch.cat([

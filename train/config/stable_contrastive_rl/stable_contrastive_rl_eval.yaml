@@ -25,8 +25,8 @@ normalize: True
 
 # context
 context_type: temporal
-#context_size: 0
-context_size: 5
+context_size: 0
+#context_size: 5
 
 # image encoder
 img_encoder_kwargs:
@@ -97,15 +97,17 @@ datasets:
   recon:
     data_folder: datasets/recon # path to the dataset
 #    train: gnm_train/data/data_splits/recon_small/train/ # path to the train dir with traj_names.txt, ~15776 samples
-    test: gnm_train/data/data_splits/recon_small/test/ # path to the test dir with traj_names.txt, ~4544 samples
+#    test: gnm_train/data/data_splits/recon_small/test/
+#    test: gnm_train/data/data_splits/recon_10_trajs/test/
+    test: gnm_train/data/data_splits/recon_3_trajs/test/
     end_slack: 3 # because many trajectories end in collisions
     goals_per_obs: 1 # how many goals are sampled per observation
     negative_mining: False # negative mining from the ViNG paper (Shah et al.)
     discount: 0.99  # discount factor used to sample geometric future goals, can be a negative value for random future goals
 
-# evalulation mode
-eval_waypoint: False
-eval_pairwise_dist_pred: True
+# evaluation mode
+eval_waypoint: True
+eval_pairwise_dist_pred: False
 #pairwise_dist_pred_eval_mode: "close_logit_diff"
 #pairwise_dist_pred_eval_mode: "far_logit_diff"
 pairwise_dist_pred_eval_mode: "close_far_mi_diff"
@@ -134,7 +136,17 @@ pairwise_dist_pred_eval_mode: "close_far_mi_diff"
 # MC
 #load_run: stable_contrastive_rl/stable_contrastive_rl_recon_full_2023_06_21_17_29_28
 # TD
-load_run: stable_contrastive_rl/stable_contrastive_rl_recon_full_2023_06_22_22_55_23
+#load_run: stable_contrastive_rl/stable_contrastive_rl_recon_full_2023_06_22_22_55_23
+
+# sanity check on recon_3_trajs splits
+# TD
+#load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_06_29_15_43_58
+#load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_06_29_16_46_22
+#load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_06_29_18_19_55
+#load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_06_29_19_11_11
+#load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_06_29_19_11_11
+#load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_06_30_12_20_42
+load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_06_30_16_56_51
 
 # logging stuff
 print_log_freq: 5 # in iterations

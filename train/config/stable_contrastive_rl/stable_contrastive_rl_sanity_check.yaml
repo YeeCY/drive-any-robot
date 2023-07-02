@@ -4,14 +4,14 @@ run_name: stable_contrastive_rl_sanity_check_debug
 # training setup
 use_wandb: False # set to false if you don't want to log to wandb
 train: rl
-batch_size: 16  # default = 16, full size = 207
-eval_batch_size: 16  # default = 400
-epochs: 120
+batch_size: 32  # default = 16, full size = 207
+eval_batch_size: 32  # default = 400
+epochs: 50
 gpu_ids: [0] # list of gpu ids to use
 num_workers: 32
 lr: 5e-4
 optimizer: adam
-seed: 0
+#seed: 0
 
 # model params
 model_type: stable_contrastive_rl
@@ -25,7 +25,8 @@ normalize: True
 
 # context
 context_type: temporal
-context_size: 5
+context_size: 0
+#context_size: 5
 
 # image encoder
 img_encoder_kwargs:
@@ -42,7 +43,7 @@ contrastive_critic_kwargs:
   hidden_sizes: [1024, 1024, 1024, 1024]
   twin_q: True
   representation_dim: 16
-  init_w: 1E-12
+#  init_w: 1E-12
   hidden_activation: ReLU
   hidden_init: xavier_uniform
   layer_norm: True
@@ -61,10 +62,11 @@ policy_kwargs:
 discount: 0.99
 
 # whether to use C-Learning (TD) or Contrastive NCE (MC)
-use_td: True
+use_td: False
 
 # GCBC
-bc_coef: 0.05  # td = 0.01 - 0.05
+#bc_coef: 0.05  # td = 0.01 - 0.05
+bc_coef: 0.0
 mle_gcbc_loss: True
 waypoint_gcbc_loss_scale: 0.25
 
@@ -96,15 +98,19 @@ image_size: [85, 64] # width, height
 datasets:
   recon:
     data_folder: datasets/recon  # path to the dataset
-    train: gnm_train/data/data_splits/recon_subset/train/ # path to the train dir with traj_names.txt
-    test: gnm_train/data/data_splits/recon_subset/test/ # path to the test dir with traj_names.txt
+#    train: gnm_train/data/data_splits/recon_subset/train/ # path to the train dir with traj_names.txt
+#    test: gnm_train/data/data_splits/recon_subset/test/ # path to the test dir with traj_names.txt
+#    train: gnm_train/data/data_splits/recon_10_trajs/train/ # path to the train dir with traj_names.txt
+#    test: gnm_train/data/data_splits/recon_10_trajs/test/ # path to the test dir with traj_names.txt
+    train: gnm_train/data/data_splits/recon_3_trajs/train/ # path to the train dir with traj_names.txt
+    test: gnm_train/data/data_splits/recon_3_trajs/test/ # path to the test dir with traj_names.txt
     end_slack: 3 # because many trajectories end in collisions
     goals_per_obs: 1 # how many goals are sampled per observation
 #    negative_mining: True # negative mining from the ViNG paper (Shah et al.)
     discount: 0.99  # discount factor used to sample geometric future goals, can be a negative value for random future goals
 
 # logging stuff
-print_log_freq: 100 # in iterations
-image_log_freq: 500 # in iterations
+print_log_freq: 5 # in iterations
+image_log_freq: 25 # in iterations
 num_images_log: 16 # number of images to log in a logging iteration
 pairwise_test_freq: 1 # in epochs
