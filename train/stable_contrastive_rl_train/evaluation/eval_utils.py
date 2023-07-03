@@ -303,6 +303,20 @@ def evaluate(
 
     num_batches = min(len(eval_dist_loader), len(eval_action_loader))
 
+    # use classifier_to_generative_model data to debug
+    from classifier_to_generative_model.utils import load_and_construct_dataset
+
+    train_traj_dataset, train_dataset = load_and_construct_dataset(
+        "/projects/rsalakhugroup/chongyiz/classifier_to_generative_model/datasets/fourrooms.pkl"
+    )
+
+    # TODO (chongyiz): there are some bugs here, tried to fix them.
+    # Fixed batch of data
+    # batch_idxs = np.random.choice(len(train_dataset["state"]),
+    #                               size=32, replace=False)
+    # batch_idxs = np.arange(32)
+    # batch = {k: torch.tensor(v[batch_idxs], device=device) for k, v in train_dataset.items()}
+
     with torch.no_grad():
         for i, val in enumerate(zip(eval_dist_loader, eval_action_loader)):
             dist_vals, waypoint_vals = val
@@ -361,9 +375,19 @@ def evaluate(
             f_mask = torch.Tensor(np.array(waypoint_f_curr)[:, None] == np.array(waypoint_f_goal)[None])
             time_mask = waypoint_obs_time[:, None] < waypoint_g_time[None]
             mc_bce_labels = (f_mask * time_mask).to(device)
+            mc_bce_labels = torch.eye(mc_bce_labels.shape[0], device=device)
+            # critic_loss, critic_info = get_critic_loss(
+            #     model, waypoint_obs_data, waypoint_next_obs_image,
+            #     waypoint_label.reshape([waypoint_label.shape[0], -1]), waypoint_goal_data,
+            #     discount, mc_bce_labels, use_td=use_td)
+
+            batch_idxs = np.random.choice(len(train_dataset["state"]),
+                                          size=512, replace=False)
+            batch = {k: torch.tensor(v[batch_idxs], device=device) for k, v in train_dataset.items()}
+
             critic_loss, critic_info = get_critic_loss(
-                model, waypoint_obs_data, waypoint_next_obs_image,
-                waypoint_label.reshape([waypoint_label.shape[0], -1]), waypoint_goal_data,
+                model, batch["state"], batch["next_state"],
+                batch["action"], batch["next_state"],
                 discount, mc_bce_labels, use_td=use_td)
 
             actor_loss, actor_info = get_actor_loss(
@@ -390,13 +414,13 @@ def evaluate(
             waypoint_label_logit = torch.diag(torch.mean(waypoint_label_logits, dim=-1))
             waypoint_label_critic = torch.sigmoid(waypoint_label_logit)[:, None]
 
-            del waypoint_pred_logit
-            del waypoint_pred_obs_repr
-            del waypoint_pred_g_repr
-            del waypoint_label_logit
-            del waypoint_label_obs_repr
-            del waypoint_label_g_repr
-            torch.cuda.empty_cache()
+            # del waypoint_pred_logit
+            # del waypoint_pred_obs_repr
+            # del waypoint_pred_g_repr
+            # del waypoint_label_logit
+            # del waypoint_label_obs_repr
+            # del waypoint_label_g_repr
+            # torch.cuda.empty_cache()
 
             # (chongyiz): Since we are using DataParallel, we have to use the same batch size
             #   as training to make sure outputs from the networks are consistent (using for loop).

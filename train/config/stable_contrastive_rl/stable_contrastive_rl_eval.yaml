@@ -62,7 +62,7 @@ policy_kwargs:
 discount: 0.99
 
 # whether to use C-Learning (TD) or Contrastive NCE (MC)
-use_td: False
+use_td: True
 
 # GCBC
 bc_coef: 0.05  # td = 0.01 - 0.05
@@ -139,14 +139,17 @@ pairwise_dist_pred_eval_mode: "close_far_mi_diff"
 #load_run: stable_contrastive_rl/stable_contrastive_rl_recon_full_2023_06_22_22_55_23
 
 # sanity check on recon_3_trajs splits
-# TD
 #load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_06_29_15_43_58
 #load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_06_29_16_46_22
 #load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_06_29_18_19_55
 #load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_06_29_19_11_11
 #load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_06_29_19_11_11
 #load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_06_30_12_20_42
-load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_06_30_16_56_51
+#load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_06_30_16_56_51
+# MC
+#load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_07_03_14_59_23
+# TD
+load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_07_03_15_59_41
 
 # logging stuff
 print_log_freq: 5 # in iterations

@@ -200,7 +200,7 @@ class RLDataset(Dataset):
                 pickle.dump(self.index_to_data, f2)
 
     def __len__(self) -> int:
-        return len(self.index_to_data[:32])
+        return len(self.index_to_data)
 
     def __getitem__(self, i: int) -> Tuple[torch.Tensor]:
         """
@@ -216,7 +216,7 @@ class RLDataset(Dataset):
                 action_label (torch.Tensor): tensor of shape (5, 2) or (5, 4) (if training with angle) containing the action labels from the observation to the goal
                 dataset_index (torch.Tensor): index of the datapoint in the dataset [for identifying the dataset for visualization when using multiple datasets]
         """
-        f_curr, f_goal, curr_time, goal_time = self.index_to_data[:32][i]
+        f_curr, f_goal, curr_time, goal_time = self.index_to_data[i]
         # f_curr, _, curr_time, _ = self.index_to_data[:32][i]
         # # We need to resample goal for each data
         with open(os.path.join(self.data_folder, f_curr, "traj_data.pkl"), "rb") as f:

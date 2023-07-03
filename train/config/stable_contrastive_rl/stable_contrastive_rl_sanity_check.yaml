@@ -6,10 +6,10 @@ use_wandb: False # set to false if you don't want to log to wandb
 train: rl
 batch_size: 32  # default = 16, full size = 207
 eval_batch_size: 32  # default = 400
-epochs: 50
+epochs: 20
 gpu_ids: [0] # list of gpu ids to use
 num_workers: 32
-lr: 5e-4
+lr: 3e-4
 optimizer: adam
 #seed: 0
 
@@ -62,7 +62,7 @@ policy_kwargs:
 discount: 0.99
 
 # whether to use C-Learning (TD) or Contrastive NCE (MC)
-use_td: False
+use_td: True
 
 # GCBC
 #bc_coef: 0.05  # td = 0.01 - 0.05
@@ -98,6 +98,8 @@ image_size: [85, 64] # width, height
 datasets:
   recon:
     data_folder: datasets/recon  # path to the dataset
+#    train: gnm_train/data/data_splits/recon_subset/train/ # path to the train dir with traj_names.txt
+#    test: gnm_train/data/data_splits/recon_subset/test/ # path to the test dir with traj_names.txt
 #    train: gnm_train/data/data_splits/recon_subset/train/ # path to the train dir with traj_names.txt
 #    test: gnm_train/data/data_splits/recon_subset/test/ # path to the test dir with traj_names.txt
 #    train: gnm_train/data/data_splits/recon_10_trajs/train/ # path to the train dir with traj_names.txt

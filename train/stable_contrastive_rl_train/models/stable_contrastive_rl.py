@@ -99,7 +99,7 @@ class StableContrastiveRL(BaseRLModel):
             self.img_encoder, **contrastive_critic_kwargs)
 
         assert policy_kwargs is not None
-        policy_kwargs["action_size"] = self.action_size
+        policy_kwargs["action_size"] = 2
         policy_kwargs["learn_angle"] = self.learn_angle
         self.policy_network = ContrastivePolicy(
             self.img_encoder, **policy_kwargs)
@@ -173,9 +173,9 @@ class StableContrastiveRL(BaseRLModel):
         TODO docstring
         """
         logits = self.q_network(
-            obs_img, waypoint, goal_img)[0]
+            obs_img, waypoint, goal_img)
         target_logits = self.target_q_network(
-            obs_img, waypoint, goal_img)[0]
+            obs_img, waypoint, goal_img)
         waypoint_mean, waypoint_std = self.policy_network(
             obs_img, goal_img)
 

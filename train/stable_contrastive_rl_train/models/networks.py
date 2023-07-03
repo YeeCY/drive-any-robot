@@ -329,13 +329,28 @@ class ContrastiveQNetwork(nn.Module):
         #     init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
         #     layer_norm=layer_norm,
         # )
-        self.sa_net = Mlp(
-            hidden_sizes, representation_dim, self.img_encoder.obs_encoding_dim,
-            init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
-            layer_norm=layer_norm,
-        )
-        self.g_net = Mlp(
-            hidden_sizes, representation_dim, self.img_encoder.goal_encoding_dim,
+        # self.sa_net = Mlp(
+        #     hidden_sizes, representation_dim, self.img_encoder.obs_encoding_dim,
+        #     init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
+        #     layer_norm=layer_norm,
+        # )
+        # self.g_net = Mlp(
+        #     hidden_sizes, representation_dim, self.img_encoder.goal_encoding_dim,
+        #     init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
+        #     layer_norm=layer_norm,
+        # )
+        # self.sa_net = Mlp(
+        #     hidden_sizes, representation_dim, 4,
+        #     init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
+        #     layer_norm=layer_norm,
+        # )
+        # self.g_net = Mlp(
+        #     hidden_sizes, representation_dim, 2,
+        #     init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
+        #     layer_norm=layer_norm,
+        # )
+        self.logit_net = Mlp(
+            hidden_sizes, 1, 6,
             init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
             layer_norm=layer_norm,
         )
@@ -346,13 +361,28 @@ class ContrastiveQNetwork(nn.Module):
             #     init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
             #     layer_norm=layer_norm,
             # )
-            self.sa_net2 = Mlp(
-                hidden_sizes, representation_dim, self.img_encoder.obs_encoding_dim,
-                init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
-                layer_norm=layer_norm,
-            )
-            self.g_net2 = Mlp(
-                hidden_sizes, representation_dim, self.img_encoder.goal_encoding_dim,
+            # self.sa_net2 = Mlp(
+            #     hidden_sizes, representation_dim, self.img_encoder.obs_encoding_dim,
+            #     init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
+            #     layer_norm=layer_norm,
+            # )
+            # self.g_net2 = Mlp(
+            #     hidden_sizes, representation_dim, self.img_encoder.goal_encoding_dim,
+            #     init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
+            #     layer_norm=layer_norm,
+            # )
+            # self.sa_net2 = Mlp(
+            #     hidden_sizes, representation_dim, 4,
+            #     init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
+            #     layer_norm=layer_norm,
+            # )
+            # self.g_net2 = Mlp(
+            #     hidden_sizes, representation_dim, 2,
+            #     init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
+            #     layer_norm=layer_norm,
+            # )
+            self.logit_net2 = Mlp(
+                hidden_sizes, 1, 6,
                 init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
                 layer_norm=layer_norm,
             )
@@ -371,32 +401,37 @@ class ContrastiveQNetwork(nn.Module):
 
         # dummy_waypoint = torch.zeros_like(waypoint)
 
-        # image shape = (B, C, H, W)
-        if isinstance(self.img_encoder, CNN):
-            obs_encoding = self.img_encoder(obs_img.reshape(obs_img.shape[0], -1))
-            goal_encoding = self.img_encoder(goal_img.reshape(goal_img.shape[0], -1))
-        else:
-            obs_encoding, goal_encoding = self.img_encoder(obs_img, goal_img)
+        # # image shape = (B, C, H, W)
+        # if isinstance(self.img_encoder, CNN):
+        #     obs_encoding = self.img_encoder(obs_img.reshape(obs_img.shape[0], -1))
+        #     goal_encoding = self.img_encoder(goal_img.reshape(goal_img.shape[0], -1))
+        # else:
+        #     obs_encoding, goal_encoding = self.img_encoder(obs_img, goal_img)
+        obs_encoding, goal_encoding = obs_img, goal_img
 
         # sa_repr = self.sa_net(torch.cat([obs_encoding, dummy_waypoint], dim=-1))
-        sa_repr = self.sa_net(obs_encoding)
-        g_repr = self.g_net(goal_encoding)
+        # sa_repr = self.sa_net(torch.cat([obs_encoding, waypoint], dim=-1))
+        # g_repr = self.g_net(goal_encoding)
         # outer = torch.bmm(sa_repr.unsqueeze(0), g_repr.permute(1, 0).unsqueeze(0))[0]
-        outer = torch.einsum('ik,jk->ij', sa_repr, g_repr)
+        # outer = torch.einsum('ik,jk->ij', sa_repr, g_repr)
+        logits = self.logit_net(torch.cat([obs_encoding, waypoint, goal_encoding], dim=-1))
 
         if self.twin_q:
             # sa_repr2 = self.sa_net2(torch.cat([obs_encoding, dummy_waypoint], dim=-1))
-            sa_repr2 = self.sa_net2(obs_encoding)
-            g_repr2 = self.g_net2(goal_encoding)
+            # sa_repr2 = self.sa_net2(torch.cat([obs_encoding, waypoint], dim=-1))
+            # g_repr2 = self.g_net2(goal_encoding)
+            logits2 = self.logit_net2(torch.cat([obs_encoding, waypoint, goal_encoding], dim=-1))
 
             # outer2 = torch.bmm(sa_repr2.unsqueeze(0), g_repr2.permute(1, 0).unsqueeze(0))[0]
-            outer2 = torch.einsum('ik,jk->ij', sa_repr2, g_repr2)
-            outer = torch.stack([outer, outer2], dim=-1)
+            # outer2 = torch.einsum('ik,jk->ij', sa_repr2, g_repr2)
+            # outer = torch.stack([outer, outer2], dim=-1)
+            logits = torch.cat([logits, logits2], dim=-1)
 
-            sa_repr = torch.stack([sa_repr, sa_repr2], dim=-1)
-            g_repr = torch.stack([g_repr, g_repr2], dim=-1)
+            # sa_repr = torch.stack([sa_repr, sa_repr2], dim=-1)
+            # g_repr = torch.stack([g_repr, g_repr2], dim=-1)
 
-        return outer, sa_repr, g_repr
+        # return outer, sa_repr, g_repr
+        return logits
 
     # def critic_parameters(self, recurse: bool = True) -> Iterator[nn.Parameter]:
     #     if self.twin_q:
@@ -463,9 +498,14 @@ class ContrastivePolicy(nn.Module):
             self.img_encoder.obs_encoding_dim = self.img_encoder.conv_output_flat_size
             self.img_encoder.goal_encoding_dim = self.img_encoder.conv_output_flat_size
 
+        # self.policy_net = Mlp(
+        #     hidden_sizes, self.action_size,
+        #     self.img_encoder.obs_encoding_dim + self.img_encoder.goal_encoding_dim,
+        #     init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
+        #     layer_norm=layer_norm,
+        # )
         self.policy_net = Mlp(
-            hidden_sizes, self.action_size,
-            self.img_encoder.obs_encoding_dim + self.img_encoder.goal_encoding_dim,
+            hidden_sizes, self.action_size, 4,
             init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
             layer_norm=layer_norm,
         )
@@ -489,11 +529,12 @@ class ContrastivePolicy(nn.Module):
     def forward(
         self, obs_img: torch.tensor, goal_img: torch.tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        if isinstance(self.img_encoder, CNN):
-            obs_encoding = self.img_encoder(obs_img.reshape(obs_img.shape[0], -1))
-            goal_encoding = self.img_encoder(goal_img.reshape(goal_img.shape[0], -1))
-        else:
-            obs_encoding, goal_encoding = self.img_encoder(obs_img, goal_img)
+        # if isinstance(self.img_encoder, CNN):
+        #     obs_encoding = self.img_encoder(obs_img.reshape(obs_img.shape[0], -1))
+        #     goal_encoding = self.img_encoder(goal_img.reshape(goal_img.shape[0], -1))
+        # else:
+        #     obs_encoding, goal_encoding = self.img_encoder(obs_img, goal_img)
+        obs_encoding, goal_encoding = obs_img, goal_img
 
         waypoint_mu, h = self.policy_net(
             torch.cat([obs_encoding, goal_encoding], dim=-1),
@@ -515,19 +556,19 @@ class ContrastivePolicy(nn.Module):
                 np.array([self.std, ])).float().to(obs_encoding.device)
             waypoint_std = waypoint_std[None].repeat([obs_encoding.shape[0], self.action_size])
 
-        # augment outputs to match labels size-wise
-        waypoint_mu = waypoint_mu.reshape(
-            (waypoint_mu.shape[0], 5, 4)  # TODO: use dynamic action size
-        )
-        waypoint_mu[:, :, :2] = torch.cumsum(
-            waypoint_mu[:, :, :2], dim=1
-        )
-        if self.learn_angle:
-            waypoint_mu[:, :, 2:] = F.normalize(
-                waypoint_mu[:, :, 2:].clone(), dim=-1
-            )  # normalize the angle prediction
-        waypoint_mu = waypoint_mu.reshape(
-            (waypoint_mu.shape[0], self.action_size))
+        # # augment outputs to match labels size-wise
+        # waypoint_mu = waypoint_mu.reshape(
+        #     (waypoint_mu.shape[0], 5, 4)  # TODO: use dynamic action size
+        # )
+        # waypoint_mu[:, :, :2] = torch.cumsum(
+        #     waypoint_mu[:, :, :2], dim=1
+        # )
+        # if self.learn_angle:
+        #     waypoint_mu[:, :, 2:] = F.normalize(
+        #         waypoint_mu[:, :, 2:].clone(), dim=-1
+        #     )  # normalize the angle prediction
+        # waypoint_mu = waypoint_mu.reshape(
+        #     (waypoint_mu.shape[0], self.action_size))
 
         # mu = torch.cat([waypoint_mu, dist_mu], dim=-1)
 
