@@ -62,7 +62,7 @@ policy_kwargs:
 discount: 0.99
 
 # whether to use C-Learning (TD) or Contrastive NCE (MC)
-use_td: True
+use_td: False
 
 # GCBC
 bc_coef: 0.0  # td = 0.01 - 0.05
@@ -152,10 +152,12 @@ pairwise_dist_pred_eval_mode: "close_far_mi_diff"
 #load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_07_03_14_59_23
 #load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_07_04_12_39_05
 #load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_07_04_14_51_02
+# try to do evaluation with this result
+load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_07_04_18_04_04
 # TD
 #load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_07_03_15_59_41
 #load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_07_04_13_47_03
-load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_07_04_16_15_04
+#load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_07_04_16_15_04
 
 # logging stuff
 print_log_freq: 5 # in iterations

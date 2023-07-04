@@ -407,8 +407,8 @@ def evaluate(
             # mc_bce_labels = torch.eye(mc_bce_labels.shape[0], device=device)
             critic_loss, critic_info = get_critic_loss(
                 model, waypoint_obs_data, waypoint_next_obs_data,
-                waypoint_label.reshape([waypoint_label.shape[0], -1]), waypoint_goal_data,
-                discount, use_td=use_td)
+                waypoint_label.flatten(1), waypoint_goal_data,
+                waypoint_data_info, discount, use_td=use_td)
 
             # batch_idxs = np.random.choice(len(train_dataset["state"]),
             #                               size=512, replace=False)

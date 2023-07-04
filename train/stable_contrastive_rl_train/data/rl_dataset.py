@@ -200,8 +200,7 @@ class RLDataset(Dataset):
                 pickle.dump(self.index_to_data, f2)
 
     def __len__(self) -> int:
-        # return len(self.index_to_data)
-        return len(self.traj_names)
+        return len(self.index_to_data)
 
     def __getitem__(self, i: int) -> Tuple[torch.Tensor]:
         """
@@ -217,21 +216,26 @@ class RLDataset(Dataset):
                 action_label (torch.Tensor): tensor of shape (5, 2) or (5, 4) (if training with angle) containing the action labels from the observation to the goal
                 dataset_index (torch.Tensor): index of the datapoint in the dataset [for identifying the dataset for visualization when using multiple datasets]
         """
-        # # f_curr, f_goal, curr_time, goal_time = self.index_to_data[i]
-        # f_curr, _, curr_time, _ = self.index_to_data[i]
-        # # # We need to resample goal for each data
-        # randomly sample a trajectory
-        f_curr = self.traj_names[i]
+        # f_curr, f_goal, curr_time, goal_time = self.index_to_data[i]
+        f_curr, _, curr_time, _ = self.index_to_data[i]
         with open(os.path.join(self.data_folder, f_curr, "traj_data.pkl"), "rb") as f:
             curr_traj_data = pickle.load(f)
-        traj_len = len(curr_traj_data["position"])
-        try:
-            curr_time = np.random.choice(
-                np.arange(self.context_size * self.waypoint_spacing, traj_len - self.end_slack))
-        except:
-            raise RuntimeError("Trajectory {} is too short!".format(f_curr))
         curr_traj_len = len(curr_traj_data["position"])
         assert curr_time < curr_traj_len, f"{curr_time} and {curr_traj_len}"
+
+        # We need to resample goal for each data
+        # # randomly sample a trajectory
+        # f_curr = self.traj_names[i]
+        # with open(os.path.join(self.data_folder, f_curr, "traj_data.pkl"), "rb") as f:
+        #     curr_traj_data = pickle.load(f)
+        # traj_len = len(curr_traj_data["position"])
+        # try:
+        #     curr_time = np.random.choice(
+        #         np.arange(self.context_size * self.waypoint_spacing, traj_len - self.end_slack))
+        # except:
+        #     raise RuntimeError("Trajectory {} is too short!".format(f_curr))
+        # curr_traj_len = len(curr_traj_data["position"])
+        # assert curr_time < curr_traj_len, f"{curr_time} and {curr_traj_len}"
 
         max_len = min(
             int(self.max_dist_cat * self.waypoint_spacing),

@@ -115,38 +115,38 @@ def train_eval_rl_loop(
             )
             dist_loader = test_dataloaders[dataset_type]["distance"]
             action_loader = test_dataloaders[dataset_type]["action"]
-            test_critic_loss, test_actor_loss = evaluate(
-                dataset_type,
-                model,
-                dist_loader,
-                action_loader,
-                device,
-                project_folder,
-                normalized,
-                epoch,
-                discount,
-                use_td,
-                bc_coef,
-                mle_gcbc_loss,
-                use_actor_waypoint_q_loss,
-                use_actor_dist_q_loss,
-                waypoint_gcbc_loss_scale,
-                learn_angle,
-                print_log_freq,
-                image_log_freq,
-                num_images_log,
-                use_wandb,
-            )
-
-            eval_critic_losses.append(test_critic_loss)
-            eval_actor_losses.append(test_actor_loss)
-
-            if use_wandb:
-                wandb.log({f"{dataset_type}_critic_loss": test_critic_loss})
-                wandb.log({f"{dataset_type}_actor_loss": test_actor_loss})
-
-            print(f"{dataset_type}_critic_loss: {test_critic_loss}")
-            print(f"{dataset_type}_actor_loss: {test_actor_loss}")
+            # test_critic_loss, test_actor_loss = evaluate(
+            #     dataset_type,
+            #     model,
+            #     dist_loader,
+            #     action_loader,
+            #     device,
+            #     project_folder,
+            #     normalized,
+            #     epoch,
+            #     discount,
+            #     use_td,
+            #     bc_coef,
+            #     mle_gcbc_loss,
+            #     use_actor_waypoint_q_loss,
+            #     use_actor_dist_q_loss,
+            #     waypoint_gcbc_loss_scale,
+            #     learn_angle,
+            #     print_log_freq,
+            #     image_log_freq,
+            #     num_images_log,
+            #     use_wandb,
+            # )
+            #
+            # eval_critic_losses.append(test_critic_loss)
+            # eval_actor_losses.append(test_actor_loss)
+            #
+            # if use_wandb:
+            #     wandb.log({f"{dataset_type}_critic_loss": test_critic_loss})
+            #     wandb.log({f"{dataset_type}_actor_loss": test_actor_loss})
+            #
+            # print(f"{dataset_type}_critic_loss: {test_critic_loss}")
+            # print(f"{dataset_type}_actor_loss: {test_actor_loss}")
 
         checkpoint = {
             "epoch": epoch,
@@ -374,7 +374,7 @@ def train(
         critic_loss, critic_info = get_critic_loss(
             model, waypoint_obs_data, waypoint_next_obs_data,
             waypoint_label.flatten(1), waypoint_goal_data,
-            discount, use_td=use_td)
+            waypoint_data_info, discount, use_td=use_td)
 
         # compute actor loss
         # actor_loss, actor_info = get_actor_loss(
@@ -795,7 +795,7 @@ def evaluate(
             critic_loss, critic_info = get_critic_loss(
                 model, waypoint_obs_data, waypoint_next_obs_data,
                 waypoint_label.flatten(1), waypoint_goal_data,
-                discount, use_td=use_td)
+                waypoint_data_info, discount, use_td=use_td)
 
             actor_loss, actor_info = get_actor_loss(
                 model, waypoint_obs_data,
@@ -1040,7 +1040,7 @@ def pairwise_acc(
         return np.concatenate(correct_list).mean()
 
 
-def get_critic_loss(model, obs, next_obs, action, goal, discount, use_td=False):
+def get_critic_loss(model, obs, next_obs, action, goal, data_info, discount, use_td=False):
     # waypoint_obs, dist_obs = obs
     # waypoint_next_obs, dist_next_obs = next_obs
     # waypoint, dist = action
@@ -1088,8 +1088,19 @@ def get_critic_loss(model, obs, next_obs, action, goal, discount, use_td=False):
 
     goal_indices = torch.roll(
         torch.arange(batch_size, dtype=torch.int64), -1)
-    waypoint_rand_goal = waypoint_new_goal[goal_indices]
+    waypoint_rand_goal = waypoint_goal[goal_indices]
     neg_logits = model(waypoint_obs, waypoint, waypoint_rand_goal)[0]
+
+    waypoint_f_curr, waypoint_obs_time, waypoint_f_goal, waypoint_g_time = data_info
+    if use_td:
+        neg_labels = (waypoint_obs_time < (waypoint_obs_time + 1)[goal_indices]).to(neg_logits.device).float()
+    else:
+        np_goal_indices = np.roll(
+            np.arange(batch_size, dtype=np.int64), -1)
+        f_mask = torch.Tensor(np.array(waypoint_f_curr) == np.array(waypoint_f_goal)[np_goal_indices])
+        time_mask = waypoint_obs_time < waypoint_g_time[goal_indices]
+        neg_labels = (f_mask * time_mask).to(neg_logits.device)
+    # neg_labels = neg_labels[:, None].repeat_interleave(2, dim=-1)
 
     if use_td:
         # action was not used here
@@ -1148,7 +1159,7 @@ def get_critic_loss(model, obs, next_obs, action, goal, discount, use_td=False):
         # logits = torch.stack([logits, rand_logits], dim=1)
 
         qf_loss = bce_with_logits_loss(pos_logits, torch.ones_like(pos_logits)) \
-                  + bce_with_logits_loss(neg_logits, torch.zeros_like(neg_logits))
+                  + bce_with_logits_loss(neg_logits, neg_labels[:, None].repeat_interleave(2, dim=-1))
 
     critic_loss = torch.mean(qf_loss)
 
@@ -1160,11 +1171,11 @@ def get_critic_loss(model, obs, next_obs, action, goal, discount, use_td=False):
 
     binary_acc_targets = torch.stack([
         torch.ones_like(pos_logits.mean(-1)),
-        torch.zeros_like(neg_logits.mean(-1))
+        neg_labels,
     ], dim=1)
-    waypoint_correct = (torch.argmax(waypoint_logits, dim=-1) == 0)
+    waypoint_correct = (torch.argmax(waypoint_logits, dim=-1) == 0)[~neg_labels.bool()]
     waypoint_logits_pos = waypoint_logits[:, 0]
-    waypoint_logits_neg = waypoint_logits[:, 1]
+    waypoint_logits_neg = waypoint_logits[:, 1][~neg_labels.bool()]
 
     return critic_loss, {
         # "waypoint_binary_accuracy": torch.mean(((waypoint_logits > 0) == mc_bce_labels).float()),
