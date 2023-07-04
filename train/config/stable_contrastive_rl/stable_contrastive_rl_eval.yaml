@@ -65,7 +65,7 @@ discount: 0.99
 use_td: True
 
 # GCBC
-bc_coef: 0.05  # td = 0.01 - 0.05
+bc_coef: 0.0  # td = 0.01 - 0.05
 mle_gcbc_loss: True
 waypoint_gcbc_loss_scale: 0.25
 
@@ -100,7 +100,8 @@ datasets:
 #    test: gnm_train/data/data_splits/recon_small/test/
 #    test: gnm_train/data/data_splits/recon_10_trajs/test/
 #    test: gnm_train/data/data_splits/recon_3_trajs/test/
-    test: gnm_train/data/data_splits/recon_3_trajs/train/ # path to the train dir with traj_names.txt
+#    test: gnm_train/data/data_splits/recon_3_trajs/train/ # path to the train dir with traj_names.txt
+    test: gnm_train/data/data_splits/recon_32_trajs/train/ # path to the train dir with traj_names.txt
     end_slack: 3 # because many trajectories end in collisions
     goals_per_obs: 1 # how many goals are sampled per observation
 #    negative_mining: True # negative mining from the ViNG paper (Shah et al.)
@@ -150,9 +151,11 @@ pairwise_dist_pred_eval_mode: "close_far_mi_diff"
 # MC
 #load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_07_03_14_59_23
 #load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_07_04_12_39_05
+#load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_07_04_14_51_02
 # TD
 #load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_07_03_15_59_41
-load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_07_04_13_47_03
+#load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_07_04_13_47_03
+load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_07_04_16_15_04
 
 # logging stuff
 print_log_freq: 5 # in iterations

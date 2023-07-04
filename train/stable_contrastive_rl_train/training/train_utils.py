@@ -361,11 +361,11 @@ def train(
 
         # Important: the order of loss computation and optimizer update matters!
         # compute critic loss
-        waypoint_f_curr, waypoint_obs_time, waypoint_f_goal, waypoint_g_time = waypoint_data_info
-        f_mask = torch.Tensor(np.array(waypoint_f_curr)[:, None] == np.array(waypoint_f_goal)[None])
-        time_mask = waypoint_obs_time[:, None] < waypoint_g_time[None]
-        mc_bce_labels = (f_mask * time_mask).to(device)
-        mc_bce_labels = torch.eye(mc_bce_labels.shape[0], device=device)
+        # waypoint_f_curr, waypoint_obs_time, waypoint_f_goal, waypoint_g_time = waypoint_data_info
+        # f_mask = torch.Tensor(np.array(waypoint_f_curr)[:, None] == np.array(waypoint_f_goal)[None])
+        # time_mask = waypoint_obs_time[:, None] < waypoint_g_time[None]
+        # mc_bce_labels = (f_mask * time_mask).to(device)
+        # mc_bce_labels = torch.eye(mc_bce_labels.shape[0], device=device)
 
         # batch_idxs = np.random.choice(len(train_dataset["state"]),
         #                               size=512, replace=False)
@@ -378,7 +378,7 @@ def train(
         critic_loss, critic_info = get_critic_loss(
             model, waypoint_obs_data, waypoint_next_obs_data,
             waypoint_label.reshape([waypoint_label.shape[0], -1]), waypoint_goal_data,
-            discount, mc_bce_labels, use_td=use_td)
+            discount, use_td=use_td)
 
         # compute actor loss
         # actor_loss, actor_info = get_actor_loss(
@@ -817,14 +817,14 @@ def evaluate(
             # waypoint_oracle_goal_data = waypoint_goal_data[:, None].repeat_interleave(
             #     waypoint_oracle.shape[1], dim=1)
 
-            waypoint_f_curr, waypoint_obs_time, waypoint_f_goal, waypoint_g_time = waypoint_data_info
-            f_mask = torch.Tensor(np.array(waypoint_f_curr)[:, None] == np.array(waypoint_f_goal)[None])
-            time_mask = waypoint_obs_time[:, None] < waypoint_g_time[None]
-            mc_bce_labels = (f_mask * time_mask).to(device)
-            mc_bce_labels = torch.eye(mc_bce_labels.shape[0], device=device)
+            # waypoint_f_curr, waypoint_obs_time, waypoint_f_goal, waypoint_g_time = waypoint_data_info
+            # f_mask = torch.Tensor(np.array(waypoint_f_curr)[:, None] == np.array(waypoint_f_goal)[None])
+            # time_mask = waypoint_obs_time[:, None] < waypoint_g_time[None]
+            # mc_bce_labels = (f_mask * time_mask).to(device)
+            # mc_bce_labels = torch.eye(mc_bce_labels.shape[0], device=device)
             critic_loss, critic_info = get_critic_loss(
                 model, obs_data, next_obs_data, action_data, goal_data,
-                discount, mc_bce_labels, use_td=use_td)
+                discount, use_td=use_td)
 
             actor_loss, actor_info = get_actor_loss(
                 model, obs_data, action_data, goal_data,
@@ -1166,7 +1166,7 @@ def pairwise_acc(
         return np.concatenate(correct_list).mean()
 
 
-def get_critic_loss(model, obs, next_obs, action, goal, discount, mc_bce_labels, use_td=False):
+def get_critic_loss(model, obs, next_obs, action, goal, discount, use_td=False):
     # waypoint_obs, dist_obs = obs
     # waypoint_next_obs, dist_next_obs = next_obs
     # waypoint, dist = action

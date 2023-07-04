@@ -400,15 +400,15 @@ def evaluate(
             # waypoint_oracle_goal_data = waypoint_goal_data[:, None].repeat_interleave(
             #     waypoint_oracle.shape[1], dim=1)
 
-            waypoint_f_curr, waypoint_obs_time, waypoint_f_goal, waypoint_g_time = waypoint_data_info
-            f_mask = torch.Tensor(np.array(waypoint_f_curr)[:, None] == np.array(waypoint_f_goal)[None])
-            time_mask = waypoint_obs_time[:, None] < waypoint_g_time[None]
-            mc_bce_labels = (f_mask * time_mask).to(device)
-            mc_bce_labels = torch.eye(mc_bce_labels.shape[0], device=device)
+            # waypoint_f_curr, waypoint_obs_time, waypoint_f_goal, waypoint_g_time = waypoint_data_info
+            # f_mask = torch.Tensor(np.array(waypoint_f_curr)[:, None] == np.array(waypoint_f_goal)[None])
+            # time_mask = waypoint_obs_time[:, None] < waypoint_g_time[None]
+            # mc_bce_labels = (f_mask * time_mask).to(device)
+            # mc_bce_labels = torch.eye(mc_bce_labels.shape[0], device=device)
             critic_loss, critic_info = get_critic_loss(
                 model, waypoint_obs_data, waypoint_next_obs_data,
                 waypoint_label.reshape([waypoint_label.shape[0], -1]), waypoint_goal_data,
-                discount, mc_bce_labels, use_td=use_td)
+                discount, use_td=use_td)
 
             # batch_idxs = np.random.choice(len(train_dataset["state"]),
             #                               size=512, replace=False)

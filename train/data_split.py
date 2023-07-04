@@ -35,13 +35,14 @@ def main(args: argparse.Namespace):
     # folder_names = folder_names[:10]  # recon_10_trajs
     # folder_names = folder_names[:3]  # recon_3_trajs
     # folder_names = folder_names[:2]  # recon_3_trajs
+    # folder_names = folder_names[:32]  # recon_32_trajs
 
     # Split the names of the folders into train and test sets
     split_index = int(args.split * len(folder_names))
     train_folder_names = folder_names[:split_index]
     test_folder_names = folder_names[split_index:]
 
-    # recon_10_trajs, recon_3_trajs, recon_2_trajs
+    # recon_32_trajs, recon_10_trajs, recon_3_trajs, recon_2_trajs
     # train_folder_names = folder_names
     # test_folder_names = folder_names
 

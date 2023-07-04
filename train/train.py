@@ -66,7 +66,7 @@ def main(config):
         transforms.Resize(
             (config["image_size"][1], config["image_size"][0])
         ),  # torch does (h, w)
-        # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ]
     transform = transforms.Compose(transform)
     aspect_ratio = config["image_size"][0] / config["image_size"][1]
