@@ -28,8 +28,7 @@ with open(os.path.join(os.path.dirname(__file__), "../data/data_config.yaml"), "
 
 def train_eval_rl_loop(
     model: nn.Module,
-    actor_optimizer: Optimizer,
-    critic_optimizer: Optimizer,
+    optimizer: Dict,
     train_dist_loader: DataLoader,
     train_action_loader: DataLoader,
     test_dataloaders: Dict[str, DataLoader],
@@ -85,8 +84,7 @@ def train_eval_rl_loop(
         )
         train(
             model,
-            actor_optimizer,
-            critic_optimizer,
+            optimizer,
             train_dist_loader,
             train_action_loader,
             device,
@@ -157,8 +155,7 @@ def train_eval_rl_loop(
         checkpoint = {
             "epoch": epoch,
             "model": model,
-            "actor_optimizer": actor_optimizer,
-            "critic_optimizer": critic_optimizer,
+            "optimizer": optimizer,
             "avg_eval_critic_loss": np.mean(eval_critic_losses),
             "avg_eval_actor_loss": np.mean(eval_actor_losses),
         }
@@ -195,8 +192,7 @@ def train_eval_rl_loop(
 
 def train(
     model: nn.Module,
-    actor_optimizer: Optimizer,
-    critic_optimizer: Optimizer,
+    optimizer: Dict,
     train_dist_loader: DataLoader,
     train_waypoint_loader: DataLoader,
     device: torch.device,
@@ -289,11 +285,11 @@ def train(
         )
 
     # use classifier_to_generative_model data to debug
-    from classifier_to_generative_model.utils import load_and_construct_dataset
+    # from classifier_to_generative_model.utils import load_and_construct_dataset
 
-    train_traj_dataset, train_dataset = load_and_construct_dataset(
-        "/projects/rsalakhugroup/chongyiz/classifier_to_generative_model/datasets/fourrooms.pkl"
-    )
+    # train_traj_dataset, train_dataset = load_and_construct_dataset(
+    #     "/projects/rsalakhugroup/chongyiz/classifier_to_generative_model/datasets/fourrooms.pkl"
+    # )
 
     # TODO (chongyiz): there are some bugs here, tried to fix them.
     # Fixed batch of data
@@ -371,35 +367,36 @@ def train(
         mc_bce_labels = (f_mask * time_mask).to(device)
         mc_bce_labels = torch.eye(mc_bce_labels.shape[0], device=device)
 
-        batch_idxs = np.random.choice(len(train_dataset["state"]),
-                                      size=512, replace=False)
-        batch = {k: torch.tensor(v[batch_idxs], device=device) for k, v in train_dataset.items()}
-
-        critic_loss, critic_info = get_critic_loss(
-            model, batch["state"], batch["next_state"],
-            batch["action"], batch["next_state"],
-            discount, mc_bce_labels, use_td=use_td)
+        # batch_idxs = np.random.choice(len(train_dataset["state"]),
+        #                               size=512, replace=False)
+        # batch = {k: torch.tensor(v[batch_idxs], device=device) for k, v in train_dataset.items()}
 
         # critic_loss, critic_info = get_critic_loss(
-        #     model, waypoint_obs_data, waypoint_next_obs_data,
-        #     waypoint_label.reshape([waypoint_label.shape[0], -1]), waypoint_goal_data,
+        #     model, batch["state"], batch["next_state"],
+        #     batch["action"], batch["next_state"],
         #     discount, mc_bce_labels, use_td=use_td)
+        critic_loss, critic_info = get_critic_loss(
+            model, waypoint_obs_data, waypoint_next_obs_data,
+            waypoint_label.reshape([waypoint_label.shape[0], -1]), waypoint_goal_data,
+            discount, mc_bce_labels, use_td=use_td)
 
         # compute actor loss
-        actor_loss, actor_info = get_actor_loss(
-            model, batch["state"], batch["action"], batch["next_state"],
-            bc_coef=bc_coef, mle_gcbc_loss=mle_gcbc_loss,
-            stop_grad_actor_img_encoder=stop_grad_actor_img_encoder,
-            use_actor_waypoint_q_loss=use_actor_waypoint_q_loss,
-            use_actor_dist_q_loss=use_actor_dist_q_loss,
-            waypoint_gcbc_loss_scale=waypoint_gcbc_loss_scale)
         # actor_loss, actor_info = get_actor_loss(
-        #     model, obs_data, action_data, goal_data,
+        #     model, batch["state"], batch["action"], batch["next_state"],
         #     bc_coef=bc_coef, mle_gcbc_loss=mle_gcbc_loss,
         #     stop_grad_actor_img_encoder=stop_grad_actor_img_encoder,
         #     use_actor_waypoint_q_loss=use_actor_waypoint_q_loss,
         #     use_actor_dist_q_loss=use_actor_dist_q_loss,
         #     waypoint_gcbc_loss_scale=waypoint_gcbc_loss_scale)
+        actor_loss, actor_info = get_actor_loss(
+            model, waypoint_obs_data,
+            waypoint_label.reshape([waypoint_label.shape[0], -1]),
+            waypoint_goal_data,
+            bc_coef=bc_coef, mle_gcbc_loss=mle_gcbc_loss,
+            stop_grad_actor_img_encoder=stop_grad_actor_img_encoder,
+            use_actor_waypoint_q_loss=use_actor_waypoint_q_loss,
+            use_actor_dist_q_loss=use_actor_dist_q_loss,
+            waypoint_gcbc_loss_scale=waypoint_gcbc_loss_scale)
 
         # waypoint_pred = model(
         #     waypoint_obs_data, waypoint_label.flatten(1), waypoint_goal_data)[-2]
@@ -471,21 +468,21 @@ def train(
         # of actor loss were backpropagated through the critic network.
 
         # optimize actor
-        # optimizer["actor_optimizer"].zero_grad()
-        actor_optimizer.zero_grad()
+        optimizer["actor_optimizer"].zero_grad()
+        # actor_optimizer.zero_grad()
         actor_loss.backward()
-        # optimizer["actor_optimizer"].step()
-        actor_optimizer.step()
+        optimizer["actor_optimizer"].step()
+        # actor_optimizer.step()
 
         # optimize critic
-        # optimizer["critic_optimizer"].zero_grad()
-        critic_optimizer.zero_grad()
+        optimizer["critic_optimizer"].zero_grad()
+        # critic_optimizer.zero_grad()
         critic_loss.backward()
-        # optimizer["critic_optimizer"].step()
-        critic_optimizer.step()
+        optimizer["critic_optimizer"].step()
+        # critic_optimizer.step()
 
-        # if i % target_update_freq == 0:
-        #     model.soft_update_target_q_network()
+        if i % target_update_freq == 0:
+            model.soft_update_target_q_network()
 
         critic_loss_logger.log_data(critic_loss.item())
         waypoint_binary_acc_logger.log_data(critic_info["waypoint_binary_accuracy"].item())
@@ -1178,6 +1175,13 @@ def get_critic_loss(model, obs, next_obs, action, goal, discount, mc_bce_labels,
     waypoint_next_obs = next_obs
     waypoint = action
     waypoint_goal = goal
+
+    # dummy_waypoint = torch.zeros(
+    #     [waypoint_obs.shape[0], model.len_trajectory_pred, model.num_action_params],
+    #     device=waypoint_obs.device
+    # )
+    # dummy_waypoint[..., 2] = 1  # cos of yaws
+    # dummy_waypoint = dummy_waypoint.reshape([waypoint_obs.shape[0], model.action_size])
 
     batch_size = waypoint_obs.shape[0]
 

@@ -135,7 +135,7 @@ def main(config):
                         )
                 else:
                     if config["eval"] == "rl":
-                        dataset = RLEvalDataset(
+                        dataset = RLDataset(
                             data_folder=data_config["data_folder"],
                             data_split_folder=data_config[data_split_type],
                             dataset_name=dataset_name,

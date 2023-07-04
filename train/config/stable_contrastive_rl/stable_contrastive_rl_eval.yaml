@@ -8,10 +8,10 @@ batch_size: 32  # default = 16, full size = 207
 eval_batch_size: 32  # default = 400
 epochs: 1  # evaluation epochs
 gpu_ids: [2] # list of gpu ids to use
-num_workers: 16
-lr: 5e-4
+num_workers: 32
+lr: 3e-4
 optimizer: adam
-seed: 0
+#seed: 0
 
 # model params
 model_type: stable_contrastive_rl
@@ -99,10 +99,11 @@ datasets:
 #    train: gnm_train/data/data_splits/recon_small/train/ # path to the train dir with traj_names.txt, ~15776 samples
 #    test: gnm_train/data/data_splits/recon_small/test/
 #    test: gnm_train/data/data_splits/recon_10_trajs/test/
-    test: gnm_train/data/data_splits/recon_3_trajs/test/
+#    test: gnm_train/data/data_splits/recon_3_trajs/test/
+    test: gnm_train/data/data_splits/recon_3_trajs/train/ # path to the train dir with traj_names.txt
     end_slack: 3 # because many trajectories end in collisions
     goals_per_obs: 1 # how many goals are sampled per observation
-    negative_mining: False # negative mining from the ViNG paper (Shah et al.)
+#    negative_mining: True # negative mining from the ViNG paper (Shah et al.)
     discount: 0.99  # discount factor used to sample geometric future goals, can be a negative value for random future goals
 
 # evaluation mode
@@ -148,8 +149,10 @@ pairwise_dist_pred_eval_mode: "close_far_mi_diff"
 #load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_06_30_16_56_51
 # MC
 #load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_07_03_14_59_23
+#load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_07_04_12_39_05
 # TD
-load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_07_03_15_59_41
+#load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_07_03_15_59_41
+load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_07_04_13_47_03
 
 # logging stuff
 print_log_freq: 5 # in iterations

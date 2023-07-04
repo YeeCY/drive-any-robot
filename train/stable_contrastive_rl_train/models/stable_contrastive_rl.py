@@ -49,20 +49,20 @@ class StableContrastiveRL(BaseRLModel):
         # action size = waypoint sizes + distance size
         self.action_size = self.len_trajectory_pred * self.num_action_params
 
-        # assert img_encoder_kwargs is not None
-        # if img_encoder_kwargs["hidden_init"] == "xavier_uniform":
-        #     hidden_init = partial(nn.init.xavier_uniform_,
-        #                           gain=nn.init.calculate_gain(
-        #                               img_encoder_kwargs["hidden_activation"].lower()))
-        # elif img_encoder_kwargs["hidden_init"] == "fanin":
-        #     hidden_init = fanin_init
-        # else:
-        #     raise NotImplementedError
-        # img_encoder_kwargs["hidden_init"] = hidden_init
-        #
-        # hidden_activation = getattr(nn, img_encoder_kwargs["hidden_activation"])()
-        # img_encoder_kwargs["hidden_activation"] = hidden_activation
-        #
+        assert img_encoder_kwargs is not None
+        if img_encoder_kwargs["hidden_init"] == "xavier_uniform":
+            hidden_init = partial(nn.init.xavier_uniform_,
+                                  gain=nn.init.calculate_gain(
+                                      img_encoder_kwargs["hidden_activation"].lower()))
+        elif img_encoder_kwargs["hidden_init"] == "fanin":
+            hidden_init = fanin_init
+        else:
+            raise NotImplementedError
+        img_encoder_kwargs["hidden_init"] = hidden_init
+
+        hidden_activation = getattr(nn, img_encoder_kwargs["hidden_activation"])()
+        img_encoder_kwargs["hidden_activation"] = hidden_activation
+
         # # TODO (chongyi): delete if statement for context_size == 0.
         # if self.context_size == 0:
         #     img_encoder_kwargs["num_images"] = 1
@@ -89,20 +89,33 @@ class StableContrastiveRL(BaseRLModel):
         #         **img_encoder_kwargs
         #     )
 
-        self.img_encoder = MobileNetImgEncoder(context_size)
+        # self.img_encoder = MobileNetImgEncoder(context_size)
+        # self.policy_img_encoder = MobileNetImgEncoder(context_size)
+        self.img_encoder = ContrastiveImgEncoder(
+            self.context_size,
+            **img_encoder_kwargs
+        )
+        self.target_img_encoder = ContrastiveImgEncoder(
+            self.context_size,
+            **img_encoder_kwargs
+        )
+        self.policy_img_encoder = ContrastiveImgEncoder(
+            self.context_size,
+            **img_encoder_kwargs
+        )
 
         assert contrastive_critic_kwargs is not None
         contrastive_critic_kwargs["action_size"] = self.action_size
         self.q_network = ContrastiveQNetwork(
             self.img_encoder, **contrastive_critic_kwargs)
         self.target_q_network = ContrastiveQNetwork(
-            self.img_encoder, **contrastive_critic_kwargs)
+            self.target_img_encoder, **contrastive_critic_kwargs)
 
         assert policy_kwargs is not None
-        policy_kwargs["action_size"] = 2
+        policy_kwargs["action_size"] = self.action_size
         policy_kwargs["learn_angle"] = self.learn_angle
         self.policy_network = ContrastivePolicy(
-            self.img_encoder, **policy_kwargs)
+            self.policy_img_encoder, **policy_kwargs)
 
         # copy_model_params_from_to(self.q_network.critic_parameters(),
         #                           self.target_q_network.critic_parameters())

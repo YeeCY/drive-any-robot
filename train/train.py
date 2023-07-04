@@ -266,15 +266,10 @@ def main(config):
         except AssertionError:
             assert type(model.module) == StableContrastiveRL
 
-        # optimizer = {
-        #     # 'critic_optimizer': optimizer_cls(
-        #     #     chain(model.img_encoder.parameters(), model.q_network.parameters()),
-        #     #     lr=lr),
-        #     'critic_optimizer': optimizer_cls(model.q_network.parameters(), lr=lr),
-        #     'actor_optimizer': optimizer_cls(model.policy_network.parameters(), lr=lr),
-        # }
-        actor_optimizer = optimizer_cls(model.policy_network.parameters(), lr=lr)
-        critic_optimizer = optimizer_cls(model.q_network.parameters(), lr=lr)
+        optimizer = {
+            'critic_optimizer': optimizer_cls(model.q_network.parameters(), lr=lr),
+            'actor_optimizer': optimizer_cls(model.policy_network.parameters(), lr=lr),
+        }
 
     current_epoch = 0
     if "load_run" in config:
@@ -323,8 +318,7 @@ def main(config):
 
         train_eval_rl_loop(
             model=model,
-            actor_optimizer=actor_optimizer,
-            critic_optimizer=critic_optimizer,
+            optimizer=optimizer,
             train_dist_loader=train_dist_loader,
             train_action_loader=train_action_loader,
             test_dataloaders=test_dataloaders,
