@@ -964,6 +964,10 @@ def traj_dist_pred(
                 global_goal_pos,
                 dist_label,
                 dataset_index,
+                cand_image,
+                transf_cand_image,
+                cand_latlong,
+                global_cand_pos,
                 index_to_traj,
             ) = tuple([v[0] for v in vals[:-1]] + [vals[-1]])
             traj_len = transf_obs_image.shape[0]
@@ -971,7 +975,9 @@ def traj_dist_pred(
             assert torch.all(
                 transf_goal_image[0] == transf_goal_image[np.random.randint(len(transf_goal_image))]
             )
-            transf_goal_image = transf_goal_image.to(device)[0][None]  # all goals are the same
+            traj_transf_goal_image = transf_goal_image.to(device)
+            transf_goal_image = traj_transf_goal_image.to(device)[0][None]  # all goals are the same
+            transf_cand_image = transf_cand_image.to(device)
 
             # planning with SCRL
             # dummy_action = torch.zeros(
@@ -982,6 +988,7 @@ def traj_dist_pred(
             # dummy_action = dummy_action.reshape([traj_len, model.action_size])
             current_obs_idx = 0
             path_obs_idxs = [current_obs_idx]
+            assert torch.all(transf_cand_image[current_obs_idx] == traj_transf_obs_image[current_obs_idx])
 
             while current_obs_idx != traj_len - 1 and len(path_obs_idxs) < traj_len:
                 # mask = torch.zeros(transf_obs_image.shape[0], dtype=torch.bool, device=device)
@@ -1052,23 +1059,30 @@ def traj_dist_pred(
                 #     sg_idx = int(sg_indices[torch.argmax((curr_obs_a_sg_logit - g_a_sg_logit) - (curr_obs_a_g_logit - sg_a_g_logit))])
 
                 # planning via sorting
-                transf_obs_image = traj_transf_obs_image[current_obs_idx][None]
+                transf_obs_image = transf_cand_image[current_obs_idx][None]
+
                 # selected_cand_idx = planning_via_sorting(
                 #     model, transf_obs_image, transf_goal_image,
                 #     # torch.cat([traj_transf_obs_image, transf_goal_image], dim=0),
                 #     traj_transf_obs_image[1:],  # (chongyi): Do we need to include the starting state and the goal in the candidates?
                 #     torch.cat([traj_transf_obs_image, transf_goal_image], dim=0)
                 # )
-                selected_cand_idx = planning_via_sorting(
+                # model, obs_image, goal_image, cand_image, ref_image
+                # selected_cand_idx = planning_via_sorting(
+                #     model, transf_obs_image, transf_goal_image,
+                #     # torch.cat([traj_transf_obs_image, transf_goal_image], dim=0),
+                #     traj_transf_obs_image[1:],
+                #     # (chongyi): Do we need to include the starting state and the goal in the candidates?
+                #     traj_transf_obs_image,
+                # )
+                subgoal_idx = planning_via_sorting(
                     model, transf_obs_image, transf_goal_image,
-                    # torch.cat([traj_transf_obs_image, transf_goal_image], dim=0),
-                    traj_transf_obs_image[1:],
-                    # (chongyi): Do we need to include the starting state and the goal in the candidates?
-                    traj_transf_obs_image,
+                    transf_cand_image,
+                    transf_cand_image,
                 )
 
                 # we used all the states except the starting and the goal states as the candidates.
-                subgoal_idx = selected_cand_idx + 1
+                # subgoal_idx = selected_cand_idx + 1
 
                 # assume we can move to the subgoal exactly
                 path_obs_idxs.append(subgoal_idx)
@@ -1081,8 +1095,10 @@ def traj_dist_pred(
                 save_traj_dist_pred(
                     to_numpy(obs_latlong),
                     to_numpy(goal_latlong),
+                    to_numpy(cand_latlong),
                     to_numpy(global_obs_pos),
                     to_numpy(global_goal_pos),
+                    to_numpy(global_cand_pos),
                     np.array(path_obs_idxs),
                     eval_type,
                     save_folder,
@@ -1092,16 +1108,18 @@ def traj_dist_pred(
 
             # if i % image_log_freq == 0:
             #     visualize_traj_dist_pred(
-            #         to_numpy(transf_obs_image),
-            #         to_numpy(transf_goal_image),
+            #         to_numpy(traj_transf_obs_image),
+            #         to_numpy(traj_transf_goal_image),
+            #         to_numpy(transf_cand_image),
             #         to_numpy(dataset_index),
             #         to_numpy(local_goal_pos),
             #         to_numpy(waypoint_label),
-            #         to_numpy(global_curr_pos),
+            #         to_numpy(global_obs_pos),
             #         to_numpy(global_goal_pos),
+            #         to_numpy(global_cand_pos),
             #         np.array(path_obs_idxs),
             #         eval_type,
-            #         normalized,
+            #         True,
             #         save_folder,
             #         epoch,
             #     )
@@ -1110,8 +1128,10 @@ def traj_dist_pred(
 def save_traj_dist_pred(
     obs_latlong: np.ndarray,
     goal_latlong: np.ndarray,
+    cand_latlong: np.ndarray,
     global_obs_pos: np.ndarray,
     global_goal_pos: np.ndarray,
+    global_cand_pos: np.ndarray,
     path_idxs: np.ndarray,
     eval_type: str,
     save_folder: str,
@@ -1141,10 +1161,13 @@ def save_traj_dist_pred(
         "end_slack": int(index_to_traj["end_slack"]),
         "subsampling_spacing": int(index_to_traj["subsampling_spacing"]),
         "goal_time": int(index_to_traj["goal_time"]),
+        "neighbor_trajs": [neighbor_traj[0] for neighbor_traj in index_to_traj["neighbor_trajs"]],
         "obs_latlong": obs_latlong,
         "goal_latlong": goal_latlong,
+        "cand_latlong": cand_latlong,
         "global_obs_pos": global_obs_pos,
         "global_goal_pos": global_goal_pos,
+        "global_cand_pos": global_cand_pos,
         "path_idxs": path_idxs,
     }
     traj_results = {result_label: result}

@@ -143,6 +143,7 @@ def main(config):
             context_type=config["context_type"],
             end_slack=data_config["end_slack"],
             normalize=config["normalize"],
+            neighbor_traj_utm_threshold=data_config["neighbor_traj_utm_threshold"],
         )
         dataset_type = f"{dataset_name}_{data_split_type}"
         if dataset_type not in test_dataloaders:

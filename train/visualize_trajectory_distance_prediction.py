@@ -54,8 +54,8 @@ from gps.plotter import GPSPlotter
 
 def display_traj_dist_pred(
     gps_plotter,
-    obs_latlong, goal_latlong,
-    global_obs_pos, global_goal_pos,
+    obs_latlong, goal_latlong, cand_latlong,
+    global_obs_pos, global_goal_pos, global_cand_pos,
     gnm_path_idxs, gnm_success,
     rl_mc_sorting_path_idxs, rl_mc_sorting_success,
     rl_td_sorting_path_idxs, rl_td_sorting_success,
@@ -94,12 +94,21 @@ def display_traj_dist_pred(
     assert len(np.unique(goal_latlong)) == 2, "Multiple goal positions found!"
     goal_latlong = goal_latlong[0][None]
 
+    num_candidates = len(cand_latlong)
+
+    gps_plotter.plot_latlong(
+        ax,
+        cand_latlong,
+        colors=[YELLOW] * num_candidates,
+        labels=["candidate"] * num_candidates,
+        adaptive_satellite_img=True,
+    )
     gps_plotter.plot_latlong(
         ax,
         np.concatenate([obs_latlong, goal_latlong]),
         colors=[BLUE] + [GREEN] * (traj_len - 1) + [RED],
         labels=["start"] + ["obs"] * (traj_len - 1) + ["goal"],
-        adaptive_satellite_img=True,
+        adaptive_satellite_img=False,
     )
     # latlong = np.concatenate([obs_latlong, goal_latlong], axis=0)
     # gps_plotter.plot_latlong_and_compass_bearing(ax, latlong, np.zeros(latlong.shape[0]))
@@ -183,8 +192,10 @@ def main(config):
         goal_time = gnm_result["goal_time"]
         obs_latlong = gnm_result["obs_latlong"]
         goal_latlong = gnm_result["goal_latlong"]
+        cand_latlong = gnm_result["cand_latlong"]
         global_obs_pos = gnm_result["global_obs_pos"]
         global_goal_pos = gnm_result["global_goal_pos"]
+        global_cand_pos = gnm_result["global_cand_pos"]
         gnm_path_idxs = gnm_result["path_idxs"]
         traj_len = len(global_obs_pos) - 1
         gnm_success = np.any(np.abs(gnm_path_idxs - traj_len) <= 3)
@@ -198,8 +209,10 @@ def main(config):
         assert goal_time == rl_mc_sorting_result["goal_time"]
         assert np.all(obs_latlong == rl_mc_sorting_result["obs_latlong"])
         assert np.all(goal_latlong == rl_mc_sorting_result["goal_latlong"])
+        assert np.all(cand_latlong == rl_mc_sorting_result["cand_latlong"])
         assert np.all(global_obs_pos == rl_mc_sorting_result["global_obs_pos"])
         assert np.all(global_goal_pos == rl_mc_sorting_result["global_goal_pos"])
+        assert np.all(global_cand_pos == rl_mc_sorting_result["global_cand_pos"])
         rl_mc_sorting_path_idxs = rl_mc_sorting_result["path_idxs"]
         rl_mc_sorting_success = np.any(np.abs(rl_mc_sorting_path_idxs - traj_len) <= 2)
 
@@ -211,8 +224,10 @@ def main(config):
         assert goal_time == rl_td_sorting_result["goal_time"]
         assert np.all(obs_latlong == rl_td_sorting_result["obs_latlong"])
         assert np.all(goal_latlong == rl_td_sorting_result["goal_latlong"])
+        assert np.all(cand_latlong == rl_mc_sorting_result["cand_latlong"])
         assert np.all(global_obs_pos == rl_td_sorting_result["global_obs_pos"])
         assert np.all(global_goal_pos == rl_td_sorting_result["global_goal_pos"])
+        assert np.all(global_cand_pos == rl_td_sorting_result["global_cand_pos"])
         rl_td_sorting_path_idxs = rl_td_sorting_result["path_idxs"]
         rl_td_sorting_success = np.any(np.abs(rl_td_sorting_path_idxs - traj_len) <= 2)
 
@@ -220,8 +235,10 @@ def main(config):
             gps_plotter,
             obs_latlong,
             goal_latlong,
+            cand_latlong,
             global_obs_pos,
             global_goal_pos,
+            global_cand_pos,
             gnm_path_idxs.tolist(), gnm_success,
             rl_mc_sorting_path_idxs.tolist(), rl_mc_sorting_success,
             rl_td_sorting_path_idxs.tolist(), rl_td_sorting_success,

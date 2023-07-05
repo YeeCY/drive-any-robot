@@ -469,34 +469,41 @@ def traj_dist_pred(
                 global_goal_pos,
                 dist_label,
                 dataset_index,
+                cand_image,
+                transf_cand_image,
+                cand_latlong,
+                global_cand_pos,
                 index_to_traj,
             ) = tuple([v[0] for v in vals[:-1]] + [vals[-1]])
             traj_len = transf_obs_image.shape[0]
             transf_obs_image = transf_obs_image.to(device)
             transf_goal_image = transf_goal_image.to(device)
+            transf_cand_image = transf_cand_image.to(device)
 
             # planning with GNM
             current_obs_idx = 0
             path_obs_idxs = [current_obs_idx]
+            assert torch.all(transf_cand_image[current_obs_idx] == transf_obs_image[current_obs_idx])
 
             while current_obs_idx != traj_len - 1 and len(path_obs_idxs) < traj_len:
-                mask = torch.zeros(transf_obs_image.shape[0], dtype=torch.bool, device=device)
-                sg_indices = torch.arange(traj_len, dtype=torch.int, device=device)
-                mask[current_obs_idx] = True
-                transf_curr_obs_image = transf_obs_image[mask]
-                transf_sg_image = transf_obs_image[~mask]
-                sg_indices = sg_indices[~mask]
+                # mask = torch.zeros(transf_cand_image.shape[0], dtype=torch.bool, device=device)
+                # sg_indices = torch.arange(traj_len, dtype=torch.int, device=device)
+                # mask[current_obs_idx] = True
+                transf_curr_obs_image = transf_cand_image[current_obs_idx]
+                transf_sg_image = transf_cand_image
+                # sg_indices = sg_indices[~mask]
 
                 obs_sg_dist = model(
-                    transf_curr_obs_image.repeat_interleave(transf_sg_image.shape[0], dim=0),
+                    transf_curr_obs_image[None].repeat_interleave(transf_sg_image.shape[0], dim=0),
                     transf_sg_image
                 )[0]
+                # transf_goal_images are the same for the entire trajectory
                 sg_g_dist = model(
                     transf_sg_image,
-                    transf_goal_image[:transf_sg_image.shape[0]]  # transf_goal_images are the same for the entire trajectory
+                    transf_goal_image[0][None].repeat_interleave(transf_sg_image.shape[0], dim=0)
                 )[0]
 
-                sg_idx = int(sg_indices[torch.argmin(obs_sg_dist + sg_g_dist)])
+                sg_idx = int(torch.argmin(obs_sg_dist + sg_g_dist))
 
                 # assume we can move to the subgoal exactly
                 path_obs_idxs.append(sg_idx)
@@ -509,8 +516,10 @@ def traj_dist_pred(
                 save_traj_dist_pred(
                     to_numpy(obs_latlong),
                     to_numpy(goal_latlong),
+                    to_numpy(cand_latlong),
                     to_numpy(global_obs_pos),
                     to_numpy(global_goal_pos),
+                    to_numpy(global_cand_pos),
                     np.array(path_obs_idxs),
                     eval_type,
                     save_folder,

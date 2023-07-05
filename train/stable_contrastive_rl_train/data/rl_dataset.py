@@ -10,6 +10,8 @@ from torchvision import transforms
 from torch.utils.data import Dataset
 import torchvision.transforms.functional as TF
 
+from gps.conversions import latlong_to_utm
+
 from gnm_train.data.data_utils import (
     img_path_to_data,
     calculate_sin_cos,
@@ -725,6 +727,7 @@ class RLTrajDataset(Dataset):
         context_type: str = "temporal",
         end_slack: int = 0,
         normalize: bool = True,
+        neighbor_traj_utm_threshold: float = 100,
     ):
         self.data_folder = data_folder
         self.traj_names = traj_names
@@ -763,6 +766,25 @@ class RLTrajDataset(Dataset):
         self.dataset_index = dataset_names.index(self.dataset_name)
         self.data_config = all_data_config[self.dataset_name]
 
+        self.neighbor_traj_utm_threshold = neighbor_traj_utm_threshold
+        self.traj_avg_utms = dict()
+        self.neighbor_trajs = dict()
+        self._compute_neighbor_trajs()
+
+    def _compute_neighbor_trajs(self):
+        for f_traj in self.traj_names:
+            with open(os.path.join(self.data_folder, f_traj, "traj_data.pkl"), "rb") as f:
+                traj_data = pickle.load(f)
+            traj_avg_utm = np.mean(latlong_to_utm(traj_data["latlong"]), axis=0)  # meters
+            self.traj_avg_utms[f_traj] = traj_avg_utm
+
+        for f_traj in self.traj_names:
+            traj_avg_utm = self.traj_avg_utms[f_traj]
+            pairwise_dists = np.linalg.norm(traj_avg_utm - np.array(list(self.traj_avg_utms.values())), axis=-1)
+            is_neighbor_trajs = (pairwise_dists < self.neighbor_traj_utm_threshold)
+            neighbor_trajs = np.array(list(self.traj_avg_utms.keys()))[is_neighbor_trajs].tolist()
+            self.neighbor_trajs[f_traj] = neighbor_trajs
+
     def __len__(self) -> int:
         return len(self.traj_names)
 
@@ -781,12 +803,13 @@ class RLTrajDataset(Dataset):
         traj_len = len(traj_data["position"])
         assert traj_len >= self.end_slack, f"Trajectory {f_traj} is too short!"
 
-        len_to_goal = traj_len - self.end_slack - 1 if self.goal_idxs[i] == -1 else self.goal_idxs[i]
+        len_to_goal = traj_len - 1 if self.goal_idxs[i] == -1 else self.goal_idxs[i]
         goal_time = int(
             len_to_goal * self.waypoint_spacing
         )
 
         # start sampling a little bit into the trajectory to give enought time to generate context
+        candidates = {}
         data = {}
         for curr_time in range(
             self.context_size * self.waypoint_spacing,
@@ -802,18 +825,7 @@ class RLTrajDataset(Dataset):
                 context_times.append(curr_time)
                 context = [(f_traj, t) for t in context_times]
             elif self.context_type == "randomized_temporal":
-                f_rand_curr, _, rand_curr_time, _ = self.index_to_data[
-                    np.random.randint(0, len(self))
-                ]
-                context_times = list(
-                    range(
-                        rand_curr_time + -self.context_size * self.waypoint_spacing,
-                        rand_curr_time,
-                        self.waypoint_spacing,
-                    )
-                )
-                context = [(f_rand_curr, t) for t in context_times]
-                context.append((f_traj, curr_time))
+                raise NotImplementedError
             elif self.context_type == "temporal":
                 # sample the last self.context_size times from interval [0, curr_time)
                 context_times = list(
@@ -862,6 +874,9 @@ class RLTrajDataset(Dataset):
             data.setdefault("transf_goal_image", []).append(transf_goal_image)
             data.setdefault("obs_latlong", []).append(torch.Tensor(obs_latlong.astype(float)))
             data.setdefault("goal_latlong", []).append(torch.Tensor(goal_latlong.astype(float)))
+            candidates.setdefault("cand_image", []).append(obs_image)
+            candidates.setdefault("transf_cand_image", []).append(transf_obs_image)
+            candidates.setdefault("cand_latlong", []).append(torch.Tensor(obs_latlong.astype(float)))
 
             spacing = self.waypoint_spacing
             len_traj_pred = min(self.len_traj_pred, (goal_time - curr_time) // spacing)
@@ -927,6 +942,7 @@ class RLTrajDataset(Dataset):
             data.setdefault("waypoints", []).append(waypoints)
             data.setdefault("global_obs_pos", []).append(global_pos)
             data.setdefault("global_goal_pos", []).append(global_pos_goal)
+            candidates.setdefault("global_cand_pos", []).append(global_pos)
 
             # temporal distance
             dist_label = torch.FloatTensor(
@@ -938,12 +954,78 @@ class RLTrajDataset(Dataset):
             # data.append(torch.LongTensor([self.dataset_index]))
             data.setdefault("dataset_index", []).append(torch.LongTensor([self.dataset_index]))
 
+        for f_neighbor_traj in self.neighbor_trajs[f_traj]:
+            if f_neighbor_traj == f_traj:
+                continue
+
+            with open(os.path.join(self.data_folder, f_neighbor_traj, "traj_data.pkl"), "rb") as f:
+                neighbor_traj_data = pickle.load(f)
+            neighbor_traj_len = len(neighbor_traj_data["position"])
+            assert neighbor_traj_len >= self.end_slack, f"Trajectory {neighbor_traj_data} is too short!"
+
+            for curr_time in range(
+                self.context_size * self.waypoint_spacing,
+                neighbor_traj_len - self.end_slack,
+                self.subsampling_spacing,
+            ):
+                transf_cand_images = []
+                if self.context_type == "randomized":
+                    # sample self.context_size random times from interval [0, curr_time) with no replacement
+                    context_times = np.random.choice(
+                        list(range(curr_time)), self.context_size, replace=False
+                    )
+                    context_times.append(curr_time)
+                    context = [(f_neighbor_traj, t) for t in context_times]
+                elif self.context_type == "randomized_temporal":
+                    raise NotImplementedError
+                elif self.context_type == "temporal":
+                    # sample the last self.context_size times from interval [0, curr_time)
+                    context_times = list(
+                        range(
+                            curr_time + -self.context_size * self.waypoint_spacing,
+                            curr_time + 1,
+                            self.waypoint_spacing,
+                        )
+                    )
+                    context = [(f_neighbor_traj, t) for t in context_times]
+                else:
+                    raise ValueError(f"Invalid type {self.context_type}")
+                for f, t in context:
+                    cand_image_path = get_image_path(self.data_folder, f, t)
+                    cand_image, transf_cand_image = img_path_to_data(
+                        cand_image_path,
+                        self.transform,
+                        self.aspect_ratio,
+                    )
+                    transf_cand_images.append(transf_cand_image)
+                transf_cand_image = torch.cat(transf_cand_images, dim=0)
+
+                cand_latlong = neighbor_traj_data["latlong"][curr_time]
+
+                candidates["cand_image"].append(cand_image)
+                candidates["transf_cand_image"].append(transf_cand_image)
+                candidates["cand_latlong"].append(torch.Tensor(cand_latlong.astype(float)))
+
+                pos = neighbor_traj_data["position"][curr_time, :2]
+                if self.learn_angle:
+                    pos_angle = neighbor_traj_data["yaw"][[curr_time]]
+                    pos = np.concatenate((pos, pos_angle), axis=-1)
+                global_pos = torch.Tensor(pos.astype(float))
+                if self.normalize:
+                    global_pos[:2] /= (
+                        self.data_config["metric_waypoint_spacing"] * self.waypoint_spacing
+                    )
+                candidates["global_cand_pos"].append(global_pos)
+
+        data.update(candidates)
+
         index_to_traj = {
             "f_traj": f_traj,
             "context_size": self.context_size,
             "end_slack": self.end_slack,
             "subsampling_spacing": self.subsampling_spacing,
             "goal_time": goal_time,
+            "neighbor_trajs": self.neighbor_trajs[f_traj],
         }
 
         return tuple([torch.stack(v) for v in data.values()] + [index_to_traj])

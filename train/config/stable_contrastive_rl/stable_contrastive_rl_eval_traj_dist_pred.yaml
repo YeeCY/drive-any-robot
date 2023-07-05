@@ -101,12 +101,12 @@ datasets:
 #      "jackal_2019-08-06-15-08-36_7_r00",
       # use data from training set
 
-#      # scene 1
-#      jackal_2019-08-29-14-28-12_8_r02,
-#      jackal_2019-08-29-14-40-17_5_r01,
-#      jackal_2019-08-08-17-01-33_19_r02,
-#      jackal_2019-09-09-14-44-00_18_r00,
-#      jackal_2019-08-08-13-24-29_3_r00,
+      # try to compute average latlong of trajectories
+      # scene 1
+      jackal_2019-08-29-14-28-12_8_r02,
+      jackal_2019-08-29-14-40-17_5_r01,
+      jackal_2019-08-08-17-01-33_19_r02,
+      jackal_2019-09-09-14-44-00_18_r00,
 #      jackal_2019-09-12-18-11-38_2_r02,
 #      jackal_2019-09-17-16-39-46_0_r01,
 #      jackal_2019-08-29-16-16-35_2_r00,
@@ -127,17 +127,15 @@ datasets:
 #      jackal_2019-12-19-14-37-04_0_r00,
 #      jackal_2019-08-15-16-11-21_28_r02,
 #      jackal_2019-08-29-17-04-25_5_r02,
-#
+
 #      # scene 2
-#      jackal_2019-12-19-12-25-57_1_r00,
-#      jackal_2019-12-19-16-08-09_10_r03,
-#      jackal_2019-12-21-14-22-04_13_r00,
-#      jackal_2020-01-03-14-19-30_7_r00,
+      jackal_2019-12-19-12-25-57_1_r00,
+      jackal_2019-12-19-16-08-09_10_r03,
+      jackal_2019-12-21-14-22-04_13_r00,
+      jackal_2020-01-03-14-19-30_7_r00,
       # sanity check
-      jackal_2019-09-19-12-35-43_1_r01,
-#      jackal_2019-08-13-17-42-39_35_r03,
-#      jackal_2019-08-20-15-43-44_11_r07,
-      jackal_2019-12-19-12-50-05_4_r00,
+#      jackal_2019-09-19-12-35-43_1_r01,
+#      jackal_2019-12-19-12-50-05_4_r00,
     ]
     # close trajectory:
     # - jackal_2019-08-29-17-04-25_5_r02, jackal_2019-09-12-18-11-38_2_r02, jackal_2019-09-09-14-44-00_18_r00
@@ -191,6 +189,7 @@ datasets:
 #      -1,
 #      -1,
     ]
+    neighbor_traj_utm_threshold: 50 # threshold of average utm coordinate distance between neighbor trajectories
     end_slack: 3 # because many trajectories end in collisions
     subsampling_spacing: 5 # sampling trajectory points every "subsampling_spacing" timestep
 

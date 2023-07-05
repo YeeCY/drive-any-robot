@@ -151,13 +151,15 @@ def plot_traj_dist_pred(
     dataset_name: str,
     local_goal_pos: np.ndarray,
     label_waypoints: np.ndarray,
-    global_curr_pos: np.ndarray,
+    global_obs_pos: np.ndarray,
     global_goal_pos: np.ndarray,
+    global_cand_pos: np.ndarray,
     path_idxs: np.ndarray,
     save_path: Optional[str] = None,
     display: Optional[bool] = False,
 ):
     traj_len = len(label_waypoints)
+    num_candidates = len(global_cand_pos)
 
     fig, ax = plt.subplots(1, 1)
     if len(label_waypoints.shape) > 2:
@@ -168,11 +170,20 @@ def plot_traj_dist_pred(
     plot_trajs(
         ax,
         # np.array(oracle_trajs)[..., :2],  # don't plot yaws
-        [*global_curr_pos, global_goal_pos],
+        [*global_obs_pos, global_goal_pos],
         # traj_colors=sm.to_rgba(normalized_oracle_waypoints_critic)[:, :3],
         # traj_labels=["oracle"] * len(oracle_waypoints_critic),
         point_colors=[BLUE] + [GREEN] * (traj_len - 1) + [RED],
         point_labels=["start"] + ["obs"] * (traj_len - 1) + ["goal"],
+    )
+    plot_trajs(
+        ax,
+        # np.array(oracle_trajs)[..., :2],  # don't plot yaws
+        [*global_cand_pos],
+        # traj_colors=sm.to_rgba(normalized_oracle_waypoints_critic)[:, :3],
+        # traj_labels=["oracle"] * len(oracle_waypoints_critic),
+        point_colors=[YELLOW] * num_candidates,
+        point_labels=["candidate"] * num_candidates,
     )
 
     plt.suptitle(f"path indices: {path_idxs.tolist()}",
@@ -269,11 +280,13 @@ def plot_trajs(
 def visualize_traj_dist_pred(
     traj_obs_images: np.ndarray,
     traj_goal_images: np.ndarray,
+    traj_cand_images: np.ndarray,
     dataset_indices: np.ndarray,
     traj_local_goal_positions: np.ndarray,
     traj_label_waypoints: np.ndarray,
-    traj_global_current_positions: np.ndarray,
+    traj_global_obs_positions: np.ndarray,
     traj_global_goal_positions: np.ndarray,
+    traj_global_cand_positions: np.ndarray,
     path_idxs: np.ndarray,
     eval_type: str,
     normalized: bool,
@@ -295,9 +308,11 @@ def visualize_traj_dist_pred(
         == len(traj_goal_images)
         == len(traj_local_goal_positions)
         == len(traj_label_waypoints)
-        == len(traj_global_current_positions)
+        == len(traj_global_obs_positions)
         == len(traj_global_goal_positions)
     )
+
+    assert len(traj_cand_images) == len(traj_global_cand_positions)
 
     dataset_names = list(data_config.keys())
     dataset_names.sort()
@@ -345,8 +360,9 @@ def visualize_traj_dist_pred(
     if normalized:
         traj_local_goal_positions[..., :2] *= data_config[dataset_name]["metric_waypoint_spacing"]
         traj_label_waypoints[..., :2] *= data_config[dataset_name]["metric_waypoint_spacing"]
-        traj_global_current_positions[..., :2] *= data_config[dataset_name]["metric_waypoint_spacing"]
+        traj_global_obs_positions[..., :2] *= data_config[dataset_name]["metric_waypoint_spacing"]
         traj_global_goal_positions[..., :2] *= data_config[dataset_name]["metric_waypoint_spacing"]
+        traj_global_cand_positions[..., :2] *= data_config[dataset_name]["metric_waypoint_spacing"]
 
     save_path = None
     if visualize_path is not None:
@@ -359,8 +375,9 @@ def visualize_traj_dist_pred(
         dataset_name,
         traj_local_goal_positions,
         traj_label_waypoints,
-        traj_global_current_positions,
+        traj_global_obs_positions,
         global_goal_positions,
+        traj_global_cand_positions,
         path_idxs,
         save_path,
         display
