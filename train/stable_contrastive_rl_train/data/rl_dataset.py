@@ -781,7 +781,7 @@ class RLTrajDataset(Dataset):
         traj_len = len(traj_data["position"])
         assert traj_len >= self.end_slack, f"Trajectory {f_traj} is too short!"
 
-        len_to_goal = traj_len - 1 if self.goal_idxs[i] == -1 else self.goal_idxs[i]
+        len_to_goal = traj_len - self.end_slack - 1 if self.goal_idxs[i] == -1 else self.goal_idxs[i]
         goal_time = int(
             len_to_goal * self.waypoint_spacing
         )

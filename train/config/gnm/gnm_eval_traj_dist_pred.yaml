@@ -80,8 +80,9 @@ datasets:
 #      jackal_2019-12-19-16-08-09_10_r03,
 #      jackal_2019-12-21-14-22-04_13_r00,
 #      jackal_2020-01-03-14-19-30_7_r00,
-      jackal_2019-08-13-17-42-39_35_r03,
-      jackal_2019-08-15-15-43-21_0_r02,
+      jackal_2019-09-19-12-35-43_1_r01,
+#      jackal_2019-08-13-17-42-39_35_r03,
+      jackal_2019-12-19-12-50-05_4_r00,
     ]
     # goal node index in the trajectory (if -1, then the goal node is the last node in the trajectory)
     goal_idxs: [

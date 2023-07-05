@@ -71,8 +71,8 @@ def main(config):
     transform = transforms.Compose(transform)
     aspect_ratio = config["image_size"][0] / config["image_size"][1]
     if config.get("img_encoder_kwargs", None):
-        config["img_encoder_kwargs"]["input_width"] = config["image_size"][1]
-        config["img_encoder_kwargs"]["input_height"] = config["image_size"][0]
+        config["img_encoder_kwargs"]["input_width"] = config["image_size"][0]
+        config["img_encoder_kwargs"]["input_height"] = config["image_size"][1]
 
     # Load the data
     test_dataloaders = {}

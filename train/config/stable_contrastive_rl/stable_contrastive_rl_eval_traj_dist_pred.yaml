@@ -134,8 +134,10 @@ datasets:
 #      jackal_2019-12-21-14-22-04_13_r00,
 #      jackal_2020-01-03-14-19-30_7_r00,
       # sanity check
-      jackal_2019-08-13-17-42-39_35_r03,
-      jackal_2019-08-15-15-43-21_0_r02,
+      jackal_2019-09-19-12-35-43_1_r01,
+#      jackal_2019-08-13-17-42-39_35_r03,
+#      jackal_2019-08-20-15-43-44_11_r07,
+      jackal_2019-12-19-12-50-05_4_r00,
     ]
     # close trajectory:
     # - jackal_2019-08-29-17-04-25_5_r02, jackal_2019-09-12-18-11-38_2_r02, jackal_2019-09-09-14-44-00_18_r00
@@ -232,7 +234,7 @@ traj_dist_pred_eval_mode: "mi_diff"
 
 # sanity check
 # MC
-load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_06_29_19_11_11
+load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_07_04_18_04_04
 
 # logging stuff
 print_log_freq: 5 # in iterations

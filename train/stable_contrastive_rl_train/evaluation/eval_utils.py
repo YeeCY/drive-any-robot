@@ -883,13 +883,39 @@ def planning_via_sorting(model, obs_image, goal_image, cand_image, ref_image):
     #
     # ref_cand_logits = torch.mean(torch.einsum("ikl,jkl->ijl", ref_zero_repr, cand_repr), dim=-1)
     # obs_cand_logits = torch.mean(torch.einsum("ikl,jkl->ijl", obs_zero_repr, cand_repr), dim=-1)
-    ref_cand_logits = model.q_network(ref_image, dummy_action[:ref_image.shape[0]], cand_image)[0].mean(-1)
-    obs_cand_logits = model.q_network(obs_image, dummy_action[:obs_image.shape[0]], cand_image)[0].mean(-1)
+    ref_cand_logits = []
+    for ref_image_ in ref_image:
+        ref_logits_ = model.q_network(ref_image_[None].repeat_interleave(cand_image.shape[0], dim=0),
+                                      dummy_action[:cand_image.shape[0]],
+                                      cand_image).mean(-1)
+        ref_cand_logits.append(ref_logits_)
+    ref_cand_logits = torch.stack(ref_cand_logits)
+    obs_cand_logits = []
+    for obs_image_ in obs_image:
+        obs_logits_ = model.q_network(obs_image_[None].repeat_interleave(cand_image.shape[0], dim=0),
+                                      dummy_action[:cand_image.shape[0]],
+                                      cand_image).mean(-1)
+        obs_cand_logits.append(obs_logits_)
+    obs_cand_logits = torch.stack(obs_cand_logits)
 
     # ref_goal_logits = torch.mean(torch.einsum("ikl,jkl->ijl", ref_zero_repr, goal_repr), dim=-1)
     # cand_goal_logits = torch.mean(torch.einsum("ikl,jkl->ijl", cand_zero_repr, goal_repr), dim=-1)
-    ref_goal_logits = model.q_network(ref_image, dummy_action[:ref_image.shape[0]], goal_image)[0].mean(-1)
-    cand_goal_logits = model.q_network(cand_image, dummy_action[:cand_image.shape[0]], goal_image)[0].mean(-1)
+    # ref_goal_logits = model.q_network(ref_image, dummy_action[:ref_image.shape[0]], goal_image)[0].mean(-1)
+    # cand_goal_logits = model.q_network(cand_image, dummy_action[:cand_image.shape[0]], goal_image)[0].mean(-1)
+    ref_goal_logits = []
+    for ref_image_ in ref_image:
+        ref_logits_ = model.q_network(ref_image_[None].repeat_interleave(goal_image.shape[0], dim=0),
+                                      dummy_action[:goal_image.shape[0]],
+                                      goal_image).mean(-1)
+        ref_goal_logits.append(ref_logits_)
+    ref_goal_logits = torch.stack(ref_goal_logits)
+    cand_goal_logits = []
+    for cand_image_ in cand_image:
+        cand_logits_ = model.q_network(cand_image_[None].repeat_interleave(goal_image.shape[0], dim=0),
+                                       dummy_action[:goal_image.shape[0]],
+                                       goal_image).mean(-1)
+        cand_goal_logits.append(cand_logits_)
+    cand_goal_logits = torch.stack(cand_goal_logits)
 
     ref_cand_logits = torch.cat([ref_cand_logits, obs_cand_logits], dim=0)
     ref_goal_logits = torch.cat([
