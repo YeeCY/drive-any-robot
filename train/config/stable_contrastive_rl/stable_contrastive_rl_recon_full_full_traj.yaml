@@ -9,9 +9,9 @@ eval_batch_size: 1024  # 200 for mc, 160 for td
 epochs: 30
 gpu_ids: [0] # list of gpu ids to use
 num_workers: 16
-lr: 5e-4
+lr: 3e-4
 optimizer: adam
-seed: 0
+#seed: 0
 
 # model params
 model_type: stable_contrastive_rl
@@ -43,7 +43,7 @@ contrastive_critic_kwargs:
   hidden_sizes: [1024, 1024, 1024, 1024]
   twin_q: True
   representation_dim: 16
-  init_w: 1E-12
+#  init_w: 1E-12
   hidden_activation: ReLU
   hidden_init: xavier_uniform
   layer_norm: True
@@ -65,7 +65,7 @@ discount: 0.99
 use_td: True
 
 # GCBC
-bc_coef: 0.05  # td = 0.01 - 0.05
+bc_coef: 0.01  # td = 0.01 - 0.05
 mle_gcbc_loss: True
 waypoint_gcbc_loss_scale: 0.25
 
@@ -101,7 +101,7 @@ datasets:
     test: gnm_train/data/data_splits/recon/test/ # path to the test dir with traj_names.txt
     end_slack: 3 # because many trajectories end in collisions
     goals_per_obs: 1 # how many goals are sampled per observation
-    negative_mining: False # negative mining from the ViNG paper (Shah et al.)
+#    negative_mining: True # negative mining from the ViNG paper (Shah et al.)
     discount: 0.99  # discount factor used to sample geometric future goals, can be a negative value for random future goals
 
 # logging stuff
