@@ -130,6 +130,7 @@ def main(config):
         #     )
         dataset = RLTrajDataset(
             data_folder=data_config["data_folder"],
+            cand_traj_folder=data_config["cand_traj_folder"],
             traj_names=data_config["test_traj_names"],
             goal_idxs=data_config["goal_idxs"],
             dataset_name=dataset_name,

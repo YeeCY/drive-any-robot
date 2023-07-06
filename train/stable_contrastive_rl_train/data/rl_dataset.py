@@ -11,6 +11,7 @@ from torch.utils.data import Dataset
 import torchvision.transforms.functional as TF
 
 from gps.conversions import latlong_to_utm
+from gps.plotter import SE_LATLONG
 
 from gnm_train.data.data_utils import (
     img_path_to_data,
@@ -714,6 +715,7 @@ class RLTrajDataset(Dataset):
     def __init__(
         self,
         data_folder: str,
+        cand_traj_folder: str,
         traj_names: str,
         goal_idxs: list,
         dataset_name: str,
@@ -730,6 +732,7 @@ class RLTrajDataset(Dataset):
         neighbor_traj_utm_threshold: float = 100,
     ):
         self.data_folder = data_folder
+        self.cand_traj_folder = cand_traj_folder
         self.traj_names = traj_names
         self.goal_idxs = goal_idxs
         self.is_action = True
@@ -758,7 +761,7 @@ class RLTrajDataset(Dataset):
         ) as f:
             all_data_config = yaml.safe_load(f)
         assert (
-                self.dataset_name in all_data_config
+            self.dataset_name in all_data_config
         ), f"Dataset {self.dataset_name} not found in data_config.yaml"
         dataset_names = list(all_data_config.keys())
         dataset_names.sort()
@@ -766,19 +769,63 @@ class RLTrajDataset(Dataset):
         self.dataset_index = dataset_names.index(self.dataset_name)
         self.data_config = all_data_config[self.dataset_name]
 
+        cand_traj_names_file = os.path.join(self.cand_traj_folder, "traj_names.txt")
+        with open(cand_traj_names_file, "r") as f:
+            file_lines = f.read()
+            self.cand_traj_names = file_lines.split("\n")
+        if "" in self.cand_traj_names:
+            self.cand_traj_names.remove("")
+
         self.neighbor_traj_utm_threshold = neighbor_traj_utm_threshold
         self.traj_avg_utms = dict()
         self.neighbor_trajs = dict()
         self._compute_neighbor_trajs()
 
     def _compute_neighbor_trajs(self):
-        for f_traj in self.traj_names:
-            with open(os.path.join(self.data_folder, f_traj, "traj_data.pkl"), "rb") as f:
-                traj_data = pickle.load(f)
-            traj_avg_utm = np.mean(latlong_to_utm(traj_data["latlong"]), axis=0)  # meters
-            self.traj_avg_utms[f_traj] = traj_avg_utm
+        traj_avg_utm_path = os.path.join(
+            self.cand_traj_folder,
+            f"rl_traj_dataset_cand_traj_avg_utms.pkl",
+        )
+        try:
+            # load the traj_avg_utm_path if it already exists (to save time)
+            with open(traj_avg_utm_path, "rb") as f1:
+                self.traj_avg_utms = pickle.load(f1)
+        except:
+            # if the traj_avg_utm_path file doesn't exist, create it
+            print(
+                f"Computing candidate trajectory average utm coordinates for {self.dataset_name} rl trajectory dataset..."
+            )
+            print(
+                "This will take a while, but it will only be done once for each configuration per dataset."
+            )
+
+            for f_traj in tqdm.tqdm(self.cand_traj_names):
+                with open(os.path.join(self.data_folder, f_traj, "traj_data.pkl"), "rb") as f:
+                    traj_data = pickle.load(f)
+                traj_latlong = traj_data["latlong"]
+                if not np.isfinite(traj_latlong).all():
+                    latlongs = []
+                    for latlong in traj_latlong:
+                        if not np.isfinite(latlong).all():
+                            latlongs.append(SE_LATLONG)
+                        else:
+                            latlongs.append(latlong)
+                    latlongs = np.array(latlongs)
+                else:
+                    latlongs = traj_latlong
+                traj_avg_utm = np.mean(latlong_to_utm(latlongs), axis=0)  # meters
+                self.traj_avg_utms[f_traj] = traj_avg_utm
+
+            with open(traj_avg_utm_path, "wb") as f2:
+                pickle.dump(self.traj_avg_utms, f2)
 
         for f_traj in self.traj_names:
+            if f_traj not in self.traj_avg_utms:
+                with open(os.path.join(self.data_folder, f_traj, "traj_data.pkl"), "rb") as f:
+                    traj_data = pickle.load(f)
+                traj_latlong = traj_data["latlong"]
+                traj_avg_utm = np.mean(latlong_to_utm(traj_latlong), axis=0)
+                self.traj_avg_utms[f_traj] = traj_avg_utm
             traj_avg_utm = self.traj_avg_utms[f_traj]
             pairwise_dists = np.linalg.norm(traj_avg_utm - np.array(list(self.traj_avg_utms.values())), axis=-1)
             is_neighbor_trajs = (pairwise_dists < self.neighbor_traj_utm_threshold)
@@ -961,7 +1008,9 @@ class RLTrajDataset(Dataset):
             with open(os.path.join(self.data_folder, f_neighbor_traj, "traj_data.pkl"), "rb") as f:
                 neighbor_traj_data = pickle.load(f)
             neighbor_traj_len = len(neighbor_traj_data["position"])
-            assert neighbor_traj_len >= self.end_slack, f"Trajectory {neighbor_traj_data} is too short!"
+            if neighbor_traj_len < self.end_slack:
+                print(f"Trajectory {f_neighbor_traj} is too short!")
+                continue
 
             for curr_time in range(
                 self.context_size * self.waypoint_spacing,

@@ -13,6 +13,8 @@ EARTH_RADIUS = 6378137
 EQUATOR_CIRCUMFERENCE = 2 * np.pi * EARTH_RADIUS
 INITIAL_RESOLUTION = EQUATOR_CIRCUMFERENCE / 256.0
 ORIGIN_SHIFT = EQUATOR_CIRCUMFERENCE / 2.0
+NW_LATLONG = (37.915585, -122.336621)
+SE_LATLONG = (37.914514, -122.334064)
 
 from gps.conversions import latlong_to_utm, utm_to_latlong
 
@@ -20,8 +22,8 @@ from gps.conversions import latlong_to_utm, utm_to_latlong
 class GPSPlotter(object):
 
     def __init__(self,
-                 nw_latlong=(37.915585, -122.336621),
-                 se_latlong=(37.914514, -122.334064),
+                 nw_latlong=NW_LATLONG,
+                 se_latlong=SE_LATLONG,
                  zoom=19,
                  satellite_img_fname=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'rfs_satellite.png'),
                  google_maps_api_key="AIzaSyCj77sQFM1rcIjh0G2ksNFMxzph9jWnmSE"):
@@ -75,7 +77,7 @@ class GPSPlotter(object):
         return self.plot_utm_and_compass_bearing(ax, latlong_to_utm(latlong), compass_bearing, blit=blit, color=color)
 
     def plot_latlong(self, ax, latlong, blit=True, colors=['r'], labels=[''],
-                     point_size=20, font_size=10, remove_other_latlong=False,
+                     point_size=20, text_len=0, font_size=10, remove_other_latlong=False,
                      adaptive_satellite_img=True):
         if adaptive_satellite_img:
             max_latlong = latlong.max(axis=0)
@@ -104,8 +106,9 @@ class GPSPlotter(object):
                 point = ax.scatter(x_, y_, color=colors[idx], label=labels[idx], s=point_size)
                 points.append(point)
 
-                text = ax.text(x_ + 0.20, y_ - 0.20, str(idx), fontsize=font_size)
-                texts.append(text)
+                if idx < text_len:
+                    text = ax.text(x_ + 0.20, y_ - 0.20, str(idx), fontsize=font_size)
+                    texts.append(text)
             ax.get_xaxis().set_visible(False)
             ax.get_yaxis().set_visible(False)
             self._plt_latlong_dict[ax] = (imshow, points, texts)
@@ -130,8 +133,9 @@ class GPSPlotter(object):
                 point = ax.scatter(x_, y_, color=colors[idx], label=labels[idx], s=point_size)
                 points.append(point)
 
-                text = ax.text(x_ + 0.20, y_ - 0.20, str(idx), fontsize=font_size)
-                texts.append(text)
+                if idx < text_len:
+                    text = ax.text(x_ + 0.20, y_ - 0.20, str(idx), fontsize=font_size)
+                    texts.append(text)
             self._plt_latlong_dict[ax] = (imshow, points, texts)
             # self._plt_latlong_dict[ax] = (imshow, points)
 

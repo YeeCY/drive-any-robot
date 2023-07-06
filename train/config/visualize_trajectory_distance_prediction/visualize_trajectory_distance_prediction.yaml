@@ -32,9 +32,9 @@ result_dirs:
 #  scrl_td_sorting: logs/stable_contrastive_rl/stable_contrastive_rl_eval_traj_dist_pred_2023_06_28_23_45_07/result/recon_test/epoch10/trajectory_distance_prediction
 
   # sanity check:
-  gnm: logs/gnm/gnm_eval_traj_dist_pred_2023_07_05_17_00_53/result/recon_test/epoch10/trajectory_distance_prediction
-  scrl_mc_sorting: logs/stable_contrastive_rl/stable_contrastive_rl_eval_traj_dist_pred_2023_07_05_17_01_55/result/recon_test/epoch40/trajectory_distance_prediction
-  scrl_td_sorting: logs/stable_contrastive_rl/stable_contrastive_rl_eval_traj_dist_pred_2023_07_05_17_01_55/result/recon_test/epoch40/trajectory_distance_prediction
+  gnm: logs/gnm/gnm_eval_traj_dist_pred_2023_07_06_15_09_58/result/recon_test/epoch10/trajectory_distance_prediction
+  scrl_mc_sorting: logs/stable_contrastive_rl/stable_contrastive_rl_eval_traj_dist_pred_2023_07_06_15_19_02/result/recon_test/epoch30/trajectory_distance_prediction
+  scrl_td_sorting: logs/stable_contrastive_rl/stable_contrastive_rl_eval_traj_dist_pred_2023_07_06_15_19_02/result/recon_test/epoch30/trajectory_distance_prediction
 
 # save folder
 save_dir: logs/visualize_trajectory_distance_prediction

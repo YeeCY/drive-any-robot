@@ -98,18 +98,40 @@ def display_traj_dist_pred(
 
     gps_plotter.plot_latlong(
         ax,
-        cand_latlong,
-        colors=[YELLOW] * num_candidates,
-        labels=["candidate"] * num_candidates,
+        np.concatenate([cand_latlong, obs_latlong, goal_latlong, cand_latlong[gnm_path_idxs], cand_latlong[rl_mc_sorting_path_idxs]]),
+        colors=[YELLOW] * num_candidates + [BLUE] + [GREEN] * (traj_len - 1) + [RED] + [CYAN] * len(gnm_path_idxs) + [MAGENTA] * len(rl_mc_sorting_path_idxs),
+        labels=["candidate"] * num_candidates + ["start"] + ["obs"] * (traj_len - 1) + ["goal"] + ["gnm path"] * len(gnm_path_idxs) + ["scrl mc path"] * len(rl_mc_sorting_path_idxs),
         adaptive_satellite_img=True,
+        font_size=8,
+        text_len=len(cand_latlong),
     )
-    gps_plotter.plot_latlong(
-        ax,
-        np.concatenate([obs_latlong, goal_latlong]),
-        colors=[BLUE] + [GREEN] * (traj_len - 1) + [RED],
-        labels=["start"] + ["obs"] * (traj_len - 1) + ["goal"],
-        adaptive_satellite_img=False,
-    )
+    # gps_plotter.plot_latlong(
+    #     ax,
+    #     cand_latlong[gnm_path_idxs],
+    #     colors=[CYAN] * len(gnm_path_idxs),
+    #     labels=["gnm path"] * len(gnm_path_idxs),
+    #     adaptive_satellite_img=False,
+    #     font_size=8,
+    #     add_text=False
+    # )
+    # gps_plotter.plot_latlong(
+    #     ax,
+    #     cand_latlong[rl_mc_sorting_path_idxs],
+    #     colors=[MAGENTA] * len(rl_mc_sorting_path_idxs),
+    #     labels=["scrl mc path"] * len(rl_mc_sorting_path_idxs),
+    #     adaptive_satellite_img=False,
+    #     font_size=8,
+    #     add_text=False,
+    # )
+    # gps_plotter.plot_latlong(
+    #     ax,
+    #     np.concatenate([obs_latlong, goal_latlong]),
+    #     colors=[BLUE] + [GREEN] * (traj_len - 1) + [RED],
+    #     labels=["start"] + ["obs"] * (traj_len - 1) + ["goal"],
+    #     adaptive_satellite_img=False,
+    #     font_size=8,
+    #     add_text=False,
+    # )
     # latlong = np.concatenate([obs_latlong, goal_latlong], axis=0)
     # gps_plotter.plot_latlong_and_compass_bearing(ax, latlong, np.zeros(latlong.shape[0]))
 
@@ -164,7 +186,7 @@ def main(config):
     gps_plotter = GPSPlotter(
         # nw_latlong=(37.915185, -122.334651),
         # se_latlong=(37.914884, -122.334064),
-        zoom=22,
+        # zoom=19,
     )
 
     with open(gnm_filename, "rb") as f:

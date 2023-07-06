@@ -991,6 +991,8 @@ def traj_dist_pred(
             assert torch.all(transf_cand_image[current_obs_idx] == traj_transf_obs_image[current_obs_idx])
 
             while current_obs_idx != traj_len - 1 and len(path_obs_idxs) < traj_len:
+                if len(path_obs_idxs) > 3 and len(np.unique(np.array(path_obs_idxs)[-3:])) == 1:
+                    break
                 # mask = torch.zeros(transf_obs_image.shape[0], dtype=torch.bool, device=device)
                 # sg_indices = torch.arange(traj_len, dtype=torch.int, device=device)
                 # mask[current_obs_idx] = True
