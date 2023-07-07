@@ -232,12 +232,18 @@ traj_dist_pred_eval_mode: "mi_diff"
 # TD
 #load_run: stable_contrastive_rl/stable_contrastive_rl_recon_full_2023_06_22_22_55_23
 
+# simplified model with no context and full trajectory trained with more epochs
+# MC
+#load_run: stable_contrastive_rl/stable_contrastive_rl_recon_full_2023_06_29_00_51_07
+# TD
+load_run: stable_contrastive_rl/stable_contrastive_rl_recon_full_2023_06_29_00_51_23
+
 # sanity check
 # MC
 #load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_07_04_18_04_04
 #load_run: stable_contrastive_rl/stable_contrastive_rl_recon_full_2023_07_05_00_04_02
 # TD
-load_run: stable_contrastive_rl/stable_contrastive_rl_recon_full_2023_07_05_00_04_14
+#load_run: stable_contrastive_rl/stable_contrastive_rl_recon_full_2023_07_05_00_04_14
 
 # logging stuff
 print_log_freq: 5 # in iterations

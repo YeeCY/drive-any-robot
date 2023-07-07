@@ -13,8 +13,7 @@ from stable_contrastive_rl_train.models.networks import (
     CNN,
     ContrastiveImgEncoder,
     ContrastiveQNetwork,
-    ContrastivePolicy,
-    MobileNetImgEncoder
+    ContrastivePolicy
 )
 from stable_contrastive_rl_train.models.utils import fanin_init
 
@@ -42,6 +41,9 @@ class StableContrastiveRL(BaseRLModel):
         contrastive_critic_kwargs=None,
         policy_kwargs=None,
     ) -> None:
+        """
+        TODO
+        """
         super(StableContrastiveRL, self).__init__(context_size, len_traj_pred, learn_angle)
 
         self.soft_target_tau = soft_target_tau
@@ -63,34 +65,7 @@ class StableContrastiveRL(BaseRLModel):
         hidden_activation = getattr(nn, img_encoder_kwargs["hidden_activation"])()
         img_encoder_kwargs["hidden_activation"] = hidden_activation
 
-        # # TODO (chongyi): delete if statement for context_size == 0.
-        # if self.context_size == 0:
-        #     img_encoder_kwargs["num_images"] = 1
-        #     self.img_encoder = CNN(
-        #         **img_encoder_kwargs
-        #     )
-        #     self.target_img_encoder = CNN(
-        #         **img_encoder_kwargs
-        #     )
-        #     self.policy_img_encoder = CNN(
-        #         **img_encoder_kwargs
-        #     )
-        # else:
-        #     self.img_encoder = ContrastiveImgEncoder(
-        #         self.context_size,
-        #         **img_encoder_kwargs
-        #     )
-        #     self.target_img_encoder = ContrastiveImgEncoder(
-        #         self.context_size,
-        #         **img_encoder_kwargs
-        #     )
-        #     self.policy_img_encoder = ContrastiveImgEncoder(
-        #         self.context_size,
-        #         **img_encoder_kwargs
-        #     )
-
-        # self.img_encoder = MobileNetImgEncoder(context_size)
-        # self.policy_img_encoder = MobileNetImgEncoder(context_size)
+        # TODO (chongyi): delete if statement for context_size == 0.
         self.img_encoder = ContrastiveImgEncoder(
             self.context_size,
             **img_encoder_kwargs
@@ -181,15 +156,15 @@ class StableContrastiveRL(BaseRLModel):
 
     def forward(
         self, obs_img: torch.tensor, waypoint: torch.tensor, goal_img: torch.tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         TODO docstring
         """
-        logits = self.q_network(
+        obs_a_repr, goal_repr = self.q_network(
             obs_img, waypoint, goal_img)
-        target_logits = self.target_q_network(
+        target_obs_a_repr, target_goal_repr = self.target_q_network(
             obs_img, waypoint, goal_img)
         waypoint_mean, waypoint_std = self.policy_network(
             obs_img, goal_img)
 
-        return logits, target_logits, waypoint_mean, waypoint_std
+        return obs_a_repr, goal_repr, target_obs_a_repr, target_goal_repr, waypoint_mean, waypoint_std

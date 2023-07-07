@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from gnm_train.models.modified_mobilenetv2 import MobileNetEncoder
+# from gnm_train.models.modified_mobilenetv2 import MobileNetEncoder
 from stable_contrastive_rl_train.models.utils import (
     identity,
     fanin_init,
@@ -95,8 +95,8 @@ class CNN(nn.Module):
         test_mat = torch.zeros(
             1,
             self.input_channels,
-            self.input_height,
             self.input_width,
+            self.input_height,
         )
         # find output dim of conv_layers by trial and add norm conv layers
         for i, conv_layer in enumerate(self.conv_layers):
@@ -121,19 +121,9 @@ class CNN(nn.Module):
         return h
 
     def forward(self, x):
-        conv_input = x.narrow(start=0,
-                              length=self.conv_input_length,
-                              dim=1).contiguous()
-        # reshape from batch of flattened images into (channels, h, w)
-        h = conv_input.view(conv_input.shape[0],
-                            self.input_channels,
-                            self.input_height,
-                            self.input_width)
+        h = self.apply_forward_conv(x.contiguous())
 
-        h = self.apply_forward_conv(h)
-        h = h.view(h.size(0), -1)
-
-        return h
+        return h.flatten(1)
 
 
 class Mlp(nn.Module):
@@ -220,48 +210,8 @@ class ContrastiveImgEncoder(nn.Module):
     def forward(
         self, obs_img: torch.tensor, goal_img: torch.tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        obs_encoding = self.obs_encoder(obs_img.flatten(1))
-        goal_encoding = self.goal_encoder(goal_img.flatten(1))
-
-        return obs_encoding, goal_encoding
-
-
-class MobileNetImgEncoder(nn.Module):
-    def __init__(self,
-                 context_size,
-                 **kwargs):
-        super(MobileNetImgEncoder, self).__init__()
-
-        mobilenet = MobileNetEncoder(num_images=1)
-        self.obs_mobilenet = mobilenet.features
-        self.obs_encoding_dim = 1000
-        self.compress_observation = nn.Sequential(
-            nn.Linear(mobilenet.last_channel, self.obs_encoding_dim),
-            nn.ReLU(),
-        )
-        stacked_mobilenet = MobileNetEncoder(num_images=1)  # stack the goal and the current observation
-        self.goal_mobilenet = stacked_mobilenet.features
-        self.goal_encoding_dim = 1000
-        self.compress_goal = nn.Sequential(
-            nn.Linear(stacked_mobilenet.last_channel, self.goal_encoding_dim),
-            nn.ReLU(),
-        )
-
-    def flatten(self, z: torch.Tensor) -> torch.Tensor:
-        z = nn.functional.adaptive_avg_pool2d(z, (1, 1))
-        z = torch.flatten(z, 1)
-        return z
-
-    def forward(
-        self, obs_img: torch.tensor, goal_img: torch.tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        obs_encoding = self.obs_mobilenet(obs_img)
-        obs_encoding = self.flatten(obs_encoding)
-        obs_encoding = self.compress_observation(obs_encoding)
-
-        goal_encoding = self.goal_mobilenet(goal_img)
-        goal_encoding = self.flatten(goal_encoding)
-        goal_encoding = self.compress_goal(goal_encoding)
+        obs_encoding = self.obs_encoder(obs_img)
+        goal_encoding = self.goal_encoder(goal_img)
 
         return obs_encoding, goal_encoding
 
@@ -269,7 +219,7 @@ class MobileNetImgEncoder(nn.Module):
 class ContrastiveQNetwork(nn.Module):
     def __init__(
         self,
-        img_encoder: [ContrastiveImgEncoder, CNN, MobileNetImgEncoder],
+        img_encoder: [ContrastiveImgEncoder, CNN],
         hidden_sizes: list,
         action_size: int,
         representation_dim: int = 16,
@@ -324,126 +274,61 @@ class ContrastiveQNetwork(nn.Module):
             self.img_encoder.obs_encoding_dim = self.img_encoder.conv_output_flat_size
             self.img_encoder.goal_encoding_dim = self.img_encoder.conv_output_flat_size
 
-        # self.sa_net = Mlp(
-        #     hidden_sizes, representation_dim, self.img_encoder.obs_encoding_dim + self.action_size,
-        #     init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
-        #     layer_norm=layer_norm,
-        # )
-        # self.sa_net = Mlp(
-        #     hidden_sizes, representation_dim, self.img_encoder.obs_encoding_dim,
-        #     init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
-        #     layer_norm=layer_norm,
-        # )
-        # self.g_net = Mlp(
-        #     hidden_sizes, representation_dim, self.img_encoder.goal_encoding_dim,
-        #     init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
-        #     layer_norm=layer_norm,
-        # )
-        # self.sa_net = Mlp(
-        #     hidden_sizes, representation_dim, 4,
-        #     init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
-        #     layer_norm=layer_norm,
-        # )
-        # self.g_net = Mlp(
-        #     hidden_sizes, representation_dim, 2,
-        #     init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
-        #     layer_norm=layer_norm,
-        # )
-        self.logit_net = Mlp(
-            hidden_sizes, 1,
-            self.img_encoder.obs_encoding_dim + self.action_size + self.img_encoder.goal_encoding_dim,
+        self.sa_net = Mlp(
+            hidden_sizes, representation_dim, self.img_encoder.obs_encoding_dim + self.action_size,
             init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
             layer_norm=layer_norm,
         )
-        # self.logit_net = Mlp(
-        #     hidden_sizes, 1, 6,
-        #     init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
-        #     layer_norm=layer_norm,
-        # )
+        self.g_net = Mlp(
+            hidden_sizes, representation_dim, self.img_encoder.goal_encoding_dim,
+            init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
+            layer_norm=layer_norm,
+        )
 
         if self.twin_q:
-            # self.sa_net2 = Mlp(
-            #     hidden_sizes, representation_dim, self.img_encoder.obs_encoding_dim + self.action_size,
-            #     init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
-            #     layer_norm=layer_norm,
-            # )
-            # self.sa_net2 = Mlp(
-            #     hidden_sizes, representation_dim, self.img_encoder.obs_encoding_dim,
-            #     init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
-            #     layer_norm=layer_norm,
-            # )
-            # self.g_net2 = Mlp(
-            #     hidden_sizes, representation_dim, self.img_encoder.goal_encoding_dim,
-            #     init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
-            #     layer_norm=layer_norm,
-            # )
-            # self.sa_net2 = Mlp(
-            #     hidden_sizes, representation_dim, 4,
-            #     init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
-            #     layer_norm=layer_norm,
-            # )
-            # self.g_net2 = Mlp(
-            #     hidden_sizes, representation_dim, 2,
-            #     init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
-            #     layer_norm=layer_norm,
-            # )
-            self.logit_net2 = Mlp(
-                hidden_sizes, 1,
-                self.img_encoder.obs_encoding_dim + self.action_size + self.img_encoder.goal_encoding_dim,
+            self.sa_net2 = Mlp(
+                hidden_sizes, representation_dim, self.img_encoder.obs_encoding_dim + self.action_size,
                 init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
                 layer_norm=layer_norm,
             )
-            # self.logit_net2 = Mlp(
-            #     hidden_sizes, 1, 6,
-            #     init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
-            #     layer_norm=layer_norm,
-            # )
+            self.g_net2 = Mlp(
+                hidden_sizes, representation_dim, self.img_encoder.goal_encoding_dim,
+                init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
+                layer_norm=layer_norm,
+            )
 
     def forward(
         self, obs_img: torch.tensor, waypoint: torch.tensor, goal_img: torch.tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        TODO
+        """
         # augment inputs to match labels size-wise
         waypoint = waypoint.clone().reshape(
             (waypoint.shape[0], 5, 4)
         )  # don't modify the original waypoint
-        waypoint[:, 1:, :2] = waypoint[:, 1:, :2] - waypoint[:, :-1, :2].clone()
+        waypoint[:, 1:, :2] = waypoint[:, 1:, :2] - waypoint[:, :-1, :2]
 
         waypoint = waypoint.reshape(
             (waypoint.shape[0], self.action_size))
 
-        # dummy_waypoint = torch.zeros_like(waypoint)
-
-        # image shape = (B, C, H, W)
         if isinstance(self.img_encoder, CNN):
-            obs_encoding = self.img_encoder(obs_img.reshape(obs_img.shape[0], -1))
-            goal_encoding = self.img_encoder(goal_img.reshape(goal_img.shape[0], -1))
+            obs_encoding = self.img_encoder(obs_img)
+            goal_encoding = self.img_encoder(goal_img)
         else:
             obs_encoding, goal_encoding = self.img_encoder(obs_img, goal_img)
-        # obs_encoding, goal_encoding = obs_img, goal_img
 
-        # sa_repr = self.sa_net(torch.cat([obs_encoding, dummy_waypoint], dim=-1))
-        # sa_repr = self.sa_net(torch.cat([obs_encoding, waypoint], dim=-1))
-        # g_repr = self.g_net(goal_encoding)
-        # outer = torch.bmm(sa_repr.unsqueeze(0), g_repr.permute(1, 0).unsqueeze(0))[0]
-        # outer = torch.einsum('ik,jk->ij', sa_repr, g_repr)
-        logits = self.logit_net(torch.cat([obs_encoding, waypoint, goal_encoding], dim=-1))
+        sa_repr = self.sa_net(torch.cat([obs_encoding, waypoint], dim=-1))
+        g_repr = self.g_net(goal_encoding)
 
         if self.twin_q:
-            # sa_repr2 = self.sa_net2(torch.cat([obs_encoding, dummy_waypoint], dim=-1))
-            # sa_repr2 = self.sa_net2(torch.cat([obs_encoding, waypoint], dim=-1))
-            # g_repr2 = self.g_net2(goal_encoding)
-            logits2 = self.logit_net2(torch.cat([obs_encoding, waypoint, goal_encoding], dim=-1))
+            sa_repr2 = self.sa_net2(torch.cat([obs_encoding, waypoint], dim=-1))
+            g_repr2 = self.g_net2(goal_encoding)
 
-            # outer2 = torch.bmm(sa_repr2.unsqueeze(0), g_repr2.permute(1, 0).unsqueeze(0))[0]
-            # outer2 = torch.einsum('ik,jk->ij', sa_repr2, g_repr2)
-            # outer = torch.stack([outer, outer2], dim=-1)
-            logits = torch.cat([logits, logits2], dim=-1)
+            sa_repr = torch.stack([sa_repr, sa_repr2], dim=-1)
+            g_repr = torch.stack([g_repr, g_repr2], dim=-1)
 
-            # sa_repr = torch.stack([sa_repr, sa_repr2], dim=-1)
-            # g_repr = torch.stack([g_repr, g_repr2], dim=-1)
-
-        # return outer, sa_repr, g_repr
-        return logits
+        return sa_repr, g_repr
 
     # def critic_parameters(self, recurse: bool = True) -> Iterator[nn.Parameter]:
     #     if self.twin_q:
@@ -516,11 +401,6 @@ class ContrastivePolicy(nn.Module):
             init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
             layer_norm=layer_norm,
         )
-        # self.policy_net = Mlp(
-        #     hidden_sizes, self.action_size, 4,
-        #     init_w=init_w, hidden_activation=hidden_activation, hidden_init=hidden_init,
-        #     layer_norm=layer_norm,
-        # )
 
         if std is None:
             if self.std_architecture == "shared":
@@ -542,11 +422,10 @@ class ContrastivePolicy(nn.Module):
         self, obs_img: torch.tensor, goal_img: torch.tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         if isinstance(self.img_encoder, CNN):
-            obs_encoding = self.img_encoder(obs_img.reshape(obs_img.shape[0], -1))
-            goal_encoding = self.img_encoder(goal_img.reshape(goal_img.shape[0], -1))
+            obs_encoding = self.img_encoder(obs_img)
+            goal_encoding = self.img_encoder(goal_img)
         else:
             obs_encoding, goal_encoding = self.img_encoder(obs_img, goal_img)
-        # obs_encoding, goal_encoding = obs_img, goal_img
 
         waypoint_mu, h = self.policy_net(
             torch.cat([obs_encoding, goal_encoding], dim=-1),
@@ -581,6 +460,8 @@ class ContrastivePolicy(nn.Module):
             )  # normalize the angle prediction
         waypoint_mu = waypoint_mu.reshape(
             (waypoint_mu.shape[0], self.action_size))
+
+        # mu = torch.cat([waypoint_mu, dist_mu], dim=-1)
 
         return waypoint_mu, waypoint_std
 

@@ -31,10 +31,15 @@ result_dirs:
 #  scrl_mc_sorting: logs/stable_contrastive_rl/stable_contrastive_rl_eval_traj_dist_pred_2023_06_28_23_44_33/result/recon_test/epoch10/trajectory_distance_prediction
 #  scrl_td_sorting: logs/stable_contrastive_rl/stable_contrastive_rl_eval_traj_dist_pred_2023_06_28_23_45_07/result/recon_test/epoch10/trajectory_distance_prediction
 
-  # sanity check:
+  # old SCRL trained with more epochs
   gnm: logs/gnm/gnm_eval_traj_dist_pred_2023_07_06_17_59_02/result/recon_test/epoch10/trajectory_distance_prediction
-  scrl_mc_sorting: logs/stable_contrastive_rl/stable_contrastive_rl_eval_traj_dist_pred_2023_07_06_17_59_13/result/recon_test/epoch30/trajectory_distance_prediction
-  scrl_td_sorting: logs/stable_contrastive_rl/stable_contrastive_rl_eval_traj_dist_pred_2023_07_06_18_02_14/result/recon_test/epoch30/trajectory_distance_prediction
+  scrl_mc_sorting: logs/stable_contrastive_rl/stable_contrastive_rl_eval_traj_dist_pred_2023_07_07_12_08_17/result/recon_test/epoch30/trajectory_distance_prediction
+  scrl_td_sorting: logs/stable_contrastive_rl/stable_contrastive_rl_eval_traj_dist_pred_2023_07_07_12_13_46/result/recon_test/epoch30/trajectory_distance_prediction
+
+  # new SCRL implementation
+#  gnm: logs/gnm/gnm_eval_traj_dist_pred_2023_07_06_17_59_02/result/recon_test/epoch10/trajectory_distance_prediction
+#  scrl_mc_sorting: logs/stable_contrastive_rl/stable_contrastive_rl_eval_traj_dist_pred_2023_07_06_17_59_13/result/recon_test/epoch30/trajectory_distance_prediction
+#  scrl_td_sorting: logs/stable_contrastive_rl/stable_contrastive_rl_eval_traj_dist_pred_2023_07_06_18_02_14/result/recon_test/epoch30/trajectory_distance_prediction
 
 # save folder
 save_dir: logs/visualize_trajectory_distance_prediction
