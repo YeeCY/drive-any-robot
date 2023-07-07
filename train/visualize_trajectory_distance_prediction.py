@@ -56,6 +56,7 @@ from gps.plotter import GPSPlotter
 def display_traj_dist_pred(
     gps_plotter,
     obs_image, gnm_path_image, rl_mc_sorting_path_image, rl_td_sorting_path_image,
+    gnm_path, rl_mc_sorting_path, rl_td_sorting_path,
     obs_latlong, goal_latlong, cand_latlong,
     global_obs_pos, global_goal_pos, global_cand_pos,
     gnm_path_idxs, gnm_success,
@@ -160,7 +161,7 @@ def display_traj_dist_pred(
     gnm_path_fig, gnm_path_axes = plt.subplots(1, len(gnm_path_image))
     for i in range(len(gnm_path_image)):
         gnm_path_axes[i].imshow(gnm_path_image[i])
-        gnm_path_axes[i].set_title("gnm_path{}".format(i))
+        gnm_path_axes[i].set_title("gnm_path{}".format(gnm_path[i]))
         gnm_path_axes[i].xaxis.set_visible(False)
         gnm_path_axes[i].yaxis.set_visible(False)
     gnm_path_fig.set_size_inches(6.5 * len(gnm_path_image), 6.5)
@@ -168,7 +169,7 @@ def display_traj_dist_pred(
     rl_mc_sorting_path_fig, rl_mc_sorting_path_axes = plt.subplots(1, len(rl_mc_sorting_path_image))
     for i in range(len(rl_mc_sorting_path_image)):
         rl_mc_sorting_path_axes[i].imshow(rl_mc_sorting_path_image[i])
-        rl_mc_sorting_path_axes[i].set_title("rl_mc_sorting_path{}".format(i))
+        rl_mc_sorting_path_axes[i].set_title("rl_mc_sorting_path{}".format(rl_mc_sorting_path[i]))
         rl_mc_sorting_path_axes[i].xaxis.set_visible(False)
         rl_mc_sorting_path_axes[i].yaxis.set_visible(False)
     rl_mc_sorting_path_fig.set_size_inches(6.5 * len(rl_mc_sorting_path_image), 6.5)
@@ -176,7 +177,7 @@ def display_traj_dist_pred(
     rl_td_sorting_path_fig, rl_td_sorting_path_axes = plt.subplots(1, len(rl_td_sorting_path_image))
     for i in range(len(rl_td_sorting_path_image)):
         rl_td_sorting_path_axes[i].imshow(rl_td_sorting_path_image[i])
-        rl_td_sorting_path_axes[i].set_title("rl_td_sorting_path{}".format(i))
+        rl_td_sorting_path_axes[i].set_title("rl_td_sorting_path{}".format(rl_td_sorting_path[i]))
         rl_td_sorting_path_axes[i].xaxis.set_visible(False)
         rl_td_sorting_path_axes[i].yaxis.set_visible(False)
     rl_td_sorting_path_fig.set_size_inches(6.5 * len(rl_td_sorting_path_image), 6.5)
@@ -371,6 +372,9 @@ def main(config):
             gnm_path_image,
             rl_mc_path_image,
             rl_td_path_image,
+            gnm_path_idxs,
+            rl_mc_sorting_path_idxs,
+            rl_td_sorting_path_idxs,
             obs_latlong,
             goal_latlong,
             cand_latlong,
