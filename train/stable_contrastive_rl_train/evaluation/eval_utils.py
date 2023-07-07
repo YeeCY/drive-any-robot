@@ -1164,6 +1164,7 @@ def save_traj_dist_pred(
         "subsampling_spacing": int(index_to_traj["subsampling_spacing"]),
         "goal_time": int(index_to_traj["goal_time"]),
         "neighbor_trajs": [neighbor_traj[0] for neighbor_traj in index_to_traj["neighbor_trajs"]],
+        "cand_infos": [(cand_info[0][0], int(cand_info[1])) for cand_info in index_to_traj["cand_infos"]],
         "obs_latlong": obs_latlong,
         "goal_latlong": goal_latlong,
         "cand_latlong": cand_latlong,

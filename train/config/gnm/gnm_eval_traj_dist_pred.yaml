@@ -10,10 +10,10 @@ batch_size: 32
 eval_batch_size: 32
 epochs: 1
 gpu_ids: [1] # list of gpu ids to use
-num_workers: 16
+num_workers: 0
 lr: 5e-4
 optimizer: adam
-seed: 0
+#seed: 0
 
 # model params
 model_type: gnm
@@ -132,7 +132,7 @@ datasets:
 #      -1
     ]
     cand_traj_folder: gnm_train/data/data_splits/recon/candidate/
-    neighbor_traj_utm_threshold: 2 # threshold of average utm coordinate distance between neighbor trajectories
+    neighbor_traj_utm_threshold: 1 # threshold of average utm coordinate distance between neighbor trajectories
     end_slack: 3 # because many trajectories end in collisions
     subsampling_spacing: 5 # sampling trajectory points every "subsampling_spacing" timestep
 

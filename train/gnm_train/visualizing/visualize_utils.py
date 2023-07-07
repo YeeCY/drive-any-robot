@@ -9,6 +9,7 @@ BLUE = np.array([0, 0, 1])
 CYAN = np.array([0, 1, 1])
 YELLOW = np.array([1, 1, 0])
 MAGENTA = np.array([1, 0, 1])
+ORANGE = np.array([1, 0.55, 0])
 
 
 def numpy_to_img(arr: np.ndarray) -> Image:

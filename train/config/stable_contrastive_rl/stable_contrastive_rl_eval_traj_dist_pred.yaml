@@ -10,10 +10,10 @@ batch_size: 32  # batch_size for number of transitions
 eval_batch_size: 32  # eval_batch_size for number of transitions
 epochs: 1  # evaluation epochs
 gpu_ids: [2] # list of gpu ids to use
-num_workers: 16
+num_workers: 0
 lr: 5e-4
 optimizer: adam
-seed: 0
+#seed: 0
 
 # model params
 model_type: stable_contrastive_rl
@@ -64,7 +64,7 @@ policy_kwargs:
 discount: 0.99
 
 # whether to use C-Learning (TD) or Contrastive NCE (MC)
-use_td: False
+use_td: True
 
 # GCBC
 bc_coef: 0.05  # td = 0.01 - 0.05
@@ -190,7 +190,7 @@ datasets:
 #      -1,
     ]
     cand_traj_folder: gnm_train/data/data_splits/recon/candidate/
-    neighbor_traj_utm_threshold: 2 # threshold of average utm coordinate distance between neighbor trajectories
+    neighbor_traj_utm_threshold: 1 # threshold of average utm coordinate distance between neighbor trajectories
     end_slack: 3 # because many trajectories end in collisions
     subsampling_spacing: 5 # sampling trajectory points every "subsampling_spacing" timestep
 
@@ -235,7 +235,9 @@ traj_dist_pred_eval_mode: "mi_diff"
 # sanity check
 # MC
 #load_run: stable_contrastive_rl_debug/stable_contrastive_rl_sanity_check_debug_2023_07_04_18_04_04
-load_run: stable_contrastive_rl/stable_contrastive_rl_recon_full_2023_07_05_00_04_02
+#load_run: stable_contrastive_rl/stable_contrastive_rl_recon_full_2023_07_05_00_04_02
+# TD
+load_run: stable_contrastive_rl/stable_contrastive_rl_recon_full_2023_07_05_00_04_14
 
 # logging stuff
 print_log_freq: 5 # in iterations

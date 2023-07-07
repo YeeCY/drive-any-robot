@@ -858,6 +858,7 @@ class RLTrajDataset(Dataset):
         # start sampling a little bit into the trajectory to give enought time to generate context
         candidates = {}
         data = {}
+        candidate_infos = []
         for curr_time in range(
             self.context_size * self.waypoint_spacing,
             traj_len - self.end_slack,
@@ -924,6 +925,7 @@ class RLTrajDataset(Dataset):
             candidates.setdefault("cand_image", []).append(obs_image)
             candidates.setdefault("transf_cand_image", []).append(transf_obs_image)
             candidates.setdefault("cand_latlong", []).append(torch.Tensor(obs_latlong.astype(float)))
+            candidate_infos.append((f_traj, curr_time))
 
             spacing = self.waypoint_spacing
             len_traj_pred = min(self.len_traj_pred, (goal_time - curr_time) // spacing)
@@ -1054,6 +1056,7 @@ class RLTrajDataset(Dataset):
                 candidates["cand_image"].append(cand_image)
                 candidates["transf_cand_image"].append(transf_cand_image)
                 candidates["cand_latlong"].append(torch.Tensor(cand_latlong.astype(float)))
+                candidate_infos.append((f_neighbor_traj, curr_time))
 
                 pos = neighbor_traj_data["position"][curr_time, :2]
                 if self.learn_angle:
@@ -1075,6 +1078,7 @@ class RLTrajDataset(Dataset):
             "subsampling_spacing": self.subsampling_spacing,
             "goal_time": goal_time,
             "neighbor_trajs": self.neighbor_trajs[f_traj],
+            "cand_infos": candidate_infos,  # filename and timestamp of candidates
         }
 
         return tuple([torch.stack(v) for v in data.values()] + [index_to_traj])

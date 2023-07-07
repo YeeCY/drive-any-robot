@@ -44,6 +44,7 @@ from gnm_train.visualizing.visualize_utils import (
     CYAN,
     YELLOW,
     MAGENTA,
+    ORANGE,
 )
 from stable_contrastive_rl_train.evaluation.visualization_utils import (
     plot_trajs
@@ -54,6 +55,7 @@ from gps.plotter import GPSPlotter
 
 def display_traj_dist_pred(
     gps_plotter,
+    obs_image, gnm_path_image, rl_mc_sorting_path_image, rl_td_sorting_path_image,
     obs_latlong, goal_latlong, cand_latlong,
     global_obs_pos, global_goal_pos, global_cand_pos,
     gnm_path_idxs, gnm_success,
@@ -98,9 +100,9 @@ def display_traj_dist_pred(
 
     gps_plotter.plot_latlong(
         ax,
-        np.concatenate([cand_latlong, obs_latlong, goal_latlong, cand_latlong[gnm_path_idxs], cand_latlong[rl_mc_sorting_path_idxs]]),
-        colors=[YELLOW] * num_candidates + [BLUE] + [GREEN] * (traj_len - 1) + [RED] + [CYAN] * len(gnm_path_idxs) + [MAGENTA] * len(rl_mc_sorting_path_idxs),
-        labels=["candidate"] * num_candidates + ["start"] + ["obs"] * (traj_len - 1) + ["goal"] + ["gnm path"] * len(gnm_path_idxs) + ["scrl mc path"] * len(rl_mc_sorting_path_idxs),
+        np.concatenate([cand_latlong, obs_latlong, goal_latlong, cand_latlong[gnm_path_idxs], cand_latlong[rl_mc_sorting_path_idxs], cand_latlong[rl_td_sorting_path_idxs]]),
+        colors=[YELLOW] * num_candidates + [BLUE] + [GREEN] * (traj_len - 1) + [RED] + [CYAN] * len(gnm_path_idxs) + [MAGENTA] * len(rl_mc_sorting_path_idxs) + [ORANGE] * len(rl_td_sorting_path_idxs),
+        labels=["candidate"] * num_candidates + ["start"] + ["obs"] * (traj_len - 1) + ["goal"] + ["gnm path"] * len(gnm_path_idxs) + ["scrl mc sorting path"] * len(rl_mc_sorting_path_idxs) + ["scrl td sorting path"] * len(rl_td_sorting_path_idxs),
         adaptive_satellite_img=True,
         font_size=8,
         text_len=len(cand_latlong),
@@ -147,11 +149,67 @@ def display_traj_dist_pred(
     ax.set_title(f"Trajectory Visualization")
     ax.set_aspect("equal", "box")
 
+    obs_fig, obs_axes = plt.subplots(1, len(obs_image))
+    for i in range(len(obs_image)):
+        obs_axes[i].imshow(obs_image[i])
+        obs_axes[i].set_title("obs{}".format(i))
+        obs_axes[i].xaxis.set_visible(False)
+        obs_axes[i].yaxis.set_visible(False)
+    obs_fig.set_size_inches(6.5 * len(obs_image), 6.5)
+
+    gnm_path_fig, gnm_path_axes = plt.subplots(1, len(gnm_path_image))
+    for i in range(len(gnm_path_image)):
+        gnm_path_axes[i].imshow(gnm_path_image[i])
+        gnm_path_axes[i].set_title("gnm_path{}".format(i))
+        gnm_path_axes[i].xaxis.set_visible(False)
+        gnm_path_axes[i].yaxis.set_visible(False)
+    gnm_path_fig.set_size_inches(6.5 * len(gnm_path_image), 6.5)
+
+    rl_mc_sorting_path_fig, rl_mc_sorting_path_axes = plt.subplots(1, len(rl_mc_sorting_path_image))
+    for i in range(len(rl_mc_sorting_path_image)):
+        rl_mc_sorting_path_axes[i].imshow(rl_mc_sorting_path_image[i])
+        rl_mc_sorting_path_axes[i].set_title("rl_mc_sorting_path{}".format(i))
+        rl_mc_sorting_path_axes[i].xaxis.set_visible(False)
+        rl_mc_sorting_path_axes[i].yaxis.set_visible(False)
+    rl_mc_sorting_path_fig.set_size_inches(6.5 * len(rl_mc_sorting_path_image), 6.5)
+
+    rl_td_sorting_path_fig, rl_td_sorting_path_axes = plt.subplots(1, len(rl_td_sorting_path_image))
+    for i in range(len(rl_td_sorting_path_image)):
+        rl_td_sorting_path_axes[i].imshow(rl_td_sorting_path_image[i])
+        rl_td_sorting_path_axes[i].set_title("rl_td_sorting_path{}".format(i))
+        rl_td_sorting_path_axes[i].xaxis.set_visible(False)
+        rl_td_sorting_path_axes[i].yaxis.set_visible(False)
+    rl_td_sorting_path_fig.set_size_inches(6.5 * len(rl_td_sorting_path_image), 6.5)
+
     if save_path is not None:
+        save_dir = os.path.dirname(save_path)
+        os.makedirs(os.path.join(save_dir, "gps"), exist_ok=True)
+        os.makedirs(os.path.join(save_dir, "obs"), exist_ok=True)
+        os.makedirs(os.path.join(save_dir, "gnm"), exist_ok=True)
+        os.makedirs(os.path.join(save_dir, "rl_mc_sorting"), exist_ok=True)
+        os.makedirs(os.path.join(save_dir, "rl_td_sorting"), exist_ok=True)
+
         fig.savefig(
-            save_path,
+            os.path.join(save_dir, "gps", save_path.split("/")[-1]),
             bbox_inches="tight",
         )
+        obs_fig.savefig(
+            os.path.join(save_dir, "obs", save_path.split("/")[-1]),
+            bbox_inches="tight",
+        )
+        gnm_path_fig.savefig(
+            os.path.join(save_dir, "gnm", save_path.split("/")[-1]),
+            bbox_inches="tight",
+        )
+        rl_mc_sorting_path_fig.savefig(
+            os.path.join(save_dir, "rl_mc_sorting", save_path.split("/")[-1]),
+            bbox_inches="tight",
+        )
+        rl_td_sorting_path_fig.savefig(
+            os.path.join(save_dir, "rl_td_sorting", save_path.split("/")[-1]),
+            bbox_inches="tight",
+        )
+
     if not display:
         plt.close(fig)
 
@@ -186,7 +244,7 @@ def main(config):
     gps_plotter = GPSPlotter(
         # nw_latlong=(37.915185, -122.334651),
         # se_latlong=(37.914884, -122.334064),
-        # zoom=19,
+        zoom=22,
     )
 
     with open(gnm_filename, "rb") as f:
@@ -207,7 +265,7 @@ def main(config):
 
         save_path = os.path.join(config["save_dir"], label + ".png")
 
-        f_traj = gnm_result["f_traj"]
+        f_traj = gnm_result["f_traj"][0]
         context_size = gnm_result["context_size"]
         end_slack = gnm_result["end_slack"]
         subsampling_spacing = gnm_result["subsampling_spacing"]
@@ -218,13 +276,45 @@ def main(config):
         global_obs_pos = gnm_result["global_obs_pos"]
         global_goal_pos = gnm_result["global_goal_pos"]
         global_cand_pos = gnm_result["global_cand_pos"]
+        cand_infos = gnm_result["cand_infos"]
         gnm_path_idxs = gnm_result["path_idxs"]
         traj_len = len(global_obs_pos) - 1
         gnm_success = np.any(np.abs(gnm_path_idxs - traj_len) <= 3)
 
+        # get observatiojn images
+        with open(os.path.join(data_folder, f_traj, "traj_data.pkl"), "rb") as f:
+            traj_data = pkl.load(f)
+        traj_len = len(traj_data["position"])
+        obs_images = []
+        for curr_time in range(
+            context_size,
+            traj_len - end_slack,
+            subsampling_spacing,
+        ):
+            obs_image_path = get_image_path(data_folder, f_traj, curr_time)
+            obs_image = get_image(
+                obs_image_path,
+                aspect_ratio,
+            )
+
+            obs_images.append(obs_image)
+        obs_image = np.stack(obs_images)
+
+        gnm_path_images = []
+        for idx in gnm_path_idxs:
+            f_path, path_time = cand_infos[idx]
+            path_image_path = get_image_path(data_folder, f_path, path_time)
+            path_image = get_image(
+                path_image_path,
+                aspect_ratio,
+            )
+            gnm_path_images.append(path_image)
+        gnm_path_image = np.stack(gnm_path_images)
+
+
         # sorting
         rl_mc_sorting_result = rl_mc_sorting_results[label]
-        assert f_traj == rl_mc_sorting_result["f_traj"]
+        assert f_traj == rl_mc_sorting_result["f_traj"][0]
         assert context_size == rl_mc_sorting_result["context_size"]
         assert end_slack == rl_mc_sorting_result["end_slack"]
         assert subsampling_spacing == rl_mc_sorting_result["subsampling_spacing"]
@@ -238,8 +328,19 @@ def main(config):
         rl_mc_sorting_path_idxs = rl_mc_sorting_result["path_idxs"]
         rl_mc_sorting_success = np.any(np.abs(rl_mc_sorting_path_idxs - traj_len) <= 2)
 
+        rl_mc_path_images = []
+        for idx in rl_mc_sorting_path_idxs:
+            f_path, path_time = cand_infos[idx]
+            path_image_path = get_image_path(data_folder, f_path, path_time)
+            path_image = get_image(
+                path_image_path,
+                aspect_ratio,
+            )
+            rl_mc_path_images.append(path_image)
+        rl_mc_path_image = np.stack(rl_mc_path_images)
+
         rl_td_sorting_result = rl_td_sorting_results[label]
-        assert f_traj == rl_td_sorting_result["f_traj"]
+        assert f_traj == rl_td_sorting_result["f_traj"][0]
         assert context_size == rl_td_sorting_result["context_size"]
         assert end_slack == rl_td_sorting_result["end_slack"]
         assert subsampling_spacing == rl_td_sorting_result["subsampling_spacing"]
@@ -253,8 +354,23 @@ def main(config):
         rl_td_sorting_path_idxs = rl_td_sorting_result["path_idxs"]
         rl_td_sorting_success = np.any(np.abs(rl_td_sorting_path_idxs - traj_len) <= 2)
 
+        rl_td_path_images = []
+        for idx in rl_td_sorting_path_idxs:
+            f_path, path_time = cand_infos[idx]
+            path_image_path = get_image_path(data_folder, f_path, path_time)
+            path_image = get_image(
+                path_image_path,
+                aspect_ratio,
+            )
+            rl_td_path_images.append(path_image)
+        rl_td_path_image = np.stack(rl_td_path_images)
+
         display_traj_dist_pred(
             gps_plotter,
+            obs_image,
+            gnm_path_image,
+            rl_mc_path_image,
+            rl_td_path_image,
             obs_latlong,
             goal_latlong,
             cand_latlong,
