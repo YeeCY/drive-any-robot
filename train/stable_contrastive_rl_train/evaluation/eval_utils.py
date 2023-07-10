@@ -935,6 +935,63 @@ def planning_via_sorting(model, obs_image, goal_image, cand_image, ref_image):
     return subgoal_idx
 
 
+def planning_on_graph(model, obs_image, goal_image, cand_image):
+    max_batch_size = max(obs_image.shape[0], goal_image.shape[0],
+                         cand_image.shape[0])
+    dummy_action = torch.zeros(
+        [max_batch_size, model.len_trajectory_pred, model.num_action_params],
+        device=obs_image.device
+    )
+    dummy_action[..., 2] = 1  # cos of yaws
+    dummy_action = dummy_action.reshape([max_batch_size, model.action_size])
+
+    # construct graphs
+    cand_zero_repr, cand_repr = model(
+        cand_image,
+        dummy_action[:cand_image.shape[0]],
+        cand_image[:, -3:]
+    )[:2]
+    # cand_cand_logits = []
+    # for cand_image_ in cand_image:
+    #     cand_cand_logit = model(
+    #         cand_image,
+    #         dummy_action[:cand_image.shape[0]],
+    #         cand_image_[-3:][None].repeat_interleave(cand_image.shape[0], dim=0)
+    #     )[0]
+    #     cand_cand_logits.append(cand_cand_logit)
+    # cand_cand_logits = torch.mean(torch.stack(cand_cand_logits), dim=-1).T
+
+    num_cands = cand_image.shape[0]
+    cand_cand_logits = torch.mean(torch.einsum("ikl,jkl->ijl", cand_zero_repr, cand_repr), dim=-1)
+
+    # use quantile to find connected candidates
+    qvals = torch.quantile(
+        cand_cand_logits * (1 - torch.eye(num_cands, device=cand_cand_logits.device)), 0.9, dim=0)
+    adj_matrix = (cand_cand_logits > qvals[None]).float()
+
+    shifted_logits = cand_cand_logits - cand_cand_logits.min(dim=0)[0]
+
+    # find the index of each value after the array is sorted: https://stackoverflow.com/questions/54459554/numpy-find-index-in-sorted-array-in-an-efficient-way
+    index_after_sorting = torch.argsort(torch.argsort(shifted_logits * adj_matrix, descending=True, dim=0), dim=0)
+
+    # set min_dist to 1 (otherwise the dijkstra algorithm will ignore the edge)
+    dists = ((index_after_sorting + 1) * adj_matrix).cpu().numpy()
+
+    from scipy.sparse.csgraph import dijkstra
+    dist_matrix, predecessors = dijkstra(dists, indices=0, return_predecessors=True)
+
+    idx = -1
+    path = []
+    while predecessors[idx] != -9999:
+        path.append(predecessors[idx])
+        idx = predecessors[idx]
+    path.reverse()
+    if len(path) > 0:
+        path.append(len(dists) - 1)
+
+    return adj_matrix, path
+
+
 def traj_dist_pred(
     model: nn.Module,
     eval_loader: DataLoader,
@@ -990,105 +1047,116 @@ def traj_dist_pred(
             path_obs_idxs = [current_obs_idx]
             assert torch.all(transf_cand_image[current_obs_idx] == traj_transf_obs_image[current_obs_idx])
 
-            while current_obs_idx != traj_len - 1 and len(path_obs_idxs) < traj_len:
-                if len(path_obs_idxs) > 3 and len(np.unique(np.array(path_obs_idxs)[-3:])) == 1:
-                    break
-                # mask = torch.zeros(transf_obs_image.shape[0], dtype=torch.bool, device=device)
-                # sg_indices = torch.arange(traj_len, dtype=torch.int, device=device)
-                # mask[current_obs_idx] = True
-                # transf_curr_obs_image = transf_obs_image[mask]
-                # transf_sg_image = transf_obs_image[~mask]
-                # sg_indices = sg_indices[~mask]
-                # # tmp_curr_obs_a_repr, tmp_sg_repr = model(
-                # #     transf_curr_obs_image, dummy_action[[0]], transf_curr_obs_image)[0:2]
-                # # tmp_curr_obs_a_sg_logit = torch.einsum('ikl,jkl->ijl', tmp_curr_obs_a_repr, tmp_sg_repr)
-                # # tmp_curr_obs_a_sg_logit = torch.diag(torch.mean(tmp_curr_obs_a_sg_logit, dim=-1))
-                #
-                # waypoint_pred = model(
-                #     transf_curr_obs_image.repeat_interleave(transf_sg_image.shape[0], dim=0),
-                #     dummy_action[:transf_sg_image.shape[0]],
-                #     transf_sg_image
-                # )[-2]
-                # curr_obs_a_repr, sg_repr = model(
-                #     transf_curr_obs_image.repeat_interleave(transf_sg_image.shape[0], dim=0),
-                #     waypoint_pred,
-                #     transf_sg_image
-                # )[0:2]
-                # curr_obs_a_sg_logit = torch.einsum('ikl,jkl->ijl', curr_obs_a_repr, sg_repr)
-                # curr_obs_a_sg_logit = torch.diag(torch.mean(curr_obs_a_sg_logit, dim=-1))
-                #
-                # sg_a_repr, g_repr = model(
-                #     transf_sg_image,
-                #     dummy_action[:transf_sg_image.shape[0]],
-                #     transf_goal_image[:transf_sg_image.shape[0]]
-                # )[0:2]
-                # sg_a_g_logit = torch.einsum('ikl,jkl->ijl', sg_a_repr, g_repr)
-                # sg_a_g_logit = torch.diag(torch.mean(sg_a_g_logit, dim=-1))
-                #
-                # waypoint_pred = model(
-                #     transf_curr_obs_image.repeat_interleave(transf_sg_image.shape[0], dim=0),
-                #     dummy_action[:transf_sg_image.shape[0]],
-                #     transf_goal_image[:transf_sg_image.shape[0]]
-                # )[-2]
-                # curr_obs_a_repr, g_repr = model(
-                #     transf_curr_obs_image.repeat_interleave(transf_sg_image.shape[0], dim=0),
-                #     waypoint_pred,
-                #     transf_goal_image[:transf_sg_image.shape[0]]
-                # )[0:2]
-                # curr_obs_a_g_logit = torch.einsum('ikl,jkl->ijl', curr_obs_a_repr, g_repr)
-                # curr_obs_a_g_logit = torch.diag(torch.mean(curr_obs_a_g_logit, dim=-1))
-                #
-                # waypoint_pred = model(
-                #     transf_goal_image[:transf_sg_image.shape[0]],
-                #     dummy_action[:transf_sg_image.shape[0]],
-                #     transf_sg_image
-                # )[-2]
-                # g_a_repr, sg_repr = model(
-                #     transf_goal_image[:transf_sg_image.shape[0]],
-                #     waypoint_pred,
-                #     transf_sg_image
-                # )[0:2]
-                # g_a_sg_logit = torch.einsum('ikl,jkl->ijl', g_a_repr, sg_repr)
-                # g_a_sg_logit = torch.diag(torch.mean(g_a_sg_logit, dim=-1))
-                #
-                # if eval_mode == "logit_sum":
-                #     sg_idx = int(sg_indices[torch.argmax(curr_obs_a_sg_logit + sg_a_g_logit)])
-                # elif eval_mode == "close_logit_diff":
-                #     sg_idx = int(sg_indices[torch.argmax(curr_obs_a_sg_logit - g_a_sg_logit)])
-                # elif eval_mode == "far_logit_diff":
-                #     sg_idx = int(sg_indices[torch.argmax(sg_a_g_logit - curr_obs_a_g_logit)])
-                # elif eval_mode == "mi_diff":
-                #     sg_idx = int(sg_indices[torch.argmax((curr_obs_a_sg_logit - g_a_sg_logit) - (curr_obs_a_g_logit - sg_a_g_logit))])
+            # while current_obs_idx != traj_len - 1 and len(path_obs_idxs) < traj_len:
+            #     if len(path_obs_idxs) > 3 and len(np.unique(np.array(path_obs_idxs)[-3:])) == 1:
+            #         break
+            #     # mask = torch.zeros(transf_obs_image.shape[0], dtype=torch.bool, device=device)
+            #     # sg_indices = torch.arange(traj_len, dtype=torch.int, device=device)
+            #     # mask[current_obs_idx] = True
+            #     # transf_curr_obs_image = transf_obs_image[mask]
+            #     # transf_sg_image = transf_obs_image[~mask]
+            #     # sg_indices = sg_indices[~mask]
+            #     # # tmp_curr_obs_a_repr, tmp_sg_repr = model(
+            #     # #     transf_curr_obs_image, dummy_action[[0]], transf_curr_obs_image)[0:2]
+            #     # # tmp_curr_obs_a_sg_logit = torch.einsum('ikl,jkl->ijl', tmp_curr_obs_a_repr, tmp_sg_repr)
+            #     # # tmp_curr_obs_a_sg_logit = torch.diag(torch.mean(tmp_curr_obs_a_sg_logit, dim=-1))
+            #     #
+            #     # waypoint_pred = model(
+            #     #     transf_curr_obs_image.repeat_interleave(transf_sg_image.shape[0], dim=0),
+            #     #     dummy_action[:transf_sg_image.shape[0]],
+            #     #     transf_sg_image
+            #     # )[-2]
+            #     # curr_obs_a_repr, sg_repr = model(
+            #     #     transf_curr_obs_image.repeat_interleave(transf_sg_image.shape[0], dim=0),
+            #     #     waypoint_pred,
+            #     #     transf_sg_image
+            #     # )[0:2]
+            #     # curr_obs_a_sg_logit = torch.einsum('ikl,jkl->ijl', curr_obs_a_repr, sg_repr)
+            #     # curr_obs_a_sg_logit = torch.diag(torch.mean(curr_obs_a_sg_logit, dim=-1))
+            #     #
+            #     # sg_a_repr, g_repr = model(
+            #     #     transf_sg_image,
+            #     #     dummy_action[:transf_sg_image.shape[0]],
+            #     #     transf_goal_image[:transf_sg_image.shape[0]]
+            #     # )[0:2]
+            #     # sg_a_g_logit = torch.einsum('ikl,jkl->ijl', sg_a_repr, g_repr)
+            #     # sg_a_g_logit = torch.diag(torch.mean(sg_a_g_logit, dim=-1))
+            #     #
+            #     # waypoint_pred = model(
+            #     #     transf_curr_obs_image.repeat_interleave(transf_sg_image.shape[0], dim=0),
+            #     #     dummy_action[:transf_sg_image.shape[0]],
+            #     #     transf_goal_image[:transf_sg_image.shape[0]]
+            #     # )[-2]
+            #     # curr_obs_a_repr, g_repr = model(
+            #     #     transf_curr_obs_image.repeat_interleave(transf_sg_image.shape[0], dim=0),
+            #     #     waypoint_pred,
+            #     #     transf_goal_image[:transf_sg_image.shape[0]]
+            #     # )[0:2]
+            #     # curr_obs_a_g_logit = torch.einsum('ikl,jkl->ijl', curr_obs_a_repr, g_repr)
+            #     # curr_obs_a_g_logit = torch.diag(torch.mean(curr_obs_a_g_logit, dim=-1))
+            #     #
+            #     # waypoint_pred = model(
+            #     #     transf_goal_image[:transf_sg_image.shape[0]],
+            #     #     dummy_action[:transf_sg_image.shape[0]],
+            #     #     transf_sg_image
+            #     # )[-2]
+            #     # g_a_repr, sg_repr = model(
+            #     #     transf_goal_image[:transf_sg_image.shape[0]],
+            #     #     waypoint_pred,
+            #     #     transf_sg_image
+            #     # )[0:2]
+            #     # g_a_sg_logit = torch.einsum('ikl,jkl->ijl', g_a_repr, sg_repr)
+            #     # g_a_sg_logit = torch.diag(torch.mean(g_a_sg_logit, dim=-1))
+            #     #
+            #     # if eval_mode == "logit_sum":
+            #     #     sg_idx = int(sg_indices[torch.argmax(curr_obs_a_sg_logit + sg_a_g_logit)])
+            #     # elif eval_mode == "close_logit_diff":
+            #     #     sg_idx = int(sg_indices[torch.argmax(curr_obs_a_sg_logit - g_a_sg_logit)])
+            #     # elif eval_mode == "far_logit_diff":
+            #     #     sg_idx = int(sg_indices[torch.argmax(sg_a_g_logit - curr_obs_a_g_logit)])
+            #     # elif eval_mode == "mi_diff":
+            #     #     sg_idx = int(sg_indices[torch.argmax((curr_obs_a_sg_logit - g_a_sg_logit) - (curr_obs_a_g_logit - sg_a_g_logit))])
+            #
+            #     # planning via sorting
+            #     transf_obs_image = transf_cand_image[current_obs_idx][None]
+            #
+            #     # selected_cand_idx = planning_via_sorting(
+            #     #     model, transf_obs_image, transf_goal_image,
+            #     #     # torch.cat([traj_transf_obs_image, transf_goal_image], dim=0),
+            #     #     traj_transf_obs_image[1:],  # (chongyi): Do we need to include the starting state and the goal in the candidates?
+            #     #     torch.cat([traj_transf_obs_image, transf_goal_image], dim=0)
+            #     # )
+            #     # model, obs_image, goal_image, cand_image, ref_image
+            #     # selected_cand_idx = planning_via_sorting(
+            #     #     model, transf_obs_image, transf_goal_image,
+            #     #     # torch.cat([traj_transf_obs_image, transf_goal_image], dim=0),
+            #     #     traj_transf_obs_image[1:],
+            #     #     # (chongyi): Do we need to include the starting state and the goal in the candidates?
+            #     #     traj_transf_obs_image,
+            #     # )
+            #     # subgoal_idx = planning_via_sorting(
+            #     #     model, transf_obs_image, transf_goal_image,
+            #     #     transf_cand_image,
+            #     #     transf_cand_image,
+            #     # )
+            #
+            #     subgoal_idx = planning_on_graph(
+            #         model, transf_obs_image, transf_goal_image,
+            #         transf_cand_image,
+            #         transf_cand_image,
+            #     )
+            #
+            #     # we used all the states except the starting and the goal states as the candidates.
+            #     # subgoal_idx = selected_cand_idx + 1
+            #
+            #     # assume we can move to the subgoal exactly
+            #     path_obs_idxs.append(subgoal_idx)
+            #     current_obs_idx = subgoal_idx
 
-                # planning via sorting
-                transf_obs_image = transf_cand_image[current_obs_idx][None]
-
-                # selected_cand_idx = planning_via_sorting(
-                #     model, transf_obs_image, transf_goal_image,
-                #     # torch.cat([traj_transf_obs_image, transf_goal_image], dim=0),
-                #     traj_transf_obs_image[1:],  # (chongyi): Do we need to include the starting state and the goal in the candidates?
-                #     torch.cat([traj_transf_obs_image, transf_goal_image], dim=0)
-                # )
-                # model, obs_image, goal_image, cand_image, ref_image
-                # selected_cand_idx = planning_via_sorting(
-                #     model, transf_obs_image, transf_goal_image,
-                #     # torch.cat([traj_transf_obs_image, transf_goal_image], dim=0),
-                #     traj_transf_obs_image[1:],
-                #     # (chongyi): Do we need to include the starting state and the goal in the candidates?
-                #     traj_transf_obs_image,
-                # )
-                subgoal_idx = planning_via_sorting(
-                    model, transf_obs_image, transf_goal_image,
-                    transf_cand_image,
-                    transf_cand_image,
-                )
-
-                # we used all the states except the starting and the goal states as the candidates.
-                # subgoal_idx = selected_cand_idx + 1
-
-                # assume we can move to the subgoal exactly
-                path_obs_idxs.append(subgoal_idx)
-                current_obs_idx = subgoal_idx
+            cand_adj_matrix, path_obs_idxs = planning_on_graph(
+                model, transf_cand_image[current_obs_idx][None], transf_goal_image,
+                torch.cat([transf_cand_image, transf_goal_image], dim=0),
+            )
 
             if i % print_log_freq == 0:
                 print(f"({i}/{num_trajs}) trajectories processed")
@@ -1101,6 +1169,7 @@ def traj_dist_pred(
                     to_numpy(global_obs_pos),
                     to_numpy(global_goal_pos),
                     to_numpy(global_cand_pos),
+                    to_numpy(cand_adj_matrix),
                     np.array(path_obs_idxs),
                     eval_type,
                     save_folder,
@@ -1134,6 +1203,7 @@ def save_traj_dist_pred(
     global_obs_pos: np.ndarray,
     global_goal_pos: np.ndarray,
     global_cand_pos: np.ndarray,
+    cand_adj_matrix: np.ndarray,
     path_idxs: np.ndarray,
     eval_type: str,
     save_folder: str,
@@ -1165,6 +1235,7 @@ def save_traj_dist_pred(
         "goal_time": int(index_to_traj["goal_time"]),
         "neighbor_trajs": [neighbor_traj[0] for neighbor_traj in index_to_traj["neighbor_trajs"]],
         "cand_infos": [(cand_info[0][0], int(cand_info[1])) for cand_info in index_to_traj["cand_infos"]],
+        "cand_adj_matrix": cand_adj_matrix,
         "obs_latlong": obs_latlong,
         "goal_latlong": goal_latlong,
         "cand_latlong": cand_latlong,

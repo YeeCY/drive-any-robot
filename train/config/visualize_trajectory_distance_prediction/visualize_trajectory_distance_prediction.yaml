@@ -35,6 +35,18 @@ result_dirs:
   gnm: logs/gnm/gnm_eval_traj_dist_pred_2023_07_06_17_59_02/result/recon_test/epoch10/trajectory_distance_prediction
   scrl_mc_sorting: logs/stable_contrastive_rl/stable_contrastive_rl_eval_traj_dist_pred_2023_07_07_12_08_17/result/recon_test/epoch30/trajectory_distance_prediction
   scrl_td_sorting: logs/stable_contrastive_rl/stable_contrastive_rl_eval_traj_dist_pred_2023_07_07_12_13_46/result/recon_test/epoch30/trajectory_distance_prediction
+  # debug
+  # old scrl impl
+#  scrl_mc_graph: logs/stable_contrastive_rl/stable_contrastive_rl_eval_traj_dist_pred_2023_07_09_13_31_52/result/recon_test/epoch30/trajectory_distance_prediction
+  # new scrl impl debug
+#  scrl_mc_graph: logs/stable_contrastive_rl/stable_contrastive_rl_eval_traj_dist_pred_2023_07_09_15_45_41/result/recon_test/epoch30/trajectory_distance_prediction
+#  scrl_td_graph: logs/stable_contrastive_rl/stable_contrastive_rl_eval_traj_dist_pred_2023_07_09_16_00_28/result/recon_test/epoch30/trajectory_distance_prediction
+  # old scrl impl scene 1 + scene 2
+  scrl_mc_graph: logs/stable_contrastive_rl/stable_contrastive_rl_eval_traj_dist_pred_2023_07_09_17_02_36/result/recon_test/epoch30/trajectory_distance_prediction
+  scrl_td_graph: logs/stable_contrastive_rl/stable_contrastive_rl_eval_traj_dist_pred_2023_07_09_17_04_15/result/recon_test/epoch30/trajectory_distance_prediction
+  # new scrl impl scene 1 + scene 2
+#  scrl_mc_graph: logs/stable_contrastive_rl/stable_contrastive_rl_eval_traj_dist_pred_2023_07_09_16_30_02/result/recon_test/epoch30/trajectory_distance_prediction
+#  scrl_td_graph: logs/stable_contrastive_rl/stable_contrastive_rl_eval_traj_dist_pred_2023_07_09_16_31_49/result/recon_test/epoch30/trajectory_distance_prediction
 
   # new SCRL implementation
 #  gnm: logs/gnm/gnm_eval_traj_dist_pred_2023_07_06_17_59_02/result/recon_test/epoch10/trajectory_distance_prediction

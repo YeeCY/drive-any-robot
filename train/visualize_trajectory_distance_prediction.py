@@ -45,6 +45,8 @@ from gnm_train.visualizing.visualize_utils import (
     YELLOW,
     MAGENTA,
     ORANGE,
+    PURPLE,
+    BROWN,
 )
 from stable_contrastive_rl_train.evaluation.visualization_utils import (
     plot_trajs
@@ -62,10 +64,14 @@ def display_traj_dist_pred(
     gnm_path_idxs, gnm_success,
     rl_mc_sorting_path_idxs, rl_mc_sorting_success,
     rl_td_sorting_path_idxs, rl_td_sorting_success,
+    rl_mc_graph_path_idxs,
+    rl_td_graph_path_idxs,
+    rl_mc_graph_cand_adj_matrix,
+    rl_td_graph_cand_adj_matrix,
     text_color="black", save_path=None, display=False
 ):
     plt.figure()
-    fig, ax = plt.subplots(1, 1)
+    fig, axes = plt.subplots(1, 2)
 
     # if not np.isfinite(obs_latlong).all():
     #     obs_latlong = np.array(gps_plotter.se_latlong)
@@ -76,9 +82,11 @@ def display_traj_dist_pred(
     rl_mc_sorting_marker = u"\u2713" if rl_mc_sorting_success else u"\u2717"
     rl_td_sorting_marker = u"\u2713" if rl_td_sorting_success else u"\u2717"
 
-    plt.suptitle(f"gnm: {gnm_path_idxs} [{gnm_marker}]\n"
-                 + f"scrl mc sorting: {rl_mc_sorting_path_idxs} [{rl_mc_sorting_marker}]\n"
-                 + f"scrl td sorting: {rl_td_sorting_path_idxs} [{rl_td_sorting_marker}]\n",
+    plt.suptitle(f"gnm: {gnm_path_idxs}\n"
+                 + f"scrl mc sorting: {rl_mc_sorting_path_idxs}\n"
+                 + f"scrl td sorting: {rl_td_sorting_path_idxs}\n"
+                 + f"scrl mc graph: {rl_mc_graph_path_idxs}\n"
+                 + f"scrl td graph: {rl_td_graph_path_idxs}",
                  y=1.4,
                  color=text_color)
 
@@ -100,13 +108,34 @@ def display_traj_dist_pred(
     num_candidates = len(cand_latlong)
 
     gps_plotter.plot_latlong(
-        ax,
-        np.concatenate([cand_latlong, obs_latlong, goal_latlong, cand_latlong[gnm_path_idxs], cand_latlong[rl_mc_sorting_path_idxs], cand_latlong[rl_td_sorting_path_idxs]]),
-        colors=[YELLOW] * num_candidates + [BLUE] + [GREEN] * (traj_len - 1) + [RED] + [CYAN] * len(gnm_path_idxs) + [MAGENTA] * len(rl_mc_sorting_path_idxs) + [ORANGE] * len(rl_td_sorting_path_idxs),
-        labels=["candidate"] * num_candidates + ["start"] + ["obs"] * (traj_len - 1) + ["goal"] + ["gnm path"] * len(gnm_path_idxs) + ["scrl mc sorting path"] * len(rl_mc_sorting_path_idxs) + ["scrl td sorting path"] * len(rl_td_sorting_path_idxs),
+        axes[0],
+        np.concatenate([cand_latlong, goal_latlong, obs_latlong, goal_latlong, cand_latlong[gnm_path_idxs], cand_latlong[rl_mc_sorting_path_idxs], cand_latlong[rl_td_sorting_path_idxs]]),
+        colors=[YELLOW] * (num_candidates + 1) + [BLUE] + [GREEN] * (traj_len - 1) + [RED] + [CYAN] * len(gnm_path_idxs) + [MAGENTA] * len(rl_mc_sorting_path_idxs) + [ORANGE] * len(rl_td_sorting_path_idxs),
+        labels=["candidate"] * (num_candidates + 1) + ["start"] + ["obs"] * (traj_len - 1) + ["goal"] + ["gnm path"] * len(gnm_path_idxs) + ["scrl mc sorting path"] * len(rl_mc_sorting_path_idxs) + ["scrl td sorting path"] * len(rl_td_sorting_path_idxs),
+        adj_matrix=rl_mc_graph_cand_adj_matrix,
+        path=rl_mc_graph_path_idxs,
+        path_color=PURPLE,
+        path_label="scrl mc graph path",
         adaptive_satellite_img=True,
         font_size=8,
-        text_len=len(cand_latlong),
+        text_len=len(cand_latlong) + 1,  # include the goal
+    )
+    gps_plotter.plot_latlong(
+        axes[1],
+        np.concatenate([cand_latlong, goal_latlong, obs_latlong, goal_latlong, cand_latlong[gnm_path_idxs],
+                        cand_latlong[rl_mc_sorting_path_idxs], cand_latlong[rl_td_sorting_path_idxs]]),
+        colors=[YELLOW] * (num_candidates + 1) + [BLUE] + [GREEN] * (traj_len - 1) + [RED] + [CYAN] * len(
+            gnm_path_idxs) + [MAGENTA] * len(rl_mc_sorting_path_idxs) + [ORANGE] * len(rl_td_sorting_path_idxs),
+        labels=["candidate"] * (num_candidates + 1) + ["start"] + ["obs"] * (traj_len - 1) + ["goal"] + [
+            "gnm path"] * len(gnm_path_idxs) + ["scrl mc sorting path"] * len(rl_mc_sorting_path_idxs) + [
+                   "scrl td sorting path"] * len(rl_td_sorting_path_idxs),
+        adj_matrix=rl_td_graph_cand_adj_matrix,
+        path=rl_td_graph_path_idxs,
+        path_color=BROWN,
+        path_label="scrl td graph path",
+        adaptive_satellite_img=True,
+        font_size=8,
+        text_len=len(cand_latlong) + 1,  # include the goal
     )
     # gps_plotter.plot_latlong(
     #     ax,
@@ -139,16 +168,20 @@ def display_traj_dist_pred(
     # gps_plotter.plot_latlong_and_compass_bearing(ax, latlong, np.zeros(latlong.shape[0]))
 
     # remove duplicate legends
-    handles, labels = ax.get_legend_handles_labels()
-    by_label = dict(zip(labels, handles))
+    for idx, ax in enumerate(axes):
+        handles, labels = ax.get_legend_handles_labels()
+        by_label = dict(zip(labels, handles))
 
-    # put the legend below the plot
-    ax.legend(by_label.values(), by_label.keys(),
-              bbox_to_anchor=(0.0, -0.05), loc="upper left", ncol=2)
+        # put the legend below the plot
+        ax.legend(by_label.values(), by_label.keys(),
+                  bbox_to_anchor=(0.0, -0.05), loc="upper left", ncol=2)
 
-    fig.set_size_inches(6.5, 6.5)
-    ax.set_title(f"Trajectory Visualization")
-    ax.set_aspect("equal", "box")
+        if idx == 0:
+            ax.set_title("SCRL MC Graph")
+        else:
+            ax.set_title("SCRL TD Graph")
+        ax.set_aspect("equal", "box")
+    fig.set_size_inches(6.5 * 2, 6.5)
 
     obs_fig, obs_axes = plt.subplots(1, len(obs_image))
     for i in range(len(obs_image)):
@@ -234,9 +267,13 @@ def main(config):
     gnm_dir = config["result_dirs"]["gnm"]
     rl_mc_sorting_dir = config["result_dirs"]["scrl_mc_sorting"]
     rl_td_sorting_dir = config["result_dirs"]["scrl_td_sorting"]
+    rl_mc_graph_dir = config["result_dirs"]["scrl_mc_graph"]
+    rl_td_graph_dir = config["result_dirs"]["scrl_td_graph"]
     gnm_filename = os.path.join(gnm_dir, "results.pkl")
     rl_mc_sorting_filename = os.path.join(rl_mc_sorting_dir, "results.pkl")
     rl_td_sorting_filename = os.path.join(rl_td_sorting_dir, "results.pkl")
+    rl_mc_graph_filename = os.path.join(rl_mc_graph_dir, "results.pkl")
+    rl_td_graph_filename = os.path.join(rl_td_graph_dir, "results.pkl")
     data_folder = config["data_folder"]
     aspect_ratio = config["image_size"][0] / config["image_size"][1]
     os.makedirs(config["save_dir"], exist_ok=True)
@@ -254,6 +291,10 @@ def main(config):
         rl_mc_sorting_results = pkl.load(f)
     with open(rl_td_sorting_filename, "rb") as f:
         rl_td_sorting_results = pkl.load(f)
+    with open(rl_mc_graph_filename, "rb") as f:
+        rl_mc_graph_results = pkl.load(f)
+    with open(rl_td_graph_filename, "rb") as f:
+        rl_td_graph_results = pkl.load(f)
     assert (
         set(gnm_results.keys())
         == set(rl_mc_sorting_results.keys())
@@ -263,6 +304,12 @@ def main(config):
     for label, gnm_result in gnm_results.items():
         assert label in rl_mc_sorting_results
         assert label in rl_td_sorting_results
+
+        if label not in rl_mc_graph_results:
+            continue
+
+        if label not in rl_td_graph_results:
+            continue
 
         save_path = os.path.join(config["save_dir"], label + ".png")
 
@@ -311,7 +358,6 @@ def main(config):
             )
             gnm_path_images.append(path_image)
         gnm_path_image = np.stack(gnm_path_images)
-
 
         # sorting
         rl_mc_sorting_result = rl_mc_sorting_results[label]
@@ -366,6 +412,39 @@ def main(config):
             rl_td_path_images.append(path_image)
         rl_td_path_image = np.stack(rl_td_path_images)
 
+        # graph
+        rl_mc_graph_result = rl_mc_graph_results[label]
+        assert f_traj == rl_mc_graph_result["f_traj"][0]
+        assert context_size == rl_mc_graph_result["context_size"]
+        assert end_slack == rl_mc_graph_result["end_slack"]
+        assert subsampling_spacing == rl_mc_graph_result["subsampling_spacing"]
+        assert goal_time == rl_mc_graph_result["goal_time"]
+        assert np.all(obs_latlong == rl_mc_graph_result["obs_latlong"])
+        assert np.all(goal_latlong == rl_mc_graph_result["goal_latlong"])
+        assert np.all(cand_latlong == rl_mc_graph_result["cand_latlong"])
+        assert np.all(global_obs_pos == rl_mc_graph_result["global_obs_pos"])
+        assert np.all(global_goal_pos == rl_mc_graph_result["global_goal_pos"])
+        assert np.all(global_cand_pos == rl_mc_graph_result["global_cand_pos"])
+        rl_mc_graph_path_idxs = rl_mc_graph_result["path_idxs"]
+        rl_mc_graph_cand_adj_matrix = rl_mc_graph_result["cand_adj_matrix"]
+        rl_mc_graph_success = np.any(np.abs(rl_mc_graph_path_idxs - traj_len) <= 2)
+
+        rl_td_graph_result = rl_td_graph_results[label]
+        assert f_traj == rl_td_graph_result["f_traj"][0]
+        assert context_size == rl_td_graph_result["context_size"]
+        assert end_slack == rl_td_graph_result["end_slack"]
+        assert subsampling_spacing == rl_td_graph_result["subsampling_spacing"]
+        assert goal_time == rl_td_graph_result["goal_time"]
+        assert np.all(obs_latlong == rl_td_graph_result["obs_latlong"])
+        assert np.all(goal_latlong == rl_td_graph_result["goal_latlong"])
+        assert np.all(cand_latlong == rl_td_graph_result["cand_latlong"])
+        assert np.all(global_obs_pos == rl_td_graph_result["global_obs_pos"])
+        assert np.all(global_goal_pos == rl_td_graph_result["global_goal_pos"])
+        assert np.all(global_cand_pos == rl_td_graph_result["global_cand_pos"])
+        rl_td_graph_path_idxs = rl_td_graph_result["path_idxs"]
+        rl_td_graph_cand_adj_matrix = rl_td_graph_result["cand_adj_matrix"]
+        rl_td_graph_success = np.any(np.abs(rl_td_graph_path_idxs - traj_len) <= 2)
+
         display_traj_dist_pred(
             gps_plotter,
             obs_image,
@@ -384,6 +463,10 @@ def main(config):
             gnm_path_idxs.tolist(), gnm_success,
             rl_mc_sorting_path_idxs.tolist(), rl_mc_sorting_success,
             rl_td_sorting_path_idxs.tolist(), rl_td_sorting_success,
+            rl_mc_graph_path_idxs.tolist(),
+            rl_td_graph_path_idxs.tolist(),
+            rl_mc_graph_cand_adj_matrix,
+            rl_td_graph_cand_adj_matrix,
             "black",
             save_path,
         )

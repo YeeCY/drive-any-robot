@@ -77,6 +77,7 @@ class GPSPlotter(object):
         return self.plot_utm_and_compass_bearing(ax, latlong_to_utm(latlong), compass_bearing, blit=blit, color=color)
 
     def plot_latlong(self, ax, latlong, blit=True, colors=['r'], labels=[''],
+                     adj_matrix=None, path=None, edge_color=[1, 1, 1], path_color=[1, 1, 1], path_label=None,
                      point_size=20, text_len=0, font_size=10, remove_other_latlong=False,
                      adaptive_satellite_img=True):
         if adaptive_satellite_img:
@@ -100,6 +101,56 @@ class GPSPlotter(object):
         if ax not in self._plt_latlong_dict:
             imshow = ax.imshow(np.flipud(self._img), origin='lower')
             # points = ax.scatter(x, y, color=colors, label=label, s=point_size)
+
+            cand_x, cand_y = x[:adj_matrix.shape[0]], y[:adj_matrix.shape[0]]
+
+            if adj_matrix is not None:
+                edges = []
+                for idx in range(adj_matrix.shape[1]):
+                    is_adj = adj_matrix[:, idx].astype(bool)
+                    adj_x, adj_y = cand_x[is_adj], cand_y[is_adj]
+                    anchor_x, anchor_y = cand_x[idx], cand_y[idx]
+                    # for x_, y_ in zip(adj_x, adj_y):
+                    #     # ax.plot(
+                    #     #     np.concatenate([x_, anchor_x]),
+                    #     #     np.concatenate([y_, anchor_y]),
+                    #     #     color=[1, 1, 0],  # yellow
+                    #     # )
+                    #     ax.quiver(
+                    #         x_, y_,
+                    #         anchor_x - x_, anchor_y - y_,
+                    #         color=[1, 1, 0],  # yellow
+                    #         angles='xy',
+                    #         scale_units='xy',
+                    #         scale=1,
+                    #     )
+                    #     # ax.arrow(
+                    #     #     x_[0], y_[0],
+                    #     #     (anchor_x - x_)[0], (anchor_y - y_)[0],
+                    #     #     color=[1, 1, 0],  # yellow
+                    #     # )
+                    ax.quiver(
+                        adj_x, adj_y,
+                        anchor_x - adj_x, anchor_y - adj_y,
+                        color=edge_color,
+                        angles='xy',
+                        scale_units='xy',
+                        scale=1.0,
+                    )
+                if path is not None:
+                    for path_idx, next_path_idx in zip(path[:-1], path[1:]):
+                        start_x, start_y = cand_x[path_idx], cand_y[path_idx]
+                        end_x, end_y = cand_x[next_path_idx], cand_y[next_path_idx]
+                        ax.quiver(
+                            start_x, start_y,
+                            end_x - start_x, end_y - start_y,
+                            color=path_color,
+                            angles='xy',
+                            scale_units='xy',
+                            scale=1.0,
+                            label=path_label,
+                        )
+
             points = []
             texts = []
             for idx, (x_, y_) in enumerate(zip(x, y)):
@@ -109,6 +160,7 @@ class GPSPlotter(object):
                 if idx < text_len:
                     text = ax.text(x_ + 0.20, y_ - 0.20, str(idx), fontsize=font_size)
                     texts.append(text)
+
             ax.get_xaxis().set_visible(False)
             ax.get_yaxis().set_visible(False)
             self._plt_latlong_dict[ax] = (imshow, points, texts)
@@ -248,7 +300,7 @@ class GPSPlotter(object):
                 dyn = altura * (0.5 + y)
                 latn, lonn = self.pixels_to_latlong(ulx + dxn, uly - dyn - bottom / 2)
                 position = ','.join((str(latn), str(lonn)))
-                print(x, y, position)
+                # print(x, y, position)
                 urlparams = {'center': position,
                              'zoom': str(self._zoom),
                              'size': '%dx%d' % (largura, alturaplus),
